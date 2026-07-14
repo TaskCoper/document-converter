@@ -1,4 +1,4 @@
-# STORY-002
+# STORY-003
 
 ## Metadata
 

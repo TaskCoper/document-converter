@@ -170,8 +170,8 @@ export default function HomePage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[1fr_32rem] gap-8">
-      <div className="flex flex-col gap-6 min-w-0">
+    <div className="p-8 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[1fr_32rem] gap-8 lg:h-dvh lg:overflow-hidden">
+      <div className="flex flex-col gap-6 min-w-0 lg:min-h-0 lg:overflow-hidden">
         <Stepper current={step} onSelect={setStep} />
 
         <div className="-space-y-0.5">
@@ -181,63 +181,65 @@ export default function HomePage() {
           <p className="text-xs text-muted-foreground">{current.description}</p>
         </div>
 
-        <form onSubmit={handleSubmit(() => {})} className="flex flex-col gap-8">
+        <form onSubmit={handleSubmit(() => {})} className="flex flex-col gap-8 lg:flex-1 lg:min-h-0">
           <FormSync control={control} />
 
-          {step === 0 && (
-            <MetadataSection register={register} control={control} errors={errors} />
-          )}
+          <div className="flex flex-col gap-8 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
+            {step === 0 && (
+              <MetadataSection register={register} control={control} errors={errors} />
+            )}
 
-          {step === 1 && (
-            <>
-              <ConditionsSection register={register} control={control} errors={errors} />
-              <FlowSection register={register} control={control} errors={errors} />
-            </>
-          )}
+            {step === 1 && (
+              <>
+                <ConditionsSection register={register} control={control} errors={errors} />
+                <FlowSection register={register} control={control} errors={errors} />
+              </>
+            )}
 
-          {step === 2 && (
-            <>
-              <AcceptanceCriteriaSection register={register} control={control} errors={errors} />
-              <FieldSet>
-                <FieldLegend>Sơ đồ hoạt động</FieldLegend>
-                <FieldGroup>
-                  <Field data-invalid={!!errors.activityDiagram || undefined}>
-                    <FieldLabel htmlFor="activityDiagram">Activity Diagram URL</FieldLabel>
-                    <Input
-                      id="activityDiagram"
-                      type="url"
-                      placeholder="https://..."
-                      aria-invalid={!!errors.activityDiagram || undefined}
-                      {...register("activityDiagram")}
-                    />
-                    {errors.activityDiagram?.message && (
-                      <FieldError>{errors.activityDiagram.message}</FieldError>
-                    )}
-                  </Field>
-                </FieldGroup>
-              </FieldSet>
-            </>
-          )}
+            {step === 2 && (
+              <>
+                <AcceptanceCriteriaSection register={register} control={control} errors={errors} />
+                <FieldSet>
+                  <FieldLegend>Sơ đồ hoạt động</FieldLegend>
+                  <FieldGroup>
+                    <Field data-invalid={!!errors.activityDiagram || undefined}>
+                      <FieldLabel htmlFor="activityDiagram">Activity Diagram URL</FieldLabel>
+                      <Input
+                        id="activityDiagram"
+                        type="url"
+                        placeholder="https://..."
+                        aria-invalid={!!errors.activityDiagram || undefined}
+                        {...register("activityDiagram")}
+                      />
+                      {errors.activityDiagram?.message && (
+                        <FieldError>{errors.activityDiagram.message}</FieldError>
+                      )}
+                    </Field>
+                  </FieldGroup>
+                </FieldSet>
+              </>
+            )}
 
-          {step === 3 && (
-            <>
-              <ReferencesSection control={control} register={register} />
-              <StringListSection
-                legend="Yêu cầu phi chức năng"
-                description="Danh sách các yêu cầu phi chức năng"
-                name="nonFunctional"
-                control={control}
-                register={register}
-              />
-              <StringListSection
-                legend="Ngoài phạm vi"
-                description="Các mục nằm ngoài phạm vi công việc"
-                name="outOfScope"
-                control={control}
-                register={register}
-              />
-            </>
-          )}
+            {step === 3 && (
+              <>
+                <ReferencesSection control={control} register={register} />
+                <StringListSection
+                  legend="Yêu cầu phi chức năng"
+                  description="Danh sách các yêu cầu phi chức năng"
+                  name="nonFunctional"
+                  control={control}
+                  register={register}
+                />
+                <StringListSection
+                  legend="Ngoài phạm vi"
+                  description="Các mục nằm ngoài phạm vi công việc"
+                  name="outOfScope"
+                  control={control}
+                  register={register}
+                />
+              </>
+            )}
+          </div>
 
           <div className="flex items-center gap-2 pt-2 border-t border-border">
             <Button type="button" variant="destructive" onClick={onReset}>
@@ -267,7 +269,7 @@ export default function HomePage() {
         </form>
       </div>
 
-      <div className="space-y-2">
+      <div className="flex flex-col gap-2 lg:min-h-0 lg:overflow-hidden">
         <div className="flex flex-wrap items-center justify-between">
           <Button type="button" size="sm" onClick={onFillSample}>
             <ClipboardList />
@@ -306,7 +308,7 @@ export default function HomePage() {
           </Button>
         </div>
 
-        <aside className="lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto border border-border p-4 flex flex-col gap-4">
+        <aside className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto border border-border p-4 flex flex-col gap-4">
           {importError && (
             <div
               role="alert"

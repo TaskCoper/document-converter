@@ -48,7 +48,7 @@ export type StringListName =
   | "outOfScope";
 
 export function MetadataSection({ register, control, errors }: SectionProps) {
-  "use no memo";
+
   const { fields, append, remove } = useFieldArray({
     control,
     name: "metadata.assignee",
@@ -262,7 +262,7 @@ export function MetadataSection({ register, control, errors }: SectionProps) {
 }
 
 export function ConditionsSection({ register, control, errors }: SectionProps) {
-  "use no memo";
+
   return (
     <FieldSet>
       <FieldLegend>Điều kiện</FieldLegend>
@@ -291,7 +291,7 @@ export function ConditionsSection({ register, control, errors }: SectionProps) {
 }
 
 export function FlowSection({ register, control }: SectionProps) {
-  "use no memo";
+
   return (
     <FieldSet>
       <FieldLegend>Luồng xử lý</FieldLegend>
@@ -327,7 +327,7 @@ export function AcceptanceCriteriaSection({
   control,
   errors,
 }: SectionProps) {
-  "use no memo";
+
   const { fields, append, remove } = useFieldArray({
     control,
     name: "acceptanceCriteria.criterias",
@@ -436,7 +436,7 @@ export function ReferencesSection({
   register: UseFormRegister<Schema>;
   control: Control<Schema>;
 }) {
-  "use no memo";
+
   return (
     <FieldSet>
       <FieldLegend>Tham chiếu</FieldLegend>
@@ -473,7 +473,7 @@ export function StringListSection({
   control: Control<Schema>;
   register: UseFormRegister<Schema>;
 }) {
-  "use no memo";
+
   const { fields, append, remove } = useFieldArray({
     control,
     name: name as never,
@@ -528,7 +528,7 @@ export function StringArrayField({
   label: string;
   placeholder?: string;
 }) {
-  "use no memo";
+
   const { fields, append, remove } = useFieldArray({
     control,
     // react-hook-form's useFieldArray requires object arrays; use casting for string arrays
@@ -583,7 +583,7 @@ export function OtherFlowArrayField({
   name: "flow.alternativeFlow" | "flow.exceptionFlow";
   label: string;
 }) {
-  "use no memo";
+
   const { fields, append, remove } = useFieldArray({ control, name });
 
   return (

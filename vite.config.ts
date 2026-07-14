@@ -9,12 +9,21 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    babel({ presets: [reactCompilerPreset()] }),
+    babel({
+      presets: [
+        reactCompilerPreset({
+          sources: (filename: string) => !filename.includes("form-sections"),
+        }),
+      ],
+    }),
   ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+  build: {
+    chunkSizeWarningLimit: 1000,
   },
   server: {
     port: 3000,

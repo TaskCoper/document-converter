@@ -1,10 +1,8 @@
 import {
   CriteriaCondition,
   CriteriaConditionLabel,
-  Position,
   PositionLabel,
   PriorityLabel,
-  Status,
   StatusLabel,
   schema,
   type Schema,
@@ -210,13 +208,28 @@ export function fromMarkdown(md: string): Schema {
     if (kv) {
       inAssignee = false;
       switch (kv.key) {
-        case "Story":    story = kv.value; break;
-        case "Context":  context = kv.value; break;
-        case "Sprint":   sprint = parseInt(kv.value, 10) || 1; break;
-        case "Priority": priority = kv.value as Schema["metadata"]["priority"]; break;
-        case "Status":   status = (statusByLabel[kv.value as keyof typeof statusByLabel] ?? kv.value) as Schema["metadata"]["status"]; break;
-        case "Creator":  creator = kv.value; break;
-        case "Assignee": inAssignee = true; break;
+        case "Story":
+          story = kv.value;
+          break;
+        case "Context":
+          context = kv.value;
+          break;
+        case "Sprint":
+          sprint = parseInt(kv.value, 10) || 1;
+          break;
+        case "Priority":
+          priority = kv.value as Schema["metadata"]["priority"];
+          break;
+        case "Status":
+          status = (statusByLabel[kv.value as keyof typeof statusByLabel] ??
+            kv.value) as Schema["metadata"]["status"];
+          break;
+        case "Creator":
+          creator = kv.value;
+          break;
+        case "Assignee":
+          inAssignee = true;
+          break;
       }
     } else if (inAssignee && trimmed.startsWith("- ")) {
       const inner = trimmed.slice(2).trim();
@@ -224,7 +237,8 @@ export function fromMarkdown(md: string): Schema {
       if (col !== -1) {
         const posLabel = inner.slice(0, col).trim();
         const name = inner.slice(col + 1).trim();
-        const position = (positionByLabel[posLabel as keyof typeof positionByLabel] ?? posLabel) as Position;
+        const position =
+          positionByLabel[posLabel as keyof typeof positionByLabel] ?? posLabel;
         if (name) assignee.push({ name, position });
       }
     }
@@ -245,10 +259,12 @@ export function fromMarkdown(md: string): Schema {
   const parseFlowGroup = (
     sectionLines: string[],
   ): { code: string; steps: string[] }[] =>
-    Object.entries(splitByHeading(sectionLines, 4)).map(([code, stepLines]) => ({
-      code,
-      steps: parseOrderedList(stepLines),
-    }));
+    Object.entries(splitByHeading(sectionLines, 4)).map(
+      ([code, stepLines]) => ({
+        code,
+        steps: parseOrderedList(stepLines),
+      }),
+    );
 
   const alternativeFlow = parseFlowGroup(flowH3["Alternative Flow"] ?? []);
   const exceptionFlow = parseFlowGroup(flowH3["Exception Flow"] ?? []);
@@ -267,9 +283,8 @@ export function fromMarkdown(md: string): Schema {
     }));
 
   // ── Activity Diagram ──
-  const activityDiagram = (h2["Activity Diagram"] ?? [])
-    .map((l) => l.trim())
-    .find(Boolean) ?? "";
+  const activityDiagram =
+    (h2["Activity Diagram"] ?? []).map((l) => l.trim()).find(Boolean) ?? "";
 
   // ── References ──
   const refH3 = splitByHeading(h2["References"] ?? [], 3);
@@ -281,7 +296,16 @@ export function fromMarkdown(md: string): Schema {
   const outOfScope = parseBulletList(h2["Out of Scope"] ?? []);
 
   const data = {
-    metadata: { id, story, context, sprint, priority, assignee, creator, status },
+    metadata: {
+      id,
+      story,
+      context,
+      sprint,
+      priority,
+      assignee,
+      creator,
+      status,
+    },
     conditions: { preconditions, trigger },
     flow: { mainFlow, alternativeFlow, exceptionFlow },
     acceptanceCriteria: { code: acCode, criterias },
@@ -307,24 +331,28 @@ export function toSampleMarkdown(): string {
   lines.push("  USER STORY TEMPLATE");
   lines.push("  ════════════════════════════════════════════════════════════");
   lines.push("  Fill in every field below, then import this file into the");
-  lines.push("  VNZ Converter app using the \"Nhập MD\" button.");
+  lines.push('  VNZ Converter app using the "Nhập MD" button.');
   lines.push("");
   lines.push("  AI PROMPT (copy → paste into ChatGPT / Claude / Gemini):");
   lines.push("  ────────────────────────────────────────────────────────────");
-  lines.push("  \"Fill in the user story template below. Keep every heading,");
+  lines.push('  "Fill in the user story template below. Keep every heading,');
   lines.push("  bullet prefix (**Bold**:), and ordered-list number exactly");
   lines.push("  as-is. Only replace the placeholder text after each colon.");
   lines.push("  Do NOT add or remove sections. Do NOT change enum values —");
-  lines.push("  use only the options listed in the comments.\"");
+  lines.push('  use only the options listed in the comments."');
   lines.push("  ════════════════════════════════════════════════════════════");
   lines.push("-->");
   lines.push("");
   lines.push("# STORY-XXX");
-  lines.push("<!-- Replace STORY-XXX with the actual story ID, e.g. STORY-042 -->");
+  lines.push(
+    "<!-- Replace STORY-XXX with the actual story ID, e.g. STORY-042 -->",
+  );
   lines.push("");
   lines.push("## Metadata");
   lines.push("");
-  lines.push("<!-- Story: one-liner in the form \"As a [role], I want [action] so that [benefit]\" -->");
+  lines.push(
+    '<!-- Story: one-liner in the form "As a [role], I want [action] so that [benefit]" -->',
+  );
   lines.push("- **Story**: ");
   lines.push("<!-- Context: background or motivation behind this story -->");
   lines.push("- **Context**: ");
@@ -335,7 +363,9 @@ export function toSampleMarkdown(): string {
   lines.push("<!-- Status: Documentation | Pending | InProgress | Done -->");
   lines.push("- **Status**: Documentation");
   lines.push("- **Creator**: ");
-  lines.push("<!-- Assignee: list members with their role. Valid roles: Frontend | Backend -->");
+  lines.push(
+    "<!-- Assignee: list members with their role. Valid roles: Frontend | Backend -->",
+  );
   lines.push("- **Assignee**:");
   lines.push("  - Frontend: ");
   lines.push("  - Backend: ");
@@ -343,12 +373,16 @@ export function toSampleMarkdown(): string {
   lines.push("## Conditions");
   lines.push("");
   lines.push("### Preconditions");
-  lines.push("<!-- One bullet per precondition that must be true before the story can begin -->");
+  lines.push(
+    "<!-- One bullet per precondition that must be true before the story can begin -->",
+  );
   lines.push("");
   lines.push("- ");
   lines.push("");
   lines.push("### Trigger");
-  lines.push("<!-- Single sentence describing the event that starts this flow -->");
+  lines.push(
+    "<!-- Single sentence describing the event that starts this flow -->",
+  );
   lines.push("");
   lines.push("");
   lines.push("## Flow");
@@ -359,8 +393,12 @@ export function toSampleMarkdown(): string {
   lines.push("1. ");
   lines.push("");
   lines.push("### Alternative Flow");
-  lines.push("<!-- Optional. Each sub-flow starts with #### CODE, then numbered steps.");
-  lines.push("     Remove this section entirely if there are no alternative flows. -->");
+  lines.push(
+    "<!-- Optional. Each sub-flow starts with #### CODE, then numbered steps.",
+  );
+  lines.push(
+    "     Remove this section entirely if there are no alternative flows. -->",
+  );
   lines.push("");
   lines.push("#### ALT-01");
   lines.push("");
@@ -375,38 +413,52 @@ export function toSampleMarkdown(): string {
   lines.push("");
   lines.push("## Acceptance Criteria");
   lines.push("");
-  lines.push("<!-- Replace AC-XXX with the acceptance criteria code, e.g. AC-001 -->");
+  lines.push(
+    "<!-- Replace AC-XXX with the acceptance criteria code, e.g. AC-001 -->",
+  );
   lines.push("Code: AC-XXX");
   lines.push("");
-  lines.push("<!-- Each criterion uses a BDD keyword: Given | When | Then | And -->");
+  lines.push(
+    "<!-- Each criterion uses a BDD keyword: Given | When | Then | And -->",
+  );
   lines.push("- **Given**: ");
   lines.push("- **When**: ");
   lines.push("- **Then**: ");
   lines.push("");
   lines.push("## Activity Diagram");
-  lines.push("<!-- A single URL pointing to the activity diagram (required, must start with https://) -->");
+  lines.push(
+    "<!-- A single URL pointing to the activity diagram (required, must start with https://) -->",
+  );
   lines.push("");
   lines.push("https://example.com/diagram");
   lines.push("");
   lines.push("## References");
   lines.push("");
   lines.push("### Business Rules");
-  lines.push("<!-- One bullet per business rule, e.g. \"BR-01: Password must be at least 8 chars\" -->");
+  lines.push(
+    '<!-- One bullet per business rule, e.g. "BR-01: Password must be at least 8 chars" -->',
+  );
   lines.push("");
   lines.push("- ");
   lines.push("");
   lines.push("### Dependencies");
-  lines.push("<!-- One bullet per dependency on another story or system, e.g. \"STORY-010: Email service\" -->");
+  lines.push(
+    '<!-- One bullet per dependency on another story or system, e.g. "STORY-010: Email service" -->',
+  );
   lines.push("");
   lines.push("- ");
   lines.push("");
   lines.push("## Non-Functional");
-  lines.push("<!-- One bullet per non-functional requirement (performance, security, accessibility, …) -->");
+  lines.push(
+    "<!-- One bullet per non-functional requirement (performance, security, accessibility, …) -->",
+  );
   lines.push("");
   lines.push("- ");
   lines.push("");
   lines.push("## Out of Scope");
-  lines.push("<!-- One bullet per item explicitly excluded from this story -->");
+  lines.push(
+    "<!-- One bullet per item explicitly excluded from this story -->",
+  );
   lines.push("");
   lines.push("- ");
   lines.push("");

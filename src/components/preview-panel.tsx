@@ -100,7 +100,9 @@ export function PreviewPanel({ control }: { control: Control<Schema> }) {
   const showFlow = filled(data.flow?.mainFlow) ||
     (data.flow?.alternativeFlow?.some((f) => f.steps.some((s) => s.trim())) ?? false) ||
     (data.flow?.exceptionFlow?.some((f) => f.steps.some((s) => s.trim())) ?? false);
-  const showAC = !!data.acceptanceCriteria?.code?.trim() || (data.acceptanceCriteria?.criterias?.some((c) => c.step?.trim()) ?? false);
+  const showAC = Array.isArray(data.acceptanceCriteria) && data.acceptanceCriteria.some(
+    (ac) => ac.code?.trim() || ac.criterias?.some((c) => c.step?.trim()),
+  );
   const showDiagram = !!data.activityDiagram?.trim();
   const showRefs = filled(data.references?.businessRules) || filled(data.references?.dependencies);
   const showNonFunc = filled(data.nonFunctional);
@@ -201,22 +203,25 @@ export function PreviewPanel({ control }: { control: Control<Schema> }) {
 
       {showAC && (
         <PreviewSection title="Tiêu chí chấp nhận" icon={ListChecks}>
-          <PreviewRow label="Mã" value={data.acceptanceCriteria?.code} />
-          {data.acceptanceCriteria?.criterias &&
-            data.acceptanceCriteria.criterias.length > 0 && (
-              <ul className="flex flex-col gap-1">
-                {data.acceptanceCriteria.criterias.map((c, i) => (
-                  <li key={i} className="wrap-break-word">
-                    <span className="font-medium">
-                      {c.type ? CriteriaConditionLabel[c.type] : "-"}
-                    </span>{" "}
-                    {c.step || (
-                      <em className="text-muted-foreground">chưa nhập</em>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
+          <div className="flex flex-col gap-3">
+            {Array.isArray(data.acceptanceCriteria) && data.acceptanceCriteria.map((ac, i) => (
+              <div key={i}>
+                {ac.code && (
+                  <div className="font-medium mb-1">{ac.code}</div>
+                )}
+                <ul className="flex flex-col gap-1">
+                  {ac.criterias?.filter((c) => c.step?.trim()).map((c, ci) => (
+                    <li key={ci} className="wrap-break-word">
+                      <span className="font-medium">
+                        {c.type ? CriteriaConditionLabel[c.type] : "-"}
+                      </span>{" "}
+                      {c.step}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </PreviewSection>
       )}
 

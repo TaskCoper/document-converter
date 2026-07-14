@@ -1,5 +1,6 @@
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import {
+  AlertCircle,
   CheckIcon,
   ChevronLeft,
   ChevronRight,
@@ -43,7 +44,7 @@ import {
 } from "./exporters";
 import { cn } from "./lib/utils";
 import { initialData, sampleData, useFormStore } from "./store";
-import { schema, type Schema } from "./validations";
+import { pathToLabel, schema, type Schema } from "./validations";
 
 type StepDef = {
   title: string;
@@ -96,7 +97,8 @@ export default function HomePage() {
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [importError, setImportError] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string[] | null>(null);
+  const [showImportValidation, setShowImportValidation] = useState(false);
   const [htmlPreview, setHtmlPreview] = useState<string | null>(null);
 
   const safeFilename = (ext: string) => {
@@ -130,14 +132,18 @@ export default function HomePage() {
 
   const onImportMd = async (file: File) => {
     setImportError(null);
+    setShowImportValidation(false);
     try {
       const text = await file.text();
       const parsed = fromMarkdown(text);
       reset(parsed);
       setData(parsed);
       setStep(0);
+      await trigger();
+      setShowImportValidation(true);
     } catch (err) {
-      setImportError((err as Error).message);
+      const e = err as Error & { messages?: string[] };
+      setImportError(e.messages ?? [e.message]);
     }
   };
 
@@ -306,13 +312,37 @@ export default function HomePage() {
               role="alert"
               className="border border-destructive/40 bg-destructive/5 text-destructive text-xs p-2"
             >
-              <div className="font-medium mb-0.5 flex items-center gap-1">
+              <div className="font-medium mb-1 flex items-center gap-1">
                 <Download className="size-3" />
                 Không thể nhập file
               </div>
-              {importError}
+              <ul className="list-disc list-inside flex flex-col gap-0.5 ml-0.5">
+                {importError.map((msg, i) => (
+                  <li key={i}>{msg}</li>
+                ))}
+              </ul>
             </div>
           )}
+
+          {showImportValidation && (() => {
+            const msgs = flattenErrors(errors);
+            return msgs.length > 0 ? (
+              <div
+                role="alert"
+                className="border border-destructive/40 bg-destructive/5 text-destructive text-xs p-2"
+              >
+                <div className="font-medium mb-1 flex items-center gap-1">
+                  <AlertCircle className="size-3" />
+                  Dữ liệu nhập có lỗi ({msgs.length})
+                </div>
+                <ul className="list-disc list-inside flex flex-col gap-0.5 ml-0.5">
+                  {msgs.map((msg, i) => (
+                    <li key={i}>{msg}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null;
+          })()}
 
           <PreviewPanel control={control} />
         </aside>
@@ -325,6 +355,29 @@ export default function HomePage() {
       />
     </div>
   );
+}
+
+function flattenErrors(obj: unknown, path: (string | number)[] = []): string[] {
+  if (!obj || typeof obj !== "object") return [];
+  if ("message" in (obj as object)) {
+    const msg = (obj as { message?: unknown }).message;
+    if (typeof msg === "string" && msg) {
+      const label = pathToLabel(path);
+      return [label ? `${label}: ${msg}` : msg];
+    }
+    return [];
+  }
+  const msgs: string[] = [];
+  for (const [key, val] of Object.entries(obj as object)) {
+    const segment: string | number = isNaN(Number(key)) ? key : Number(key);
+    const nextPath = [...path, segment];
+    if (Array.isArray(val)) {
+      val.forEach((item, i) => msgs.push(...flattenErrors(item, [...nextPath, i])));
+    } else {
+      msgs.push(...flattenErrors(val, nextPath));
+    }
+  }
+  return msgs;
 }
 
 function FormSync({ control }: { control: ReturnType<typeof useForm<Schema>>["control"] }) {

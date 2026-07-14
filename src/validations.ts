@@ -60,57 +60,109 @@ export const CriteriaConditionLabel: Record<CriteriaCondition, string> = {
 };
 
 const assigneeSchema = z.object({
-  name: z.string().min(1),
-  position: z.enum(Position),
+  name: z.string().min(1, "Tên không được để trống"),
+  position: z.enum(Position, "Vị trí phải là FE hoặc BE"),
 });
 
+
 const metadataSchema = z.object({
-  id: z.string().min(1),
-  story: z.string().min(1),
-  context: z.string().min(1),
-  sprint: z.number().positive(),
-  priority: z.enum(Priority),
-  assignee: z.array(assigneeSchema),
-  creator: z.string().min(1),
-  status: z.enum(Status),
+  id: z.string().min(1, "Không được để trống"),
+  story: z.string().min(1, "Không được để trống"),
+  context: z.string().min(1, "Không được để trống"),
+  sprint: z.number({ error: "Phải là số" }).positive("Phải là số dương"),
+  priority: z.enum(
+    Priority,
+    `Phải là một trong: ${Object.values(Priority).join(", ")}`,
+  ),
+  assignee: z.array(assigneeSchema).min(1, "Phải có ít nhất một người phụ trách"),
+  creator: z.string().min(1, "Không được để trống"),
+  status: z.enum(
+    Status,
+    `Phải là một trong: ${Object.values(Status).join(", ")}`,
+  ),
 });
 
 const conditionsSchema = z.object({
-  preconditions: z.array(z.string()),
-  trigger: z.string(),
+  preconditions: z.array(z.string().min(1, "Điều kiện tiên quyết không được để trống")),
+  trigger: z.string().min(1, "Trigger không được để trống"),
 });
 
 const otherFlowSchema = z.object({
-  code: z.string(),
-  steps: z.array(z.string()),
+  code: z.string().min(1, "Mã luồng không được để trống"),
+  steps: z.array(z.string().min(1, "Bước không được để trống")).min(1, "Phải có ít nhất một bước"),
 });
 
 const flowSchema = z.object({
-  mainFlow: z.array(z.string()),
+  mainFlow: z.array(z.string().min(1, "Bước không được để trống")).min(1, "Luồng chính phải có ít nhất một bước"),
   alternativeFlow: z.array(otherFlowSchema),
   exceptionFlow: z.array(otherFlowSchema),
 });
 
-const acceptanceCriteriaSchema = z.object({
+const acItemSchema = z.object({
   type: z.enum(CriteriaCondition),
-  step: z.string(),
+  step: z.string().min(1, "Nội dung tiêu chí không được để trống"),
+});
+
+const acGroupSchema = z.object({
+  code: z.string().min(1, "Mã tiêu chí không được để trống"),
+  criterias: z.array(acItemSchema).min(1, "Phải có ít nhất một điều kiện"),
 });
 
 export const schema = z.object({
   metadata: metadataSchema,
   conditions: conditionsSchema,
   flow: flowSchema,
-  acceptanceCriteria: z.object({
-    code: z.string(),
-    criterias: z.array(acceptanceCriteriaSchema),
-  }),
-  activityDiagram: z.url(),
+  acceptanceCriteria: z.array(acGroupSchema).min(1, "Phải có ít nhất một tiêu chí chấp nhận"),
+  activityDiagram: z.url("Phải là URL hợp lệ"),
   references: z.object({
-    businessRules: z.array(z.string()),
-    dependencies: z.array(z.string()),
+    businessRules: z.array(z.string().min(1, "Business rule không được để trống")),
+    dependencies: z.array(z.string().min(1, "Dependency không được để trống")),
   }),
-  nonFunctional: z.array(z.string()),
-  outOfScope: z.array(z.string()),
+  nonFunctional: z.array(z.string().min(1, "Yêu cầu phi chức năng không được để trống")),
+  outOfScope: z.array(z.string().min(1, "Nội dung ngoài phạm vi không được để trống")),
 });
 
 export type Schema = z.infer<typeof schema>;
+
+const fieldNameLabels: Record<string, string> = {
+  metadata: "Thông tin chung",
+  id: "ID",
+  story: "User Story",
+  context: "Ngữ cảnh",
+  sprint: "Sprint",
+  priority: "Độ ưu tiên",
+  creator: "Người tạo",
+  status: "Trạng thái",
+  assignee: "Người phụ trách",
+  name: "Tên",
+  position: "Vị trí",
+  conditions: "Điều kiện",
+  preconditions: "Điều kiện tiên quyết",
+  trigger: "Trigger",
+  flow: "Luồng",
+  mainFlow: "Luồng chính",
+  alternativeFlow: "Luồng thay thế",
+  exceptionFlow: "Luồng ngoại lệ",
+  code: "Mã",
+  steps: "Bước",
+  acceptanceCriteria: "Tiêu chí chấp nhận",
+  criterias: "Điều kiện",
+  type: "Loại",
+  step: "Nội dung",
+  activityDiagram: "Sơ đồ hoạt động",
+  references: "Tài liệu tham khảo",
+  businessRules: "Quy tắc nghiệp vụ",
+  dependencies: "Phụ thuộc",
+  nonFunctional: "Yêu cầu phi chức năng",
+  outOfScope: "Ngoài phạm vi",
+};
+
+export function pathToLabel(path: (string | number)[]): string {
+  return path
+    .map((segment) =>
+      typeof segment === "number"
+        ? `#${segment + 1}`
+        : (fieldNameLabels[segment] ?? segment),
+    )
+    .join(" › ");
+}

@@ -4,6 +4,7 @@ import {
   PositionLabel,
   PriorityLabel,
   StatusLabel,
+  pathToLabel,
   schema,
   type Schema,
 } from "./validations";
@@ -75,12 +76,14 @@ export function toMarkdown(data: Schema): string {
 
   lines.push(`## Acceptance Criteria`);
   lines.push("");
-  lines.push(`Code: ${acceptanceCriteria.code}`);
-  lines.push("");
-  for (const c of acceptanceCriteria.criterias) {
-    lines.push(`- **${CriteriaConditionLabel[c.type]}**: ${c.step}`);
+  for (const ac of acceptanceCriteria) {
+    lines.push(`#### ${ac.code}`);
+    lines.push("");
+    for (const c of ac.criterias) {
+      lines.push(`- **${CriteriaConditionLabel[c.type]}**: ${c.step}`);
+    }
+    lines.push("");
   }
-  lines.push("");
 
   lines.push("## Activity Diagram");
   lines.push("");
@@ -271,16 +274,19 @@ export function fromMarkdown(md: string): Schema {
 
   // ── Acceptance Criteria ──
   const acLines = h2["Acceptance Criteria"] ?? [];
-  const acCodeLine = acLines.find((l) => /^Code:/i.test(l.trim()));
-  const acCode = acCodeLine ? acCodeLine.replace(/^Code:\s*/i, "").trim() : "";
-  const criterias = acLines
-    .map((l) => parseBoldKey(l.trim()))
-    .filter((kv): kv is { key: string; value: string } => kv !== null)
-    .filter((kv) => Object.keys(CriteriaCondition).includes(kv.key))
-    .map((kv) => ({
-      type: kv.key as Schema["acceptanceCriteria"]["criterias"][number]["type"],
-      step: kv.value,
-    }));
+  const acceptanceCriteria = Object.entries(splitByHeading(acLines, 4)).map(
+    ([code, groupLines]) => ({
+      code,
+      criterias: groupLines
+        .map((l) => parseBoldKey(l.trim()))
+        .filter((kv): kv is { key: string; value: string } => kv !== null)
+        .filter((kv) => Object.keys(CriteriaCondition).includes(kv.key))
+        .map((kv) => ({
+          type: kv.key as Schema["acceptanceCriteria"][number]["criterias"][number]["type"],
+          step: kv.value,
+        })),
+    }),
+  );
 
   // ── Activity Diagram ──
   const activityDiagram =
@@ -308,7 +314,7 @@ export function fromMarkdown(md: string): Schema {
     },
     conditions: { preconditions, trigger },
     flow: { mainFlow, alternativeFlow, exceptionFlow },
-    acceptanceCriteria: { code: acCode, criterias },
+    acceptanceCriteria,
     activityDiagram,
     references: { businessRules, dependencies },
     nonFunctional,
@@ -317,9 +323,13 @@ export function fromMarkdown(md: string): Schema {
 
   const result = schema.safeParse(data);
   if (!result.success) {
-    throw new Error(
-      `Dữ liệu không hợp lệ: ${result.error.issues.map((i) => `${i.path.join(".")} - ${i.message}`).join("; ")}`,
-    );
+    const messages = result.error.issues.map((i) => {
+      const label = pathToLabel(i.path as (string | number)[]);
+      return `${label}: ${i.message}`;
+    });
+    const err = new Error("Dữ liệu không hợp lệ") as Error & { messages: string[] };
+    err.messages = messages;
+    throw err;
   }
   return result.data;
 }
@@ -414,13 +424,10 @@ export function toSampleMarkdown(): string {
   lines.push("## Acceptance Criteria");
   lines.push("");
   lines.push(
-    "<!-- Replace AC-XXX with the acceptance criteria code, e.g. AC-001 -->",
+    "<!-- Each block starts with #### CODE. BDD keywords: Given | When | Then | And -->",
   );
-  lines.push("Code: AC-XXX");
+  lines.push("#### AC-XXX");
   lines.push("");
-  lines.push(
-    "<!-- Each criterion uses a BDD keyword: Given | When | Then | And -->",
-  );
   lines.push("- **Given**: ");
   lines.push("- **When**: ");
   lines.push("- **Then**: ");
@@ -707,27 +714,24 @@ export function toHtml(data: Schema): string {
   rows.push(separatorRow("s5"));
 
   // ---- ACCEPTANCE CRITERIA ----
-  const criterias = data.acceptanceCriteria.criterias;
-  // group by AC index — the schema has flat list, so we render them one per row
-  if (criterias.length) {
-    const acCode = data.acceptanceCriteria.code || "AC";
-    criterias.forEach((c, i) => {
-      const cells: Cell[] = [];
-      if (i === 0) {
-        cells.push({
-          content: "ACCEPTANCE CRITERIA",
-          cls: "s13",
-          rowspan: criterias.length,
-        });
-        cells.push({
-          content: escapeHtml(acCode),
-          cls: "s4",
-          rowspan: criterias.length,
-        });
-      }
-      cells.push({ content: c.type, cls: "s2" });
-      cells.push({ content: escapeHtml(c.step), cls: "s2", colspan: 4 });
-      rows.push(row(cells));
+  const acGroups = data.acceptanceCriteria.filter((ac) => ac.criterias.length > 0);
+  if (acGroups.length) {
+    const totalAcRows = acGroups.reduce((n, ac) => n + ac.criterias.length, 0);
+    let firstAcRow = true;
+    acGroups.forEach((ac) => {
+      ac.criterias.forEach((c, ci) => {
+        const cells: Cell[] = [];
+        if (firstAcRow) {
+          cells.push({ content: "ACCEPTANCE CRITERIA", cls: "s13", rowspan: totalAcRows });
+          firstAcRow = false;
+        }
+        if (ci === 0) {
+          cells.push({ content: escapeHtml(ac.code || "AC"), cls: "s4", rowspan: ac.criterias.length });
+        }
+        cells.push({ content: c.type, cls: "s2" });
+        cells.push({ content: escapeHtml(c.step), cls: "s2", colspan: 4 });
+        rows.push(row(cells));
+      });
     });
     rows.push(separatorRow("s14"));
   }

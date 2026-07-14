@@ -67,27 +67,17 @@ export const sampleData: Schema = {
       },
     ],
   },
-  acceptanceCriteria: {
-    code: "AC-001",
-    criterias: [
-      {
-        type: CriteriaCondition.Given,
-        step: "Người dùng ở trang đăng nhập",
-      },
-      {
-        type: CriteriaCondition.When,
-        step: "Người dùng nhấn 'Quên mật khẩu?' và nhập email hợp lệ",
-      },
-      {
-        type: CriteriaCondition.Then,
-        step: "Email đặt lại mật khẩu được gửi trong vòng 30 giây",
-      },
-      {
-        type: CriteriaCondition.And,
-        step: "Liên kết trong email hết hạn sau 15 phút",
-      },
-    ],
-  },
+  acceptanceCriteria: [
+    {
+      code: "AC-001",
+      criterias: [
+        { type: CriteriaCondition.Given, step: "Người dùng ở trang đăng nhập" },
+        { type: CriteriaCondition.When, step: "Người dùng nhấn 'Quên mật khẩu?' và nhập email hợp lệ" },
+        { type: CriteriaCondition.Then, step: "Email đặt lại mật khẩu được gửi trong vòng 30 giây" },
+        { type: CriteriaCondition.And, step: "Liên kết trong email hết hạn sau 15 phút" },
+      ],
+    },
+  ],
   activityDiagram: "https://lucid.app/lucidchart/example-activity-diagram",
   references: {
     businessRules: ["BR-05: Mật khẩu phải có ít nhất 8 ký tự, gồm chữ và số"],
@@ -127,10 +117,9 @@ export const initialData: Schema = {
     alternativeFlow: [],
     exceptionFlow: [],
   },
-  acceptanceCriteria: {
-    code: "",
-    criterias: [{ type: CriteriaCondition.Given, step: "" }],
-  },
+  acceptanceCriteria: [
+    { code: "", criterias: [{ type: CriteriaCondition.Given, step: "" }] },
+  ],
   activityDiagram: "",
   references: {
     businessRules: [],

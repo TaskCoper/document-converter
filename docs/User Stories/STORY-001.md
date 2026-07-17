@@ -144,6 +144,10 @@ https://lucid.app/lucidchart/example-activity-diagram
 - STORY-022: Rate limiting API endpoint
 - STORY-031: Ghi log audit trail bảo mật
 
+### TDDs
+
+- [TDD-BAOKIM-001](Technical Design Documents/TDD-BAOKIM-001.md)
+
 ## Non-Functional
 
 - Thời gian phản hồi gửi email < 2 giây (P95)

@@ -4,7 +4,7 @@ import {
   PriorityLabel,
   StatusLabel,
   type Schema,
-} from "@/validations";
+} from "./validations";
 import {
   Ban,
   BookOpen,

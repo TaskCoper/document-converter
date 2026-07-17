@@ -1,4 +1,10 @@
-import { GitBranch } from "lucide-react";
+import {
+  BookUserIcon,
+  FileCode2Icon,
+  GitBranch,
+  HomeIcon,
+  ScaleIcon,
+} from "lucide-react";
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
@@ -12,14 +18,16 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { useAuthorStore } from "@/features/user-stories/store";
 import { REPO_LABEL } from "@/lib/github";
 import { cn } from "@/lib/utils";
-import { useAuthorStore } from "@/store";
 
 const NAV = [
-  { to: "/", label: "Duyệt", end: true },
+  { to: "/", label: "Trang chủ", end: true, icon: HomeIcon },
   // { to: "/history", label: "Lịch sử" },
-  { to: "/convert", label: "Thêm mới" },
+  { to: "/stories", label: "Thêm User Story", icon: BookUserIcon },
+  { to: "/tdd", label: "Thêm TDD", icon: FileCode2Icon },
+  { to: "/rules", label: "Thêm Rule", icon: ScaleIcon },
 ];
 
 function AuthorPrompt() {
@@ -96,6 +104,7 @@ export default function RootLayout() {
             <GitBranch className="size-4" />
             <span>{REPO_LABEL}</span>
           </div>
+
           <nav className="flex items-center gap-1">
             {NAV.map((item) => (
               <NavLink
@@ -105,11 +114,14 @@ export default function RootLayout() {
                 className={({ isActive }) =>
                   cn(
                     "rounded-none px-2.5 py-1 text-xs transition-colors hover:bg-muted",
-                    isActive && "bg-muted font-medium",
+                    isActive && "bg-primary text-primary-foreground",
                   )
                 }
               >
-                {item.label}
+                <div className="flex items-center gap-1.5">
+                  {item.icon && <item.icon className="size-3.5" />}
+                  {item.label}
+                </div>
               </NavLink>
             ))}
           </nav>

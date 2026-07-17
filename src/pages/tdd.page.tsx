@@ -1,3 +1,29 @@
+import { HtmlPreviewDialog } from "@/components/html-preview-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
+import { useAuthorStore } from "@/features/user-stories/store";
+import { getFile, slugifyAuthor } from "@/lib/github";
+import {
+  ghKeys,
+  messageFor,
+  parentOf,
+  useDir,
+  useFile,
+  useRenameFile,
+  useSaveFile,
+} from "@/lib/queries";
+import { cn } from "@/lib/utils";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -23,94 +49,76 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
-
-import { Spinner } from "@/components/ui/spinner";
-import {
-  AcceptanceCriteriaSection,
-  ConditionsSection,
-  FlowSection,
-  MetadataSection,
-  ReferencesSection,
-  StringListSection,
-} from "../components/form-sections";
-import { HtmlPreviewDialog } from "../components/html-preview-dialog";
-import { PreviewPanel } from "../components/preview-panel";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "../components/ui/alert-dialog";
-import { Button } from "../components/ui/button";
-import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-} from "../components/ui/field";
-import { Input } from "../components/ui/input";
 import {
   downloadFile,
-  fromMarkdown,
-  toHtml,
-  toMarkdown,
-  toSampleMarkdown,
-} from "../exporters";
-import { getFile, slugifyAuthor } from "../lib/github";
+  fromTddMarkdown,
+  TddParseError,
+  toTddHtml,
+  toTddMarkdown,
+  toTddSampleMarkdown,
+} from "../features/tdds/exporters";
 import {
-  ghKeys,
-  messageFor,
-  parentOf,
-  useDir,
-  useFile,
-  useRenameFile,
-  useSaveFile,
-} from "../lib/queries";
-import { cn } from "../lib/utils";
+  initialTddData,
+  sampleTddData,
+  useTddFormStore,
+} from "../features/tdds/store";
 import {
-  initialData,
-  sampleData,
-  useAuthorStore,
-  useFormStore,
-} from "../store";
-import { pathToLabel, schema, type Schema } from "../validations";
+  ChangeLogSection,
+  ContextGoalsSection,
+  DiagramSection,
+  DocumentInfoSection,
+  ExternalApiSection,
+  InternalApiSection,
+  ReferencesSection,
+} from "../features/tdds/tdd-form-sections";
+import { TddPreviewPanel } from "../features/tdds/tdd-preview-panel";
+import {
+  pathToLabel,
+  tddSchema,
+  type TddSchema,
+} from "../features/tdds/validations";
 
 type StepDef = {
   title: string;
   description: string;
-  fields: FieldPath<Schema>[];
+  fields: FieldPath<TddSchema>[];
 };
 
 const STEPS: StepDef[] = [
   {
-    title: "Thông tin chung",
-    description: "Metadata của user story",
-    fields: ["metadata"],
+    title: "Thông tin & Bối cảnh",
+    description: "Thông tin tài liệu, vấn đề và mục tiêu",
+    fields: ["documentInfo", "contextGoals"],
   },
   {
-    title: "Điều kiện & Luồng",
-    description: "Điều kiện tiên quyết và các luồng xử lý",
-    fields: ["conditions", "flow"],
+    title: "Kiến trúc & Sơ đồ",
+    description: "Architecture, Sequence, Activity, State và Data Model",
+    fields: [
+      "architecture",
+      "sequenceDiagram",
+      "activityDiagram",
+      "stateDiagram",
+      "dataModel",
+    ],
   },
   {
-    title: "Tiêu chí & Sơ đồ",
-    description: "Tiêu chí chấp nhận và activity diagram",
-    fields: ["acceptanceCriteria", "activityDiagram"],
+    title: "API nội bộ",
+    description: "Endpoints, ví dụ request/response, mã lỗi",
+    fields: ["internalApi"],
   },
   {
-    title: "Tham chiếu & Phạm vi",
-    description: "Tham chiếu, yêu cầu phi chức năng, và phạm vi",
-    fields: ["references", "nonFunctional", "outOfScope"],
+    title: "API bên ngoài",
+    description: "Endpoints đối tác, field quan trọng, quirks",
+    fields: ["externalApi"],
+  },
+  {
+    title: "Tham chiếu & Lịch sử",
+    description: "Tham chiếu và lịch sử thay đổi",
+    fields: ["references", "changeLog"],
   },
 ];
 
-export default function ConvertPage() {
+export default function TddPage() {
   const { "*": editPathRaw = "" } = useParams();
   const editPath = editPathRaw.replace(/^\/+|\/+$/g, "");
   const isEdit = editPath.length > 0;
@@ -125,10 +133,10 @@ export default function ConvertPage() {
     : editNewFilename;
   const isRename = isEdit && editNewPath !== editPath;
 
-  const step = useFormStore((s) => s.step);
-  const setStep = useFormStore((s) => s.setStep);
-  const setData = useFormStore((s) => s.setData);
-  const resetStore = useFormStore((s) => s.reset);
+  const step = useTddFormStore((s) => s.step);
+  const setStep = useTddFormStore((s) => s.setStep);
+  const setData = useTddFormStore((s) => s.setData);
+  const resetStore = useTddFormStore((s) => s.reset);
 
   const {
     register,
@@ -139,9 +147,9 @@ export default function ConvertPage() {
     reset,
     getValues,
     setValue,
-  } = useForm<Schema>({
-    resolver: standardSchemaResolver(schema),
-    defaultValues: useFormStore.getState().data,
+  } = useForm<TddSchema>({
+    resolver: standardSchemaResolver(tddSchema),
+    defaultValues: useTddFormStore.getState().data,
     mode: "onBlur",
   });
 
@@ -156,7 +164,7 @@ export default function ConvertPage() {
   >(null);
 
   const [editSeededSha, setEditSeededSha] = useState<string | null>(null);
-  const [editOriginal, setEditOriginal] = useState<Schema | null>(null);
+  const [editOriginal, setEditOriginal] = useState<TddSchema | null>(null);
   const [editLoadError, setEditLoadError] = useState<string[] | null>(null);
 
   const [searchParams] = useSearchParams();
@@ -171,44 +179,45 @@ export default function ConvertPage() {
   const rename = useRenameFile();
   const qc = useQueryClient();
 
-  const metadataId = useWatch({ control, name: "metadata.id" });
+  const docId = useWatch({ control, name: "documentInfo.docId" });
 
   useEffect(() => {
     if (isEdit) return;
-    if (author && getValues("metadata.creator") !== author) {
-      setValue("metadata.creator", author, { shouldValidate: false });
+    if (author && getValues("documentInfo.author") !== author) {
+      setValue("documentInfo.author", author, { shouldValidate: false });
     }
   }, [author, setValue, getValues, isEdit]);
 
   if (isEdit && editFile.data && editFile.data.sha !== editSeededSha) {
     try {
-      const parsed = fromMarkdown(editFile.data.content);
+      const parsed = fromTddMarkdown(editFile.data.content);
       reset(parsed);
       setEditOriginal(parsed);
       setEditSeededSha(editFile.data.sha);
       setEditLoadError(null);
       setStep(0);
     } catch (err) {
-      const e = err as Error & { messages?: string[] };
-      setEditLoadError(e.messages ?? [e.message]);
+      const messages =
+        err instanceof TddParseError ? err.messages : [(err as Error).message];
+      setEditLoadError(messages);
       setEditSeededSha(editFile.data.sha);
     }
   }
 
   const safeFilename = (ext: string) => {
-    const id = getValues("metadata.id") || "user-story";
+    const id = getValues("documentInfo.docId") || "tdd";
     return `${id.replace(/[^a-zA-Z0-9._-]+/g, "_")}.${ext}`;
   };
 
   const commitPath = () => {
     if (isEdit) return editPath;
-    const id = getValues("metadata.id") || "user-story";
+    const id = getValues("documentInfo.docId") || "tdd";
     const safeId = id.replace(/[^a-zA-Z0-9._-]+/g, "_");
     const folder = folderInput.trim() || slugifyAuthor(author);
     return `${folder}/${safeId}.md`;
   };
 
-  const onCommit = async (data: Schema) => {
+  const onCommit = async (data: TddSchema) => {
     setCommitOutcome(null);
     if (!author) {
       setCommitOutcome({
@@ -220,7 +229,7 @@ export default function ConvertPage() {
     const path = commitPath();
 
     if (isEdit) {
-      const content = toMarkdown(data);
+      const content = toTddMarkdown(data);
 
       if (isRename) {
         try {
@@ -259,9 +268,9 @@ export default function ConvertPage() {
       return;
     }
 
-    const content = toMarkdown({
+    const content = toTddMarkdown({
       ...data,
-      metadata: { ...data.metadata, creator: author },
+      documentInfo: { ...data.documentInfo, author },
     });
     try {
       const existing = await qc.fetchQuery({
@@ -275,7 +284,7 @@ export default function ConvertPage() {
         websiteUser: author,
       });
       resetStore();
-      reset(initialData);
+      reset(initialTddData);
       navigate(`/view/${path}`);
     } catch (e) {
       setCommitOutcome({ kind: "error", message: messageFor(e) });
@@ -283,15 +292,19 @@ export default function ConvertPage() {
   };
 
   const onExportMd = () => {
-    downloadFile(safeFilename("md"), toMarkdown(getValues()), "text/markdown");
+    downloadFile(
+      safeFilename("md"),
+      toTddMarkdown(getValues()),
+      "text/markdown",
+    );
   };
 
   const onDownloadSampleMd = () => {
-    downloadFile("user-story-sample.md", toSampleMarkdown(), "text/markdown");
+    downloadFile("tdd-sample.md", toTddSampleMarkdown(), "text/markdown");
   };
 
   const onExportHtml = () => {
-    const html = toHtml(getValues());
+    const html = toTddHtml(getValues());
     if (isLast) {
       setHtmlPreview(html);
     } else {
@@ -311,15 +324,16 @@ export default function ConvertPage() {
     setShowImportValidation(false);
     try {
       const text = await file.text();
-      const parsed = fromMarkdown(text);
+      const parsed = fromTddMarkdown(text);
       reset(parsed);
       setData(parsed);
       setStep(0);
       await trigger();
       setShowImportValidation(true);
     } catch (err) {
-      const e = err as Error & { messages?: string[] };
-      setImportError(e.messages ?? [e.message]);
+      const messages =
+        err instanceof TddParseError ? err.messages : [(err as Error).message];
+      setImportError(messages);
     }
   };
 
@@ -336,22 +350,19 @@ export default function ConvertPage() {
 
   const onReset = () => {
     if (isEdit) {
-      if (editOriginal) {
-        reset(editOriginal);
-      }
-
+      if (editOriginal) reset(editOriginal);
       setStep(0);
       setCommitOutcome(null);
       return;
     }
 
     resetStore();
-    reset(initialData);
+    reset(initialTddData);
   };
 
   const onFillSample = () => {
-    reset(sampleData);
-    setData(sampleData);
+    reset(sampleTddData);
+    setData(sampleTddData);
     setStep(0);
   };
 
@@ -409,76 +420,88 @@ export default function ConvertPage() {
 
           <div className="flex flex-col gap-8 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
             {step === 0 && (
-              <MetadataSection
+              <>
+                <DocumentInfoSection
+                  register={register}
+                  control={control}
+                  errors={errors}
+                />
+                <ContextGoalsSection
+                  register={register}
+                  control={control}
+                  errors={errors}
+                />
+              </>
+            )}
+
+            {step === 1 && (
+              <>
+                <DiagramSection
+                  register={register}
+                  control={control}
+                  errors={errors}
+                  name="architecture"
+                  legend="Kiến trúc tổng quan (Architecture)"
+                  description="Sơ đồ các thành phần và cách chúng ghép với nhau"
+                />
+                <DiagramSection
+                  register={register}
+                  control={control}
+                  errors={errors}
+                  name="sequenceDiagram"
+                  legend="Sequence Diagram"
+                  description="Luồng nhiều bên gọi qua lại theo thời gian"
+                />
+                <DiagramSection
+                  register={register}
+                  control={control}
+                  errors={errors}
+                  name="activityDiagram"
+                  legend="Activity Diagram"
+                  description="Logic nhiều nhánh điều kiện"
+                />
+                <DiagramSection
+                  register={register}
+                  control={control}
+                  errors={errors}
+                  name="stateDiagram"
+                  legend="State Diagram"
+                  description="Vòng đời trạng thái của thực thể chính"
+                />
+                <DiagramSection
+                  register={register}
+                  control={control}
+                  errors={errors}
+                  name="dataModel"
+                  legend="Mô hình dữ liệu (Data Model / ERD)"
+                  description="Bảng và quan hệ liên quan"
+                />
+              </>
+            )}
+
+            {step === 2 && (
+              <InternalApiSection
                 register={register}
                 control={control}
                 errors={errors}
               />
             )}
 
-            {step === 1 && (
-              <>
-                <ConditionsSection
-                  register={register}
-                  control={control}
-                  errors={errors}
-                />
-                <FlowSection
-                  register={register}
-                  control={control}
-                  errors={errors}
-                />
-              </>
-            )}
-
-            {step === 2 && (
-              <>
-                <AcceptanceCriteriaSection
-                  register={register}
-                  control={control}
-                  errors={errors}
-                />
-                <FieldSet>
-                  <FieldLegend>Sơ đồ hoạt động</FieldLegend>
-                  <FieldGroup>
-                    <Field data-invalid={!!errors.activityDiagram || undefined}>
-                      <FieldLabel htmlFor="activityDiagram">
-                        Activity Diagram URL
-                      </FieldLabel>
-                      <Input
-                        id="activityDiagram"
-                        type="url"
-                        placeholder="https://..."
-                        aria-invalid={!!errors.activityDiagram || undefined}
-                        {...register("activityDiagram")}
-                      />
-                      {errors.activityDiagram?.message && (
-                        <FieldError>
-                          {errors.activityDiagram.message}
-                        </FieldError>
-                      )}
-                    </Field>
-                  </FieldGroup>
-                </FieldSet>
-              </>
-            )}
-
             {step === 3 && (
+              <ExternalApiSection
+                register={register}
+                control={control}
+                errors={errors}
+              />
+            )}
+
+            {step === 4 && (
               <>
                 <ReferencesSection control={control} register={register} />
-                <StringListSection
-                  legend="Yêu cầu phi chức năng"
-                  description="Danh sách các yêu cầu phi chức năng"
-                  name="nonFunctional"
-                  control={control}
+                <ChangeLogSection
                   register={register}
-                />
-                <StringListSection
-                  legend="Ngoài phạm vi"
-                  description="Các mục nằm ngoài phạm vi công việc"
-                  name="outOfScope"
                   control={control}
-                  register={register}
+                  errors={errors}
                 />
               </>
             )}
@@ -489,7 +512,7 @@ export default function ConvertPage() {
               authorSlug={slugifyAuthor(author)}
               value={folderInput}
               onChange={setFolderInput}
-              fileId={metadataId || ""}
+              fileId={docId || ""}
             />
           )}
 
@@ -628,7 +651,7 @@ export default function ConvertPage() {
               ) : null;
             })()}
 
-          <PreviewPanel control={control} />
+          <TddPreviewPanel control={control} />
         </aside>
       </div>
 
@@ -698,7 +721,7 @@ function FolderPicker({
   const folders =
     entries?.filter((e) => e.type === "dir").map((e) => e.name) ?? [];
   const effective = value.trim() || authorSlug;
-  const safeFileId = (fileId || "user-story").replace(/[^a-zA-Z0-9._-]+/g, "_");
+  const safeFileId = (fileId || "tdd").replace(/[^a-zA-Z0-9._-]+/g, "_");
 
   return (
     <div className="flex flex-col gap-2 border border-border bg-muted/20 p-3">
@@ -761,7 +784,7 @@ function EditHeader({
       <div className="flex items-center justify-between gap-2 border border-dashed border-primary bg-primary/10 px-3 py-2">
         <div className="flex min-w-0 flex-col">
           <span className="text-[10px] uppercase tracking-wide text-primary">
-            Đang chỉnh sửa
+            Đang chỉnh sửa (TDD)
           </span>
 
           <code className="truncate text-sm font-semibold text-primary">
@@ -797,7 +820,7 @@ function EditHeader({
         >
           <div className="font-medium mb-1 flex items-center gap-1">
             <AlertCircle className="size-3" />
-            Không thể đọc file theo lược đồ user story
+            Không thể đọc file theo lược đồ TDD
           </div>
           <ul className="list-disc list-inside flex flex-col gap-0.5 ml-0.5">
             {parseError.map((msg, i) => (
@@ -822,25 +845,24 @@ function EditHeader({
 
 function buildCreateCommitMessage(
   _path: string,
-  data: Schema,
+  data: TddSchema,
   author: string,
   isUpdate: boolean,
 ): string {
-  const storyId = data.metadata.id;
-  const storyTitle = data.metadata.story;
-  const titleParts = [storyId, storyTitle].filter(Boolean);
+  const docId = data.documentInfo.docId;
+  const feature = data.documentInfo.feature;
+  const titleParts = [docId, feature].filter(Boolean);
   const title =
-    titleParts.length > 0 ? titleParts.join(" \u2013 ") : "user story";
+    titleParts.length > 0 ? titleParts.join(" – ") : "technical design doc";
   const parts: string[] = [title, ""];
   parts.push(`Author: ${author}`);
-  const sprintPriority = [
-    data.metadata.sprint ? `Sprint: ${data.metadata.sprint}` : "",
-    data.metadata.priority ? `Priority: ${data.metadata.priority}` : "",
+  const versionStatus = [
+    data.documentInfo.version ? `Version: ${data.documentInfo.version}` : "",
+    data.documentInfo.status ? `Status: ${data.documentInfo.status}` : "",
   ]
     .filter(Boolean)
     .join(" | ");
-  if (sprintPriority) parts.push(sprintPriority);
-  if (data.metadata.status) parts.push(`Status: ${data.metadata.status}`);
+  if (versionStatus) parts.push(versionStatus);
   const action = isUpdate ? "Update" : "Create";
   parts.push("", `${action}d by ${author} on the web.`);
   return parts.join("\n");
@@ -848,11 +870,11 @@ function buildCreateCommitMessage(
 
 function buildEditCommitMessage(
   path: string,
-  original: Schema | null,
-  next: Schema,
+  original: TddSchema | null,
+  next: TddSchema,
   websiteUser: string,
 ): string {
-  const header = `Update ${path} via user-story form`;
+  const header = `Update ${path} via TDD form`;
   const footer = `Edited by ${websiteUser} on the web.`;
   if (!original) return `${header}\n\n${footer}`;
   const changes = summarizeChanges(original, next);
@@ -861,78 +883,114 @@ function buildEditCommitMessage(
   return `${header}\n\nChanges:\n${changes.map((c) => `- ${c}`).join("\n")}\n\n${footer}`;
 }
 
-function summarizeChanges(prev: Schema, next: Schema): string[] {
+function summarizeChanges(prev: TddSchema, next: TddSchema): string[] {
   const eq = (a: unknown, b: unknown) =>
     JSON.stringify(a) === JSON.stringify(b);
   const countChange = (before: unknown[], after: unknown[]) =>
     `${before.length}→${after.length}`;
   const lines: string[] = [];
 
-  const metaFields: (keyof Schema["metadata"])[] = [
-    "id",
-    "story",
-    "context",
-    "sprint",
-    "priority",
-    "assignee",
-    "creator",
+  const infoFields: (keyof TddSchema["documentInfo"])[] = [
+    "docId",
+    "feature",
+    "author",
+    "reviewer",
     "status",
+    "version",
+    "updatedAt",
   ];
-  const metaChanged = metaFields.filter(
-    (f) => !eq(prev.metadata[f], next.metadata[f]),
+  const infoChanged = infoFields.filter(
+    (f) => !eq(prev.documentInfo[f], next.documentInfo[f]),
   );
-  if (metaChanged.length) lines.push(`metadata: ${metaChanged.join(", ")}`);
-
-  const condChanged: string[] = [];
-  if (!eq(prev.conditions.preconditions, next.conditions.preconditions))
-    condChanged.push(
-      `preconditions (${countChange(prev.conditions.preconditions, next.conditions.preconditions)})`,
-    );
-  if (prev.conditions.trigger !== next.conditions.trigger)
-    condChanged.push("trigger");
-  if (condChanged.length) lines.push(`conditions: ${condChanged.join(", ")}`);
-
-  const flowChanged: string[] = [];
-  if (!eq(prev.flow.mainFlow, next.flow.mainFlow))
-    flowChanged.push(
-      `mainFlow (${countChange(prev.flow.mainFlow, next.flow.mainFlow)} steps)`,
-    );
-  if (!eq(prev.flow.alternativeFlow, next.flow.alternativeFlow))
-    flowChanged.push(
-      `alternativeFlow (${countChange(prev.flow.alternativeFlow, next.flow.alternativeFlow)})`,
-    );
-  if (!eq(prev.flow.exceptionFlow, next.flow.exceptionFlow))
-    flowChanged.push(
-      `exceptionFlow (${countChange(prev.flow.exceptionFlow, next.flow.exceptionFlow)})`,
-    );
-  if (flowChanged.length) lines.push(`flow: ${flowChanged.join(", ")}`);
-
-  if (!eq(prev.acceptanceCriteria, next.acceptanceCriteria))
+  if (infoChanged.length) lines.push(`documentInfo: ${infoChanged.join(", ")}`);
+  if (!eq(prev.documentInfo.relatedStories, next.documentInfo.relatedStories))
     lines.push(
-      `acceptanceCriteria (${countChange(prev.acceptanceCriteria, next.acceptanceCriteria)})`,
+      `relatedStories (${countChange(prev.documentInfo.relatedStories, next.documentInfo.relatedStories)})`,
+    );
+  if (!eq(prev.documentInfo.businessRules, next.documentInfo.businessRules))
+    lines.push(
+      `businessRules meta (${countChange(prev.documentInfo.businessRules, next.documentInfo.businessRules)})`,
     );
 
-  if (prev.activityDiagram !== next.activityDiagram)
-    lines.push("activityDiagram");
+  const ctxChanged: string[] = [];
+  if (prev.contextGoals.problem !== next.contextGoals.problem)
+    ctxChanged.push("problem");
+  if (!eq(prev.contextGoals.goals, next.contextGoals.goals))
+    ctxChanged.push(
+      `goals (${countChange(prev.contextGoals.goals, next.contextGoals.goals)})`,
+    );
+  if (!eq(prev.contextGoals.nonGoals, next.contextGoals.nonGoals))
+    ctxChanged.push(
+      `nonGoals (${countChange(prev.contextGoals.nonGoals, next.contextGoals.nonGoals)})`,
+    );
+  if (ctxChanged.length) lines.push(`contextGoals: ${ctxChanged.join(", ")}`);
+
+  const diagramSections = [
+    "architecture",
+    "sequenceDiagram",
+    "activityDiagram",
+    "stateDiagram",
+    "dataModel",
+  ] as const;
+  for (const section of diagramSections) {
+    if (!eq(prev[section], next[section])) lines.push(section);
+  }
+
+  const internalChanged: string[] = [];
+  if (!eq(prev.internalApi.endpoints, next.internalApi.endpoints))
+    internalChanged.push(
+      `endpoints (${countChange(prev.internalApi.endpoints, next.internalApi.endpoints)})`,
+    );
+  if (!eq(prev.internalApi.examples, next.internalApi.examples))
+    internalChanged.push(
+      `examples (${countChange(prev.internalApi.examples, next.internalApi.examples)})`,
+    );
+  if (!eq(prev.internalApi.errorCodes, next.internalApi.errorCodes))
+    internalChanged.push(
+      `errorCodes (${countChange(prev.internalApi.errorCodes, next.internalApi.errorCodes)})`,
+    );
+  if (internalChanged.length)
+    lines.push(`internalApi: ${internalChanged.join(", ")}`);
+
+  const externalChanged: string[] = [];
+  if (!eq(prev.externalApi.endpoints, next.externalApi.endpoints))
+    externalChanged.push(
+      `endpoints (${countChange(prev.externalApi.endpoints, next.externalApi.endpoints)})`,
+    );
+  if (!eq(prev.externalApi.fields, next.externalApi.fields))
+    externalChanged.push(
+      `fields (${countChange(prev.externalApi.fields, next.externalApi.fields)})`,
+    );
+  if (prev.externalApi.errorHandling !== next.externalApi.errorHandling)
+    externalChanged.push("errorHandling");
+  if (!eq(prev.externalApi.quirks, next.externalApi.quirks))
+    externalChanged.push(
+      `quirks (${countChange(prev.externalApi.quirks, next.externalApi.quirks)})`,
+    );
+  if (externalChanged.length)
+    lines.push(`externalApi: ${externalChanged.join(", ")}`);
 
   const refChanged: string[] = [];
+  if (!eq(prev.references.userStories, next.references.userStories))
+    refChanged.push(
+      `userStories (${countChange(prev.references.userStories, next.references.userStories)})`,
+    );
   if (!eq(prev.references.businessRules, next.references.businessRules))
     refChanged.push(
       `businessRules (${countChange(prev.references.businessRules, next.references.businessRules)})`,
     );
-  if (!eq(prev.references.dependencies, next.references.dependencies))
+  if (!eq(prev.references.useCases, next.references.useCases))
     refChanged.push(
-      `dependencies (${countChange(prev.references.dependencies, next.references.dependencies)})`,
+      `useCases (${countChange(prev.references.useCases, next.references.useCases)})`,
+    );
+  if (!eq(prev.references.others, next.references.others))
+    refChanged.push(
+      `others (${countChange(prev.references.others, next.references.others)})`,
     );
   if (refChanged.length) lines.push(`references: ${refChanged.join(", ")}`);
 
-  if (!eq(prev.nonFunctional, next.nonFunctional))
-    lines.push(
-      `nonFunctional (${countChange(prev.nonFunctional, next.nonFunctional)})`,
-    );
-
-  if (!eq(prev.outOfScope, next.outOfScope))
-    lines.push(`outOfScope (${countChange(prev.outOfScope, next.outOfScope)})`);
+  if (!eq(prev.changeLog, next.changeLog))
+    lines.push(`changeLog (${countChange(prev.changeLog, next.changeLog)})`);
 
   return lines;
 }
@@ -965,13 +1023,13 @@ function flattenErrors(obj: unknown, path: (string | number)[] = []): string[] {
 function FormSync({
   control,
 }: {
-  control: ReturnType<typeof useForm<Schema>>["control"];
+  control: ReturnType<typeof useForm<TddSchema>>["control"];
 }) {
   const values = useWatch({ control });
-  const setData = useFormStore((s) => s.setData);
+  const setData = useTddFormStore((s) => s.setData);
 
   useEffect(() => {
-    setData(values as Schema);
+    setData(values as TddSchema);
   }, [values, setData]);
 
   return null;

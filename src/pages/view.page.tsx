@@ -1,6 +1,3 @@
-import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-
 import { buttonVariants } from "@/components/ui/button";
 import {
   ContextMenu,
@@ -8,7 +5,14 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { fromMarkdown, toHtml } from "@/exporters";
+import {
+  fromRuleMarkdown,
+  toRuleHtml,
+} from "@/features/business-rules/exporters";
+import { fromTddMarkdown, toTddHtml } from "@/features/tdds/exporters";
+import { fromMarkdown, toHtml } from "@/features/user-stories/exporters";
+import { useAuthorStore } from "@/features/user-stories/store";
+import { detectType } from "@/lib/file-type";
 import {
   messageFor,
   parentOf,
@@ -18,7 +22,6 @@ import {
 } from "@/lib/queries";
 import { isSitemapPath } from "@/lib/sitemap";
 import { cn } from "@/lib/utils";
-import { useAuthorStore } from "@/store";
 import {
   ArrowLeft,
   Download,
@@ -27,6 +30,8 @@ import {
   FileText,
   Plus,
 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 export default function ViewPage() {
   const { "*": rest = "" } = useParams();
@@ -37,25 +42,66 @@ export default function ViewPage() {
   const [renamingFile, setRenamingFile] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
 
-  const { data, isPending, error } = useFile(path);
+  const location = useLocation();
+  const justCreated =
+    (location.state as { justCreated?: boolean } | null)?.justCreated === true;
+  const retryCount = useRef(0);
+  const [retrying, setRetrying] = useState(false);
+
+  const { data, isPending, error, refetch } = useFile(path);
+
+  useEffect(() => {
+    if (
+      justCreated &&
+      data === null &&
+      !isPending &&
+      !error &&
+      retryCount.current < 5
+    ) {
+      setRetrying(true);
+      const id = setTimeout(() => {
+        retryCount.current += 1;
+        refetch().finally(() => setRetrying(false));
+      }, 2000);
+      return () => clearTimeout(id);
+    }
+  }, [justCreated, data, isPending, error, refetch]);
 
   const folderPath = parentOf(path);
   const { data: folderEntries } = useDir(folderPath);
   const siblingFiles = (folderEntries ?? []).filter(
-    (e) => e.type === "file" && e.name.toLowerCase().endsWith(".md") && !isSitemapPath(e.path),
+    (e) =>
+      e.type === "file" &&
+      e.name.toLowerCase().endsWith(".md") &&
+      !isSitemapPath(e.path),
   );
 
   let html: string | null = null;
 
+  const detectedType = data?.content ? detectType(data.content) : null;
+
   if (data?.content) {
     try {
-      html = toHtml(fromMarkdown(data.content));
+      if (detectedType === "tdd") {
+        html = toTddHtml(fromTddMarkdown(data.content));
+      } else if (detectedType === "business-rule") {
+        html = toRuleHtml(fromRuleMarkdown(data.content));
+      } else {
+        html = toHtml(fromMarkdown(data.content));
+      }
     } catch {
       html = null;
     }
   }
 
-  if (isPending) {
+  const editPath =
+    detectedType === "tdd"
+      ? `/edit-tdd/${path}`
+      : detectedType === "business-rule"
+        ? `/edit-rule/${path}`
+        : `/edit/${path}`;
+
+  if (isPending || retrying) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-6">
         <p className="text-xs text-muted-foreground">Đang tải file…</p>
@@ -182,7 +228,7 @@ export default function ViewPage() {
         )}
 
         <Link
-          to={`/edit/${path}`}
+          to={editPath}
           className={buttonVariants({ variant: "default", size: "sm" })}
         >
           <Edit className="size-3.5" />
@@ -209,7 +255,7 @@ export default function ViewPage() {
       {siblingFiles.length > 0 && (
         <div className="flex shrink-0 items-stretch border-t border-border bg-muted/10 overflow-x-auto min-h-8">
           <Link
-            to={`/convert${folderPath ? `?folder=${encodeURIComponent(folderPath)}` : ""}`}
+            to={`/stories${folderPath ? `?folder=${encodeURIComponent(folderPath)}` : ""}`}
             title="Tạo user story mới"
             className="flex shrink-0 items-center justify-center border-r border-border px-3 text-muted-foreground hover:bg-muted/30 hover:text-foreground transition-colors"
           >

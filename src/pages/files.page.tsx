@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { GhError } from "@/lib/github";
 import {
@@ -19,8 +20,7 @@ import {
   useFile,
   useSaveFile,
 } from "@/lib/queries";
-import { useAuthorStore } from "@/store";
-import { Spinner } from "@/components/ui/spinner";
+import { useAuthorStore } from "@/features/user-stories/store";
 import { ExternalLink, History, Save, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -76,10 +76,10 @@ export default function FilesPage() {
         </p>
         <div className="flex gap-2">
           <Link
-            to="/convert"
+            to="/stories"
             className={buttonVariants({ variant: "default", size: "sm" })}
           >
-            Tạo qua Convert
+            Tạo qua Stories
           </Link>
           <Link
             to={`/browse/${parentOf(path)}`}
@@ -198,7 +198,11 @@ export default function FilesPage() {
 
       <div className="flex items-center gap-3">
         <Button onClick={onSave} disabled={!dirty || save.isPending || !author}>
-          {save.isPending ? <Spinner className="size-3.5" /> : <Save className="size-3.5" />}
+          {save.isPending ? (
+            <Spinner className="size-3.5" />
+          ) : (
+            <Save className="size-3.5" />
+          )}
           Commit & Push
         </Button>
         {!author && (

@@ -30,7 +30,7 @@ import {
   Status,
   StatusLabel,
   type Schema,
-} from "@/validations";
+} from "./validations";
 import { Plus, Trash2 } from "lucide-react";
 
 export type SectionProps = {

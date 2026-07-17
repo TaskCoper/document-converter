@@ -37,10 +37,13 @@ import {
 import {
   parseSitemapMarkdown,
   sitemapPathFor,
+  type RuleSitemapEntry,
   type SitemapEntry,
+  type StorySitemapEntry,
+  type TddSitemapEntry,
 } from "@/lib/sitemap";
 import { cn } from "@/lib/utils";
-import { useAuthorStore } from "@/store";
+import { useAuthorStore } from "@/features/user-stories/store";
 import {
   ExternalLink,
   Folder,
@@ -52,14 +55,89 @@ import {
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-const COLUMNS: { key: string; label: string; className?: string }[] = [
-  { key: "id", label: "ID", className: "w-28" },
-  { key: "story", label: "Story", className: "min-w-[220px]" },
-  { key: "sprint", label: "Sprint", className: "w-16 text-center" },
-  { key: "priority", label: "Priority", className: "w-20" },
-  { key: "status", label: "Status", className: "w-24" },
-  { key: "assignee", label: "Assignee", className: "w-96" },
-  { key: "creator", label: "Creator", className: "w-28" },
+type ColumnDef<T extends SitemapEntry> = {
+  key: string;
+  label: string;
+  className?: string;
+  cellClassName?: string;
+  render: (entry: T) => React.ReactNode;
+};
+
+const STORY_COLUMNS: ColumnDef<StorySitemapEntry>[] = [
+  {
+    key: "id",
+    label: "ID",
+    className: "w-28",
+    cellClassName: "font-medium text-primary",
+    render: (e) => e.id,
+  },
+  {
+    key: "story",
+    label: "Story",
+    className: "min-w-[220px]",
+    cellClassName: "max-w-[280px] truncate",
+    render: (e) => e.story,
+  },
+  {
+    key: "sprint",
+    label: "Sprint",
+    className: "w-16 text-center",
+    cellClassName: "text-center",
+    render: (e) => e.sprint,
+  },
+  { key: "priority", label: "Priority", className: "w-20", render: (e) => e.priority },
+  { key: "status", label: "Status", className: "w-24", render: (e) => e.status },
+  { key: "assignee", label: "Assignee", className: "w-96", render: (e) => e.assignee },
+  { key: "creator", label: "Creator", className: "w-28", render: (e) => e.creator },
+];
+
+const TDD_COLUMNS: ColumnDef<TddSitemapEntry>[] = [
+  {
+    key: "id",
+    label: "ID",
+    className: "w-32",
+    cellClassName: "font-medium text-primary",
+    render: (e) => e.id,
+  },
+  {
+    key: "feature",
+    label: "Feature",
+    className: "min-w-[220px]",
+    cellClassName: "max-w-[280px] truncate",
+    render: (e) => e.feature,
+  },
+  { key: "status", label: "Status", className: "w-24", render: (e) => e.status },
+  { key: "version", label: "Version", className: "w-20", render: (e) => e.version },
+  { key: "author", label: "Author", className: "w-40", render: (e) => e.author },
+  { key: "reviewer", label: "Reviewer", className: "w-40", render: (e) => e.reviewer },
+  { key: "updatedAt", label: "Updated", className: "w-28", render: (e) => e.updatedAt },
+];
+
+const RULE_COLUMNS: ColumnDef<RuleSitemapEntry>[] = [
+  {
+    key: "id",
+    label: "Rule ID",
+    className: "w-24",
+    cellClassName: "font-medium text-primary",
+    render: (e) => e.id,
+  },
+  {
+    key: "name",
+    label: "Tên rule",
+    className: "min-w-[220px]",
+    cellClassName: "max-w-[280px] truncate",
+    render: (e) => e.name,
+  },
+  { key: "category", label: "Danh mục", className: "w-32", render: (e) => e.category },
+  { key: "status", label: "Status", className: "w-24", render: (e) => e.status },
+  { key: "version", label: "Version", className: "w-20", render: (e) => e.version },
+  { key: "owner", label: "Owner", className: "w-40", render: (e) => e.owner },
+  {
+    key: "effectiveDate",
+    label: "Hiệu lực",
+    className: "w-28",
+    render: (e) => e.effectiveDate,
+  },
 ];
 
 function useSplat() {
@@ -67,14 +145,23 @@ function useSplat() {
   return rest.replace(/^\/+|\/+$/g, "");
 }
 
-function SkeletonRow({ index }: { index: number }) {
+function SkeletonRow<T extends SitemapEntry>({
+  index,
+  columns,
+}: {
+  index: number;
+  columns: ColumnDef<T>[];
+}) {
   return (
     <TableRow>
       <TableCell className="select-none border border-border/40 px-2 py-1.5 text-center text-[10px] text-muted-foreground/40">
         {index}
       </TableCell>
-      {COLUMNS.map((col) => (
-        <TableCell key={col.key} className="border border-border/40 px-2 py-1.5">
+      {columns.map((col) => (
+        <TableCell
+          key={col.key}
+          className="border border-border/40 px-2 py-1.5"
+        >
           <div className="h-3 animate-pulse rounded bg-muted" />
         </TableCell>
       ))}
@@ -83,14 +170,16 @@ function SkeletonRow({ index }: { index: number }) {
   );
 }
 
-function EntryRow({
+function EntryRow<T extends SitemapEntry>({
   entry,
   index,
+  columns,
   onDelete,
   deleting,
 }: {
-  entry: SitemapEntry;
+  entry: T;
   index: number;
+  columns: ColumnDef<T>[];
   onDelete: (entry: SitemapEntry) => void;
   deleting: boolean;
 }) {
@@ -103,27 +192,17 @@ function EntryRow({
       <TableCell className="select-none border border-border/40 px-2 py-1.5 text-center text-[10px] text-muted-foreground/50">
         {index}
       </TableCell>
-      <TableCell className="border border-border/40 px-2 py-1.5 font-medium text-primary">
-        {entry.id}
-      </TableCell>
-      <TableCell className="max-w-[280px] truncate border border-border/40 px-2 py-1.5">
-        {entry.story}
-      </TableCell>
-      <TableCell className="border border-border/40 px-2 py-1.5 text-center">
-        {entry.sprint}
-      </TableCell>
-      <TableCell className="border border-border/40 px-2 py-1.5">
-        {entry.priority}
-      </TableCell>
-      <TableCell className="border border-border/40 px-2 py-1.5">
-        {entry.status}
-      </TableCell>
-      <TableCell className="border border-border/40 px-2 py-1.5">
-        {entry.assignee}
-      </TableCell>
-      <TableCell className="border border-border/40 px-2 py-1.5">
-        {entry.creator}
-      </TableCell>
+      {columns.map((col) => (
+        <TableCell
+          key={col.key}
+          className={cn(
+            "border border-border/40 px-2 py-1.5",
+            col.cellClassName,
+          )}
+        >
+          {col.render(entry)}
+        </TableCell>
+      ))}
       <TableCell className="border border-border/40 px-2 py-1.5 text-center">
         <button
           type="button"
@@ -143,6 +222,63 @@ function EntryRow({
   );
 }
 
+function EntriesTable<T extends SitemapEntry>({
+  title,
+  columns,
+  entries,
+  onDelete,
+  deletingPath,
+  isDeleting,
+}: {
+  title?: string;
+  columns: ColumnDef<T>[];
+  entries: T[];
+  onDelete: (entry: SitemapEntry) => void;
+  deletingPath: string | undefined;
+  isDeleting: boolean;
+}) {
+  return (
+    <>
+      {title && (
+        <div className="border-b border-border/60 bg-muted/5 px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {title}
+        </div>
+      )}
+      <Table className="border-collapse">
+        <TableHeader className="sticky top-0 z-10">
+          <TableRow className="bg-muted/60">
+            <TableHead className="h-auto w-8 border border-border/60 px-2 py-1.5 font-normal text-muted-foreground" />
+            {columns.map((col) => (
+              <TableHead
+                key={col.key}
+                className={cn(
+                  "h-auto border border-border/60 px-2 py-1.5 font-medium text-muted-foreground",
+                  col.className,
+                )}
+              >
+                {col.label}
+              </TableHead>
+            ))}
+            <TableHead className="h-auto w-10 border border-border/60 px-2 py-1.5 font-normal text-muted-foreground" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {entries.map((entry, i) => (
+            <EntryRow
+              key={entry.path}
+              entry={entry}
+              index={i + 1}
+              columns={columns}
+              onDelete={onDelete}
+              deleting={isDeleting && deletingPath === entry.path}
+            />
+          ))}
+        </TableBody>
+      </Table>
+    </>
+  );
+}
+
 function FolderTable({ folder }: { folder: string }) {
   const author = useAuthorStore((s) => s.name);
   const path = sitemapPathFor(folder);
@@ -156,6 +292,20 @@ function FolderTable({ folder }: { folder: string }) {
   const deleteError = del.error ? messageFor(del.error) : null;
 
   const entries = data?.content ? parseSitemapMarkdown(data.content) : [];
+  const storyEntries = entries.filter(
+    (e): e is StorySitemapEntry => e.type === "user-story",
+  );
+  const tddEntries = entries.filter(
+    (e): e is TddSitemapEntry => e.type === "tdd",
+  );
+  const ruleEntries = entries.filter(
+    (e): e is RuleSitemapEntry => e.type === "business-rule",
+  );
+  const sectionCount =
+    (storyEntries.length > 0 ? 1 : 0) +
+    (tddEntries.length > 0 ? 1 : 0) +
+    (ruleEntries.length > 0 ? 1 : 0);
+  const hasMixed = sectionCount > 1;
 
   const onGenerate = async () => {
     if (!author) return;
@@ -216,95 +366,100 @@ function FolderTable({ folder }: { folder: string }) {
         </div>
       )}
 
-      <Table className="border-collapse">
-        <TableHeader className="sticky top-0 z-10">
-          <TableRow className="bg-muted/60">
-            <TableHead className="h-auto w-8 border border-border/60 px-2 py-1.5 font-normal text-muted-foreground" />
-            {COLUMNS.map((col) => (
-              <TableHead
-                key={col.key}
-                className={cn(
-                  "h-auto border border-border/60 px-2 py-1.5 font-medium text-muted-foreground",
-                  col.className,
-                )}
-              >
-                {col.label}
-              </TableHead>
-            ))}
-            <TableHead className="h-auto w-10 border border-border/60 px-2 py-1.5 font-normal text-muted-foreground" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {isPending &&
-            Array.from({ length: 3 }, (_, i) => (
-              <SkeletonRow key={i} index={i + 1} />
-            ))}
-
-          {!isPending && error && (
-            <TableRow>
-              <TableCell
-                colSpan={COLUMNS.length + 2}
-                className="px-4 py-6 text-center text-xs text-destructive"
-              >
-                {messageFor(error)}
-              </TableCell>
-            </TableRow>
-          )}
-
-          {!isPending && !error && !data && (
-            <TableRow>
-              <TableCell
-                colSpan={COLUMNS.length + 2}
-                className="px-4 py-10 text-center text-xs"
-              >
-                <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                  <p>Chưa có sitemap cho thư mục này.</p>
-                  <Button
-                    size="sm"
-                    onClick={onGenerate}
-                    disabled={!author || regenerating}
-                  >
-                    {regenerating && <Spinner className="size-3.5" />}
-                    Tạo sitemap
-                  </Button>
-                  {!author && (
-                    <p className="text-destructive">
-                      Cần đặt tên hiển thị (góc trên bên phải) trước khi tạo.
-                    </p>
+      {isPending && (
+        <Table className="border-collapse">
+          <TableHeader className="sticky top-0 z-10">
+            <TableRow className="bg-muted/60">
+              <TableHead className="h-auto w-8 border border-border/60 px-2 py-1.5 font-normal text-muted-foreground" />
+              {STORY_COLUMNS.map((col) => (
+                <TableHead
+                  key={col.key}
+                  className={cn(
+                    "h-auto border border-border/60 px-2 py-1.5 font-medium text-muted-foreground",
+                    col.className,
                   )}
-                  {regenError && (
-                    <p className="text-destructive">{regenError}</p>
-                  )}
-                </div>
-              </TableCell>
+                >
+                  {col.label}
+                </TableHead>
+              ))}
+              <TableHead className="h-auto w-10 border border-border/60 px-2 py-1.5 font-normal text-muted-foreground" />
             </TableRow>
-          )}
+          </TableHeader>
+          <TableBody>
+            {Array.from({ length: 3 }, (_, i) => (
+              <SkeletonRow key={i} index={i + 1} columns={STORY_COLUMNS} />
+            ))}
+          </TableBody>
+        </Table>
+      )}
 
-          {!isPending && data && entries.length === 0 && (
-            <TableRow>
-              <TableCell
-                colSpan={COLUMNS.length + 2}
-                className="px-4 py-10 text-center text-xs text-muted-foreground"
-              >
-                Thư mục trống.{" "}
-                <Link to="/convert" className="text-primary hover:underline">
-                  Tạo user story mới
-                </Link>
-              </TableCell>
-            </TableRow>
-          )}
+      {!isPending && error && (
+        <p className="px-4 py-6 text-center text-xs text-destructive">
+          {messageFor(error)}
+        </p>
+      )}
 
-          {entries.map((entry, i) => (
-            <EntryRow
-              key={entry.path}
-              entry={entry}
-              index={i + 1}
-              onDelete={setPendingDelete}
-              deleting={del.isPending && pendingDelete?.path === entry.path}
-            />
-          ))}
-        </TableBody>
-      </Table>
+      {!isPending && !error && !data && (
+        <div className="flex flex-col items-center gap-2 px-4 py-10 text-center text-xs text-muted-foreground">
+          <p>Chưa có sitemap cho thư mục này.</p>
+          <Button
+            size="sm"
+            onClick={onGenerate}
+            disabled={!author || regenerating}
+          >
+            {regenerating && <Spinner className="size-3.5" />}
+            Tạo sitemap
+          </Button>
+          {!author && (
+            <p className="text-destructive">
+              Cần đặt tên hiển thị (góc trên bên phải) trước khi tạo.
+            </p>
+          )}
+          {regenError && <p className="text-destructive">{regenError}</p>}
+        </div>
+      )}
+
+      {!isPending && data && entries.length === 0 && (
+        <p className="px-4 py-10 text-center text-xs text-muted-foreground">
+          Thư mục trống.{" "}
+          <Link to="/stories" className="text-primary hover:underline">
+            Tạo user story mới
+          </Link>
+        </p>
+      )}
+
+      {storyEntries.length > 0 && (
+        <EntriesTable
+          title={hasMixed ? "User Stories" : undefined}
+          columns={STORY_COLUMNS}
+          entries={storyEntries}
+          onDelete={setPendingDelete}
+          deletingPath={pendingDelete?.path}
+          isDeleting={del.isPending}
+        />
+      )}
+
+      {tddEntries.length > 0 && (
+        <EntriesTable
+          title={hasMixed ? "Technical Design Docs" : undefined}
+          columns={TDD_COLUMNS}
+          entries={tddEntries}
+          onDelete={setPendingDelete}
+          deletingPath={pendingDelete?.path}
+          isDeleting={del.isPending}
+        />
+      )}
+
+      {ruleEntries.length > 0 && (
+        <EntriesTable
+          title={hasMixed ? "Business Rules" : undefined}
+          columns={RULE_COLUMNS}
+          entries={ruleEntries}
+          onDelete={setPendingDelete}
+          deletingPath={pendingDelete?.path}
+          isDeleting={del.isPending}
+        />
+      )}
 
       <AlertDialog
         open={pendingDelete !== null}
@@ -400,6 +555,23 @@ export default function BrowsePage() {
 
   const currentPath = [ROOT_DIR, activeTab].filter(Boolean).join("/");
 
+  const { data: activeSitemapData } = useFile(
+    activeTab ? sitemapPathFor(activeTab) : "",
+    !!activeTab,
+  );
+  const activeSitemapEntries = activeSitemapData?.content
+    ? parseSitemapMarkdown(activeSitemapData.content)
+    : [];
+  const addTarget = (() => {
+    const hasStory = activeSitemapEntries.some((e) => e.type === "user-story");
+    const hasTdd = activeSitemapEntries.some((e) => e.type === "tdd");
+    const hasRule = activeSitemapEntries.some((e) => e.type === "business-rule");
+    const folderParam = activeTab ? `?folder=${encodeURIComponent(activeTab)}` : "";
+    if (!hasStory && hasTdd && !hasRule) return `/tdd${folderParam}`;
+    if (!hasStory && !hasTdd && hasRule) return `/rules${folderParam}`;
+    return `/stories${folderParam}`;
+  })();
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Toolbar */}
@@ -438,7 +610,7 @@ export default function BrowsePage() {
         ) : (
           <div className="px-4 py-10 text-center text-xs text-muted-foreground">
             Chưa có thư mục nào.{" "}
-            <Link to="/convert" className="text-primary hover:underline">
+            <Link to="/stories" className="text-primary hover:underline">
               Tạo user story mới
             </Link>
           </div>
@@ -448,8 +620,8 @@ export default function BrowsePage() {
       {/* Bottom sheet tabs — Google Sheets style */}
       <div className="flex shrink-0 items-stretch border-t border-border bg-muted/10 overflow-x-auto min-h-8">
         <Link
-          to={`/convert${activeTab ? `?folder=${encodeURIComponent(activeTab)}` : ""}`}
-          title="Tạo user story mới"
+          to={addTarget}
+          title="Tạo mới"
           className="flex shrink-0 items-center justify-center border-r border-border px-3 text-muted-foreground hover:bg-muted/30 hover:text-foreground transition-colors"
         >
           <Plus className="size-3.5" />

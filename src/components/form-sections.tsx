@@ -163,9 +163,17 @@ export function MetadataSection({ register, control, errors }: SectionProps) {
         </Field>
 
         <Field data-invalid={!!errors.metadata?.creator || undefined}>
-          <FieldLabel htmlFor="metadata.creator">Người tạo</FieldLabel>
+          <FieldLabel htmlFor="metadata.creator" className="gap-0.5">
+            Người tạo
+            <span className="text-muted-foreground">
+              (tự động từ tên đăng nhập)
+            </span>
+          </FieldLabel>
           <Input
             id="metadata.creator"
+            readOnly
+            tabIndex={-1}
+            className="bg-muted/40 cursor-not-allowed"
             aria-invalid={!!errors.metadata?.creator || undefined}
             {...register("metadata.creator")}
           />

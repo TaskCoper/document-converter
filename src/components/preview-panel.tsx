@@ -1,5 +1,10 @@
-import type { Control } from "react-hook-form";
-import { useWatch } from "react-hook-form";
+import {
+  CriteriaConditionLabel,
+  PositionLabel,
+  PriorityLabel,
+  StatusLabel,
+  type Schema,
+} from "@/validations";
 import {
   Ban,
   BookOpen,
@@ -10,13 +15,8 @@ import {
   Network,
   Settings2,
 } from "lucide-react";
-import {
-  CriteriaConditionLabel,
-  PositionLabel,
-  PriorityLabel,
-  StatusLabel,
-  type Schema,
-} from "@/validations";
+import type { Control } from "react-hook-form";
+import { useWatch } from "react-hook-form";
 
 function PreviewSection({
   title,
@@ -95,24 +95,52 @@ export function PreviewPanel({ control }: { control: Control<Schema> }) {
   const filled = (items?: string[]) => (items ?? []).some((s) => s?.trim());
 
   const meta = data.metadata;
-  const showMeta = !!(meta?.id || meta?.story || meta?.context || meta?.sprint || meta?.creator || meta?.priority || meta?.status || meta?.assignee?.length);
-  const showConditions = filled(data.conditions?.preconditions) || !!data.conditions?.trigger?.trim();
-  const showFlow = filled(data.flow?.mainFlow) ||
-    (data.flow?.alternativeFlow?.some((f) => f.steps.some((s) => s.trim())) ?? false) ||
-    (data.flow?.exceptionFlow?.some((f) => f.steps.some((s) => s.trim())) ?? false);
-  const showAC = Array.isArray(data.acceptanceCriteria) && data.acceptanceCriteria.some(
-    (ac) => ac.code?.trim() || ac.criterias?.some((c) => c.step?.trim()),
+  const showMeta = !!(
+    meta?.id ||
+    meta?.story ||
+    meta?.context ||
+    meta?.sprint ||
+    meta?.creator ||
+    meta?.priority ||
+    meta?.status ||
+    meta?.assignee?.length
   );
+  const showConditions =
+    filled(data.conditions?.preconditions) ||
+    !!data.conditions?.trigger?.trim();
+  const showFlow =
+    filled(data.flow?.mainFlow) ||
+    (data.flow?.alternativeFlow?.some((f) => f.steps.some((s) => s.trim())) ??
+      false) ||
+    (data.flow?.exceptionFlow?.some((f) => f.steps.some((s) => s.trim())) ??
+      false);
+  const showAC =
+    Array.isArray(data.acceptanceCriteria) &&
+    data.acceptanceCriteria.some(
+      (ac) => ac.code?.trim() || ac.criterias?.some((c) => c.step?.trim()),
+    );
   const showDiagram = !!data.activityDiagram?.trim();
-  const showRefs = filled(data.references?.businessRules) || filled(data.references?.dependencies);
+  const showRefs =
+    filled(data.references?.businessRules) ||
+    filled(data.references?.dependencies);
   const showNonFunc = filled(data.nonFunctional);
   const showOutOfScope = filled(data.outOfScope);
 
-  const hasAny = showMeta || showConditions || showFlow || showAC || showDiagram || showRefs || showNonFunc || showOutOfScope;
+  const hasAny =
+    showMeta ||
+    showConditions ||
+    showFlow ||
+    showAC ||
+    showDiagram ||
+    showRefs ||
+    showNonFunc ||
+    showOutOfScope;
 
   if (!hasAny) {
     return (
-      <p className="text-xs text-muted-foreground italic">Chưa có dữ liệu để xem trước.</p>
+      <p className="text-xs text-muted-foreground italic">
+        Chưa có dữ liệu để xem trước.
+      </p>
     );
   }
 
@@ -172,19 +200,20 @@ export function PreviewPanel({ control }: { control: Control<Schema> }) {
       {showFlow && (
         <PreviewSection title="Luồng xử lý" icon={GitBranch}>
           <PreviewList label="Luồng chính" items={data.flow?.mainFlow} />
-          {data.flow?.alternativeFlow && data.flow.alternativeFlow.length > 0 && (
-            <div>
-              <div className="text-muted-foreground mb-1">Luồng thay thế</div>
-              <ul className="flex flex-col gap-2">
-                {data.flow.alternativeFlow.map((f, i) => (
-                  <li key={i}>
-                    <div className="font-medium">{f.code || `#${i + 1}`}</div>
-                    <PreviewList items={f.steps} />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {data.flow?.alternativeFlow &&
+            data.flow.alternativeFlow.length > 0 && (
+              <div>
+                <div className="text-muted-foreground mb-1">Luồng thay thế</div>
+                <ul className="flex flex-col gap-2">
+                  {data.flow.alternativeFlow.map((f, i) => (
+                    <li key={i}>
+                      <div className="font-medium">{f.code || `#${i + 1}`}</div>
+                      <PreviewList items={f.steps} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           {data.flow?.exceptionFlow && data.flow.exceptionFlow.length > 0 && (
             <div>
               <div className="text-muted-foreground mb-1">Luồng ngoại lệ</div>
@@ -204,23 +233,24 @@ export function PreviewPanel({ control }: { control: Control<Schema> }) {
       {showAC && (
         <PreviewSection title="Tiêu chí chấp nhận" icon={ListChecks}>
           <div className="flex flex-col gap-3">
-            {Array.isArray(data.acceptanceCriteria) && data.acceptanceCriteria.map((ac, i) => (
-              <div key={i}>
-                {ac.code && (
-                  <div className="font-medium mb-1">{ac.code}</div>
-                )}
-                <ul className="flex flex-col gap-1">
-                  {ac.criterias?.filter((c) => c.step?.trim()).map((c, ci) => (
-                    <li key={ci} className="wrap-break-word">
-                      <span className="font-medium">
-                        {c.type ? CriteriaConditionLabel[c.type] : "-"}
-                      </span>{" "}
-                      {c.step}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+            {Array.isArray(data.acceptanceCriteria) &&
+              data.acceptanceCriteria.map((ac, i) => (
+                <div key={i}>
+                  {ac.code && <div className="font-medium mb-1">{ac.code}</div>}
+                  <ul className="flex flex-col gap-1">
+                    {ac.criterias
+                      ?.filter((c) => c.step?.trim())
+                      .map((c, ci) => (
+                        <li key={ci} className="wrap-break-word">
+                          <span className="font-medium">
+                            {c.type ? CriteriaConditionLabel[c.type] : "-"}
+                          </span>{" "}
+                          {c.step}
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              ))}
           </div>
         </PreviewSection>
       )}
@@ -248,7 +278,10 @@ export function PreviewPanel({ control }: { control: Control<Schema> }) {
             label="Quy tắc nghiệp vụ"
             items={data.references?.businessRules}
           />
-          <PreviewList label="Phụ thuộc" items={data.references?.dependencies} />
+          <PreviewList
+            label="Phụ thuộc"
+            items={data.references?.dependencies}
+          />
         </PreviewSection>
       )}
 

@@ -506,10 +506,10 @@ const separatorRow = (cls: string): string =>
 
 const STYLE = `
 .ritz { font-family: Arial, sans-serif; color: #000; }
-.waffle { border-collapse: collapse; table-layout: fixed; width: 1240px; }
+.waffle { border-collapse: collapse; table-layout: fixed; width: 100%; }
 .waffle td { padding: 4px 6px; border: 1px solid #000; font-size: 10pt; vertical-align: middle; word-wrap: break-word; }
 .waffle a { color: inherit; }
-.grid-container { padding: 12px; display: flex; justify-content: center; }
+.grid-container { padding: 12px; }
 .waffle .s0 { background:#d0e0e3; text-align:center; }
 .waffle .s1 { background:#fff2cc; text-align:center; }
 .waffle .s2 { background:#ffffff; text-align:left; }

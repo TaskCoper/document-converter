@@ -11,6 +11,7 @@
 - **Assignee**:
   - Frontend: Nguyễn Văn A
   - Backend: Trần Thị B
+  - Backend: Trần Đình Thiên Tân
 
 ## Conditions
 

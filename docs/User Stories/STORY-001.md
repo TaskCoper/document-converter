@@ -147,8 +147,6 @@ https://lucid.app/lucidchart/example-activity-diagram
 ### TDDs
 
 - [TDD-BAOKIM-001](Technical Design Documents/TDD-BAOKIM-001.md)
-- [TDD-BAOKIM-002](Technical Design Documents/TDD-BAOKIM-002.md)
-- [TDD-BAOKIM-003](Technical Design Documents/TDD-BAOKIM-003.md)
 
 ## Non-Functional
 

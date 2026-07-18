@@ -148,6 +148,10 @@ https://lucid.app/lucidchart/example-activity-diagram
 
 - [TDD-BAOKIM-001](Technical Design Documents/TDD-BAOKIM-001.md)
 
+### Rules
+
+- [BR-08](Business Rules/BR-07.md)
+
 ## Non-Functional
 
 - Thời gian phản hồi gửi email < 2 giây (P95)

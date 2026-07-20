@@ -12,8 +12,8 @@ export const sampleTddData: TddSchema = {
     status: DocStatus.Draft,
     version: "v1.0",
     updatedAt: "2026-07-13",
-    relatedStories: ["HTM-142", "HTM-143"],
-    businessRules: ["BR-03", "BR-07"],
+    relatedStories: [],
+    businessRules: [],
   },
   contextGoals: {
     problem:
@@ -30,7 +30,13 @@ export const sampleTddData: TddSchema = {
   architecture: {
     description:
       "Backend là điểm trung gian duy nhất tiếp xúc Baokim. Frontend gọi backend, backend gọi Baokim và xử lý webhook.",
-    url: "https://lucid.app/lucidchart/example-architecture",
+    mermaid: `flowchart LR
+    FE[Frontend] -->|"REST"| BE[Backend]
+    BE -->|"create order (JWT)"| BK[Baokim]
+    BK -->|"webhook (async)"| BE
+    BE --> DB[(Database)]
+    RJ[Reconcile Job] -->|"đối soát định kỳ"| BK
+    RJ -->|"vá webhook miss"| DB`,
     notes: [
       "Backend là điểm trung gian duy nhất tiếp xúc Baokim — FE không giữ secret.",
       "Reconcile job xử lý trường hợp webhook miss.",
@@ -39,24 +45,80 @@ export const sampleTddData: TddSchema = {
   sequenceDiagram: {
     description:
       "Luồng chính của tích hợp thanh toán — nhấn mạnh 'ai gọi ai, message gì'.",
-    url: "https://lucid.app/lucidchart/example-sequence",
+    mermaid: `sequenceDiagram
+    participant FE as Frontend
+    participant BE as Backend
+    participant BK as Baokim
+    participant DB as Database
+
+    FE->>BE: POST /payment/create (orderId, amount, returnUrl)
+    BE->>DB: Kiểm tra order đang PENDING?
+
+    alt Order không PENDING
+        BE-->>FE: 409 ORDER_NOT_PENDING
+    else Order PENDING
+        BE->>BK: Tạo giao dịch (JWT sống 15 phút)
+        alt Baokim không phản hồi
+            BK-->>BE: timeout/error
+            BE-->>FE: 502 BAOKIM_UNAVAILABLE
+        else Baokim OK
+            BK-->>BE: paymentUrl
+            BE-->>FE: 200 {paymentUrl, expiresAt}
+            FE->>BK: Redirect user sang trang thanh toán
+            BK->>BE: POST /payment/webhook (txn_id, signature, ...)
+            BE->>BE: Verify signature (HMAC)
+            alt Signature không hợp lệ
+                BE-->>BK: 401 INVALID_SIGNATURE
+            else Signature hợp lệ
+                BE->>DB: Update order=PAID + ghi transaction (1 DB transaction, idempotent theo bk_txn_id)
+                BE-->>BK: 200 OK
+            end
+        end
+    end`,
     notes: [],
   },
   activityDiagram: {
-    description:
-      "Logic xử lý webhook — nhấn mạnh 'các bước và nhánh rẽ'.",
-    url: "https://lucid.app/lucidchart/example-activity",
+    description: "Logic xử lý webhook — nhấn mạnh 'các bước và nhánh rẽ'.",
+    mermaid: `flowchart TD
+    A[Nhận webhook từ Baokim] --> B{Verify signature hợp lệ?}
+    B -- Không --> C[Trả 401 INVALID_SIGNATURE]
+    B -- Có --> D{bk_txn_id đã xử lý trước đó?}
+    D -- Rồi - idempotent --> E[Trả 200 OK, không xử lý lại]
+    D -- Chưa --> F{Order đang PENDING?}
+    F -- Không --> G[Log bất thường + Trả 200 OK]
+    F -- Có --> H["Update order=PAID + Ghi transaction<br/>(cùng 1 DB transaction)"]
+    H --> I[Trả 200 OK]`,
     notes: [],
   },
   stateDiagram: {
     description: "Vòng đời trạng thái của đơn hàng.",
-    url: "https://lucid.app/lucidchart/example-state",
+    mermaid: `stateDiagram-v2
+    [*] --> PENDING
+    PENDING --> PAID: Webhook signature hợp lệ (BR-03)
+    PENDING --> CANCELLED: Quá 24h chưa thanh toán (BR-07, auto-cancel)
+    PAID --> [*]
+    CANCELLED --> [*]`,
     notes: [],
   },
   dataModel: {
     description:
       "Bảng và quan hệ liên quan tới tính năng. Schema thật nằm ở migration trong repo, đây là bản mô tả thiết kế.",
-    url: "https://lucid.app/lucidchart/example-erd",
+    mermaid: `erDiagram
+    ORDER ||--o{ PAYMENT_TRANSACTION : has
+    ORDER {
+        uuid order_id PK
+        string status
+        int amount
+        datetime created_at
+    }
+    PAYMENT_TRANSACTION {
+        uuid id PK
+        uuid order_id FK
+        string bk_txn_id UK
+        string status
+        int amount
+        datetime created_at
+    }`,
     notes: [
       "bk_txn_id UNIQUE — nền tảng cho idempotency của webhook.",
       "Update order và ghi transaction trong cùng một DB transaction.",
@@ -204,11 +266,11 @@ export const initialTddData: TddSchema = {
     goals: [""],
     nonGoals: [],
   },
-  architecture: { description: "", url: "", notes: [] },
-  sequenceDiagram: { description: "", url: "", notes: [] },
-  activityDiagram: { description: "", url: "", notes: [] },
-  stateDiagram: { description: "", url: "", notes: [] },
-  dataModel: { description: "", url: "", notes: [] },
+  architecture: { description: "", mermaid: "", notes: [] },
+  sequenceDiagram: { description: "", mermaid: "", notes: [] },
+  activityDiagram: { description: "", mermaid: "", notes: [] },
+  stateDiagram: { description: "", mermaid: "", notes: [] },
+  dataModel: { description: "", mermaid: "", notes: [] },
   internalApi: { endpoints: [], examples: [], errorCodes: [] },
   externalApi: { endpoints: [], fields: [], errorHandling: "", quirks: [] },
   references: {

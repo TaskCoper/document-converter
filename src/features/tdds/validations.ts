@@ -57,7 +57,7 @@ const contextGoalsSchema = z.object({
 
 const diagramSectionSchema = z.object({
   description: z.string(),
-  url: z.string(),
+  mermaid: z.string(),
   notes: z.array(z.string().min(1, "Ghi chú không được để trống")),
 });
 
@@ -154,7 +154,7 @@ const fieldNameLabels: Record<string, string> = {
   stateDiagram: "State Diagram",
   dataModel: "Mô hình dữ liệu",
   description: "Mô tả",
-  url: "URL",
+  mermaid: "Mermaid",
   notes: "Ghi chú",
   internalApi: "API nội bộ",
   externalApi: "API bên ngoài",

@@ -6,13 +6,20 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import {
   fromRuleMarkdown,
   toRuleHtml,
 } from "@/features/business-rules/exporters";
+import { RuleStatusLabel } from "@/features/business-rules/validations";
 import { fromTddMarkdown, toTddHtml } from "@/features/tdds/exporters";
+import { TddDocumentView } from "@/features/tdds/tdd-document-view";
 import { fromMarkdown, toHtml } from "@/features/user-stories/exporters";
 import { useAuthorStore } from "@/features/user-stories/store";
-import { detectType } from "@/lib/file-type";
+import { detectType, type FileType } from "@/lib/file-type";
 import {
   messageFor,
   parentOf,
@@ -24,14 +31,28 @@ import { isSitemapPath } from "@/lib/sitemap";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
-  Download,
+  Columns2,
   Edit,
   ExternalLink,
   FileText,
   Plus,
+  Rows2,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+
+function renderMarkdownToHtml(
+  md: string,
+  type: FileType | null,
+): string | null {
+  try {
+    if (type === "tdd") return toTddHtml(fromTddMarkdown(md));
+    if (type === "business-rule") return toRuleHtml(fromRuleMarkdown(md));
+    return toHtml(fromMarkdown(md));
+  } catch {
+    return null;
+  }
+}
 
 export default function ViewPage() {
   const { "*": rest = "" } = useParams();
@@ -76,23 +97,41 @@ export default function ViewPage() {
       !isSitemapPath(e.path),
   );
 
-  let html: string | null = null;
-
   const detectedType = data?.content ? detectType(data.content) : null;
+  const html = data?.content
+    ? renderMarkdownToHtml(data.content, detectedType)
+    : null;
 
-  if (data?.content) {
+  let storyTdds: { id: string; path: string }[] = [];
+  let storyRules: { id: string; path: string }[] = [];
+  if (detectedType === "user-story" && data?.content) {
     try {
-      if (detectedType === "tdd") {
-        html = toTddHtml(fromTddMarkdown(data.content));
-      } else if (detectedType === "business-rule") {
-        html = toRuleHtml(fromRuleMarkdown(data.content));
-      } else {
-        html = toHtml(fromMarkdown(data.content));
-      }
+      const parsed = fromMarkdown(data.content);
+      storyTdds = parsed.references.tdds;
+      storyRules = parsed.references.rules;
     } catch {
-      html = null;
+      storyTdds = [];
+      storyRules = [];
     }
   }
+
+  let tddParsed: ReturnType<typeof fromTddMarkdown> | null = null;
+  if (detectedType === "tdd" && data?.content) {
+    try {
+      tddParsed = fromTddMarkdown(data.content);
+    } catch {
+      tddParsed = null;
+    }
+  }
+
+  const canSplit = detectedType === "user-story" && storyTdds.length > 0;
+  const canShowRules = detectedType === "user-story" && storyRules.length > 0;
+  const [tddsOpen, setTddsOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
+
+  const showTdds = canSplit && tddsOpen;
+  const showRules = canShowRules && rulesOpen;
+  const showExtras = showTdds || showRules;
 
   const editPath =
     detectedType === "tdd"
@@ -151,18 +190,18 @@ export default function ViewPage() {
     );
   }
 
-  const onDownload = () => {
-    if (!html) return;
-    const filename =
-      path.split("/").pop()?.replace(/\.md$/, ".html") ?? "view.html";
-    const blob = new Blob([html], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  // const onDownload = () => {
+  //   if (!html) return;
+  //   const filename =
+  //     path.split("/").pop()?.replace(/\.md$/, ".html") ?? "view.html";
+  //   const blob = new Blob([html], { type: "text/html" });
+  //   const url = URL.createObjectURL(blob);
+  //   const a = document.createElement("a");
+  //   a.href = url;
+  //   a.download = filename;
+  //   a.click();
+  //   URL.revokeObjectURL(url);
+  // };
 
   const currentFileName = path.split("/").pop() ?? "";
 
@@ -189,10 +228,7 @@ export default function ViewPage() {
   };
 
   return (
-    <div
-      className="flex flex-col overflow-hidden"
-      style={{ height: "calc(100vh - 3rem)" }}
-    >
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <div className="shrink-0 flex items-center gap-2 p-2 border-b border-border">
         <Link
           to={`/browse/${parentOf(path)}`}
@@ -216,14 +252,33 @@ export default function ViewPage() {
           GitHub
         </a>
 
-        {html && (
+        {canSplit && (
           <button
             type="button"
-            onClick={onDownload}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
+            onClick={() => setTddsOpen((v) => !v)}
+            aria-pressed={tddsOpen}
+            className={buttonVariants({
+              variant: tddsOpen ? "default" : "outline",
+              size: "sm",
+            })}
           >
-            <Download className="size-3.5" />
-            Tải HTML
+            <Columns2 className="size-3.5" />
+            {tddsOpen ? "Ẩn TDDs" : "Xem TDDs"}
+          </button>
+        )}
+
+        {canShowRules && (
+          <button
+            type="button"
+            onClick={() => setRulesOpen((v) => !v)}
+            aria-pressed={rulesOpen}
+            className={buttonVariants({
+              variant: rulesOpen ? "default" : "outline",
+              size: "sm",
+            })}
+          >
+            <Rows2 className="size-3.5" />
+            {rulesOpen ? "Ẩn Rules" : "Xem Rules"}
           </button>
         )}
 
@@ -237,12 +292,124 @@ export default function ViewPage() {
       </div>
 
       {html ? (
-        <iframe
-          srcDoc={html}
-          className="flex-1 w-full border-0 min-h-0"
-          title="HTML Preview"
-          sandbox="allow-same-origin"
-        />
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {showExtras ? (
+            showTdds && showRules ? (
+              <ResizablePanelGroup orientation="horizontal" className="h-full">
+                <ResizablePanel defaultSize={70} minSize={20}>
+                  <ResizablePanelGroup
+                    orientation="vertical"
+                    className="h-full"
+                  >
+                    <ResizablePanel defaultSize={80} minSize={15}>
+                      <iframe
+                        srcDoc={html}
+                        className="w-full h-full border-0"
+                        title="Story preview"
+                        sandbox="allow-same-origin allow-top-navigation-by-user-activation"
+                      />
+                    </ResizablePanel>
+                    <ResizableHandle withHandle />
+                    <ResizablePanel defaultSize={20} minSize={15}>
+                      <BusinessRulesTable rules={storyRules} />
+                    </ResizablePanel>
+                  </ResizablePanelGroup>
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={30} minSize={20}>
+                  {storyTdds.length === 1 ? (
+                    <TddPreviewPanel
+                      path={storyTdds[0].path}
+                      id={storyTdds[0].id}
+                    />
+                  ) : (
+                    <ResizablePanelGroup
+                      orientation="horizontal"
+                      className="h-full"
+                    >
+                      {storyTdds.map((tdd, i) => (
+                        <Fragment key={tdd.path}>
+                          {i > 0 && <ResizableHandle withHandle />}
+                          <ResizablePanel
+                            defaultSize={100 / storyTdds.length}
+                            minSize={15}
+                          >
+                            <TddPreviewPanel path={tdd.path} id={tdd.id} />
+                          </ResizablePanel>
+                        </Fragment>
+                      ))}
+                    </ResizablePanelGroup>
+                  )}
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            ) : showTdds ? (
+              <ResizablePanelGroup orientation="horizontal" className="h-full">
+                <ResizablePanel defaultSize={70} minSize={20}>
+                  <iframe
+                    srcDoc={html}
+                    className="w-full h-full border-0"
+                    title="Story preview"
+                    sandbox="allow-same-origin allow-top-navigation-by-user-activation"
+                  />
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={30} minSize={20}>
+                  {storyTdds.length === 1 ? (
+                    <TddPreviewPanel
+                      path={storyTdds[0].path}
+                      id={storyTdds[0].id}
+                    />
+                  ) : (
+                    <ResizablePanelGroup
+                      orientation="horizontal"
+                      className="h-full"
+                    >
+                      {storyTdds.map((tdd, i) => (
+                        <Fragment key={tdd.path}>
+                          {i > 0 && <ResizableHandle withHandle />}
+                          <ResizablePanel
+                            defaultSize={100 / storyTdds.length}
+                            minSize={15}
+                          >
+                            <TddPreviewPanel path={tdd.path} id={tdd.id} />
+                          </ResizablePanel>
+                        </Fragment>
+                      ))}
+                    </ResizablePanelGroup>
+                  )}
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            ) : (
+              <ResizablePanelGroup orientation="vertical" className="h-full">
+                <ResizablePanel defaultSize={80} minSize={15}>
+                  <iframe
+                    srcDoc={html}
+                    className="w-full h-full border-0"
+                    title="Story preview"
+                    sandbox="allow-same-origin allow-top-navigation-by-user-activation"
+                  />
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={20} minSize={15}>
+                  <BusinessRulesTable rules={storyRules} />
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            )
+          ) : detectedType === "tdd" && tddParsed ? (
+            <div className="h-full overflow-y-auto p-8">
+              <div className="mx-auto max-w-3xl">
+                <TddDocumentView data={tddParsed} />
+              </div>
+            </div>
+          ) : (
+            <iframe
+              srcDoc={html}
+              className="w-full h-full border-0"
+              title="Story preview"
+              sandbox="allow-same-origin allow-top-navigation-by-user-activation"
+            />
+          )}
+        </div>
       ) : (
         <div className="mx-auto max-w-7xl px-4 py-6">
           <p className="text-xs text-destructive">
@@ -316,5 +483,206 @@ export default function ViewPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function TddPreviewPanel({ path, id }: { path: string; id: string }) {
+  const { data: fileData, isPending, error } = useFile(path);
+
+  let parsed: ReturnType<typeof fromTddMarkdown> | null = null;
+  if (fileData?.content) {
+    try {
+      parsed = fromTddMarkdown(fileData.content);
+    } catch {
+      parsed = null;
+    }
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="shrink-0 flex items-center gap-2 border-b border-border bg-muted/20 px-2 py-1.5">
+        <FileText className="size-3 shrink-0 text-muted-foreground" />
+        <code className="truncate text-xs font-mono flex-1">{id}</code>
+        <Link
+          to={`/view/${path}`}
+          title="Mở trong tab riêng"
+          className="inline-flex items-center gap-1 whitespace-nowrap text-xs text-muted-foreground hover:text-foreground"
+        >
+          <ExternalLink className="size-3" />
+        </Link>
+      </div>
+
+      {isPending ? (
+        <p className="p-3 text-xs text-muted-foreground">Đang tải TDD…</p>
+      ) : error ? (
+        <p className="p-3 text-xs text-destructive">{messageFor(error)}</p>
+      ) : !fileData ? (
+        <p className="p-3 text-xs text-destructive">
+          Không tìm thấy <code>{path}</code>.
+        </p>
+      ) : !parsed ? (
+        <p className="p-3 text-xs text-destructive">
+          Không thể hiển thị TDD này.
+        </p>
+      ) : (
+        <div className="flex-1 min-h-0 overflow-y-auto p-3">
+          <TddDocumentView data={parsed} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+const RULE_COLUMNS: { key: string; label: string; minWidth?: string }[] = [
+  { key: "id", label: "Rule ID" },
+  { key: "name", label: "Tên rule", minWidth: "180px" },
+  { key: "category", label: "Danh mục", minWidth: "140px" },
+  { key: "statement", label: "Phát biểu (Statement)", minWidth: "320px" },
+  { key: "when", label: "Điều kiện (When)", minWidth: "220px" },
+  { key: "then", label: "Hành vi (Then)", minWidth: "260px" },
+  { key: "except", label: "Ngoại lệ (Except)", minWidth: "220px" },
+  { key: "source", label: "Nguồn", minWidth: "180px" },
+  { key: "owner", label: "Người sở hữu", minWidth: "140px" },
+  { key: "relatedStories", label: "Story liên quan", minWidth: "160px" },
+  { key: "status", label: "Trạng thái" },
+  { key: "version", label: "Version" },
+  { key: "effectiveDate", label: "Ngày hiệu lực" },
+  { key: "notes", label: "Ghi chú / Link logic", minWidth: "220px" },
+];
+
+function BusinessRulesTable({
+  rules,
+}: {
+  rules: { id: string; path: string }[];
+}) {
+  return (
+    <div className="flex h-full flex-col overflow-hidden p-3">
+      <div className="flex-1 overflow-auto">
+        <table className="w-full border-separate border-spacing-0 text-[10px]">
+          <thead>
+            <tr>
+              {RULE_COLUMNS.map((c) => (
+                <th
+                  key={c.key}
+                  style={c.minWidth ? { minWidth: c.minWidth } : undefined}
+                  className="sticky top-0 text-xs z-10 border-b border-r border-[#d9d5cc] bg-[#e8a13a] px-2 py-1.5 text-center font-bold text-white whitespace-nowrap"
+                >
+                  {c.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rules.map((r, i) => (
+              <BusinessRuleRow key={r.path} rule={r} zebra={i % 2 === 1} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function BusinessRuleRow({
+  rule,
+  zebra,
+}: {
+  rule: { id: string; path: string };
+  zebra: boolean;
+}) {
+  const { data, isPending, error } = useFile(rule.path);
+
+  let parsed: ReturnType<typeof fromRuleMarkdown> | null = null;
+  if (data?.content) {
+    try {
+      parsed = fromRuleMarkdown(data.content);
+    } catch {
+      parsed = null;
+    }
+  }
+
+  const cellBg = zebra ? "bg-[#f3f1ea]" : "bg-white";
+  const cellBase =
+    "border-b border-r border-[#d9d5cc] px-2 py-1.5 align-top text-xs text-[#111827]";
+  const idCell =
+    "border-b border-r border-[#d9d5cc] bg-[#fbe7cc] px-2 py-1.5 align-top font-mono text-[10px] font-semibold text-[#92400e] whitespace-nowrap";
+
+  if (isPending) {
+    return (
+      <tr>
+        <td className={idCell}>
+          <Link to={`/view/${rule.path}`} className="hover:underline">
+            {rule.id}
+          </Link>
+        </td>
+        <td
+          colSpan={RULE_COLUMNS.length - 1}
+          className={cn(cellBase, cellBg, "text-muted-foreground")}
+        >
+          Đang tải…
+        </td>
+      </tr>
+    );
+  }
+
+  if (error) {
+    return (
+      <tr>
+        <td className={idCell}>{rule.id}</td>
+        <td
+          colSpan={RULE_COLUMNS.length - 1}
+          className={cn(cellBase, cellBg, "text-destructive")}
+        >
+          {messageFor(error)}
+        </td>
+      </tr>
+    );
+  }
+
+  if (!data || !parsed) {
+    return (
+      <tr>
+        <td className={idCell}>{rule.id}</td>
+        <td
+          colSpan={RULE_COLUMNS.length - 1}
+          className={cn(cellBase, cellBg, "text-destructive")}
+        >
+          Không đọc được rule tại <code>{rule.path}</code>
+        </td>
+      </tr>
+    );
+  }
+
+  const wrap = "whitespace-normal break-words";
+  const nowrap = "whitespace-nowrap";
+  const center = "text-center";
+
+  return (
+    <tr>
+      <td className={idCell}>
+        <Link to={`/view/${rule.path}`} className="text-xs hover:underline">
+          {parsed.ruleId || rule.id}
+        </Link>
+      </td>
+      <td className={cn(cellBase, cellBg, wrap)}>{parsed.name}</td>
+      <td className={cn(cellBase, cellBg, center)}>{parsed.category}</td>
+      <td className={cn(cellBase, cellBg, wrap)}>{parsed.statement}</td>
+      <td className={cn(cellBase, cellBg, wrap)}>{parsed.when}</td>
+      <td className={cn(cellBase, cellBg, wrap)}>{parsed.then}</td>
+      <td className={cn(cellBase, cellBg, wrap)}>{parsed.except}</td>
+      <td className={cn(cellBase, cellBg, wrap)}>{parsed.source}</td>
+      <td className={cn(cellBase, cellBg)}>{parsed.owner}</td>
+      <td className={cn(cellBase, cellBg, wrap)}>
+        {parsed.relatedStories.join(", ")}
+      </td>
+      <td className={cn(cellBase, cellBg, center, nowrap)}>
+        {RuleStatusLabel[parsed.status]}
+      </td>
+      <td className={cn(cellBase, cellBg, center, nowrap)}>{parsed.version}</td>
+      <td className={cn(cellBase, cellBg, center, nowrap)}>
+        {parsed.effectiveDate}
+      </td>
+      <td className={cn(cellBase, cellBg, wrap)}>{parsed.notes}</td>
+    </tr>
   );
 }

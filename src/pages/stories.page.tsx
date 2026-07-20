@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { getFile, slugifyAuthor } from "@/lib/github";
+import { slugifyAuthor } from "@/lib/github";
 import {
   messageFor,
   parentOf,
@@ -264,11 +264,10 @@ export default function StoriesPage() {
       metadata: { ...data.metadata, creator: author },
     });
     try {
-      const existing = await getFile(path);
       await save.mutateAsync({
         path,
         content,
-        message: buildCreateCommitMessage(path, data, author, !!existing),
+        message: buildCreateCommitMessage(path, data, author),
         websiteUser: author,
       });
       resetStore();
@@ -462,7 +461,7 @@ export default function StoriesPage() {
 
             {step === 3 && (
               <>
-                <ReferencesSection control={control} register={register} />
+                <ReferencesSection control={control} />
                 <StringListSection
                   legend="Yêu cầu phi chức năng"
                   description="Danh sách các yêu cầu phi chức năng"
@@ -724,9 +723,7 @@ function FolderPicker({
         <Input
           type="text"
           value={value}
-          onChange={(e) =>
-            onChange(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""))
-          }
+          onChange={(e) => onChange(e.target.value)}
           placeholder={authorSlug}
           className="h-7 text-xs max-w-[16rem]"
         />
@@ -821,7 +818,6 @@ function buildCreateCommitMessage(
   _path: string,
   data: Schema,
   author: string,
-  isUpdate: boolean,
 ): string {
   const storyId = data.metadata.id;
   const storyTitle = data.metadata.story;
@@ -838,8 +834,7 @@ function buildCreateCommitMessage(
     .join(" | ");
   if (sprintPriority) parts.push(sprintPriority);
   if (data.metadata.status) parts.push(`Status: ${data.metadata.status}`);
-  const action = isUpdate ? "Update" : "Create";
-  parts.push("", `${action}d by ${author} on the web.`);
+  parts.push("", `Created by ${author} on the web.`);
   return parts.join("\n");
 }
 
@@ -913,9 +908,13 @@ function summarizeChanges(prev: Schema, next: Schema): string[] {
     lines.push("activityDiagram");
 
   const refChanged: string[] = [];
-  if (!eq(prev.references.businessRules, next.references.businessRules))
+  if (!eq(prev.references.tdds, next.references.tdds))
     refChanged.push(
-      `businessRules (${countChange(prev.references.businessRules, next.references.businessRules)})`,
+      `tdds (${countChange(prev.references.tdds, next.references.tdds)})`,
+    );
+  if (!eq(prev.references.rules, next.references.rules))
+    refChanged.push(
+      `rules (${countChange(prev.references.rules, next.references.rules)})`,
     );
   if (!eq(prev.references.dependencies, next.references.dependencies))
     refChanged.push(

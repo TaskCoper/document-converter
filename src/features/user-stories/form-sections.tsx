@@ -1,6 +1,8 @@
+import { useState } from "react";
 import type { Control, FieldErrors, UseFormRegister } from "react-hook-form";
-import { Controller, useFieldArray } from "react-hook-form";
+import { Controller, useFieldArray, useWatch } from "react-hook-form";
 
+import AsyncMultiSelectField from "@/components/async-multi-select-field";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -20,6 +22,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useAllRules, useAllStories, useAllTdds } from "@/lib/queries";
+import type {
+  RuleSitemapEntry,
+  StorySitemapEntry,
+  TddSitemapEntry,
+} from "@/lib/sitemap";
+import { Plus, Trash2 } from "lucide-react";
 import {
   CriteriaCondition,
   CriteriaConditionLabel,
@@ -31,7 +40,6 @@ import {
   StatusLabel,
   type Schema,
 } from "./validations";
-import { Plus, Trash2 } from "lucide-react";
 
 export type SectionProps = {
   register: UseFormRegister<Schema>;
@@ -42,8 +50,6 @@ export type SectionProps = {
 export type StringListName =
   | "conditions.preconditions"
   | "flow.mainFlow"
-  | "references.businessRules"
-  | "references.dependencies"
   | "nonFunctional"
   | "outOfScope";
 
@@ -496,33 +502,154 @@ function AcGroupField({
   );
 }
 
-export function ReferencesSection({
-  register,
-  control,
-}: {
-  register: UseFormRegister<Schema>;
-  control: Control<Schema>;
-}) {
+export function ReferencesSection({ control }: { control: Control<Schema> }) {
   return (
     <FieldSet>
       <FieldLegend>Tham chiếu</FieldLegend>
       <FieldGroup>
-        <StringArrayField
-          control={control}
-          register={register}
-          name="references.businessRules"
-          label="Quy tắc nghiệp vụ"
-          placeholder="VD: BR-01"
-        />
-        <StringArrayField
-          control={control}
-          register={register}
-          name="references.dependencies"
-          label="Phụ thuộc"
-          placeholder="VD: STORY-002"
-        />
+        <TddsPicker control={control} />
+        <RulesPicker control={control} />
+        <DependenciesPicker control={control} />
       </FieldGroup>
     </FieldSet>
+  );
+}
+
+function TddsPicker({ control }: { control: Control<Schema> }) {
+  const [search, setSearch] = useState("");
+  const { data: allTdds = [], isPending } = useAllTdds();
+
+  const needle = search.trim().toLowerCase();
+  const items = needle
+    ? allTdds.filter(
+        (t) =>
+          t.id.toLowerCase().includes(needle) ||
+          t.feature.toLowerCase().includes(needle),
+      )
+    : allTdds;
+
+  return (
+    <AsyncMultiSelectField<
+      Schema,
+      Schema["references"]["tdds"][number],
+      TddSitemapEntry
+    >
+      control={control}
+      name="references.tdds"
+      label="Tài liệu kỹ thuật (TDDs)"
+      items={items}
+      isLoading={isPending}
+      searchValue={search}
+      onSearchChange={setSearch}
+      placeholder="Chọn TDDs..."
+      getId={(item) => item.id}
+      getValueId={(v) => v.id}
+      getLabel={(item) => item.id}
+      createValue={(item) => ({ id: item.id, path: item.path })}
+      renderOption={(item) => (
+        <div className="flex flex-col min-w-0 w-full">
+          <span className="font-mono text-xs">{item.id}</span>
+          {item.feature && (
+            <span className="text-muted-foreground text-xs truncate">
+              {item.feature}
+            </span>
+          )}
+        </div>
+      )}
+    />
+  );
+}
+
+function RulesPicker({ control }: { control: Control<Schema> }) {
+  const [search, setSearch] = useState("");
+  const { data: allRules = [], isPending } = useAllRules();
+
+  const needle = search.trim().toLowerCase();
+  const items = needle
+    ? allRules.filter(
+        (r) =>
+          r.id.toLowerCase().includes(needle) ||
+          r.name.toLowerCase().includes(needle) ||
+          r.category.toLowerCase().includes(needle),
+      )
+    : allRules;
+
+  return (
+    <AsyncMultiSelectField<
+      Schema,
+      Schema["references"]["rules"][number],
+      RuleSitemapEntry
+    >
+      control={control}
+      name="references.rules"
+      label="Quy tắc nghiệp vụ (Rules)"
+      items={items}
+      isLoading={isPending}
+      searchValue={search}
+      onSearchChange={setSearch}
+      placeholder="Chọn Rules..."
+      getId={(item) => item.id}
+      getValueId={(v) => v.id}
+      getLabel={(item) => item.id}
+      createValue={(item) => ({ id: item.id, path: item.path })}
+      renderOption={(item) => (
+        <div className="flex flex-col min-w-0">
+          <span className="font-mono text-xs">{item.id}</span>
+          {item.name && (
+            <span className="text-muted-foreground text-xs truncate">
+              {item.name}
+            </span>
+          )}
+        </div>
+      )}
+    />
+  );
+}
+
+function DependenciesPicker({ control }: { control: Control<Schema> }) {
+  const [search, setSearch] = useState("");
+  const { data: allStories = [], isPending } = useAllStories();
+  const currentId = useWatch({ control, name: "metadata.id" });
+
+  const needle = search.trim().toLowerCase();
+  const items = allStories
+    .filter((s) => !currentId || s.id !== currentId)
+    .filter(
+      (s) =>
+        !needle ||
+        s.id.toLowerCase().includes(needle) ||
+        s.story.toLowerCase().includes(needle),
+    );
+
+  return (
+    <AsyncMultiSelectField<
+      Schema,
+      Schema["references"]["dependencies"][number],
+      StorySitemapEntry
+    >
+      control={control}
+      name="references.dependencies"
+      label="Phụ thuộc (User Stories)"
+      items={items}
+      isLoading={isPending}
+      searchValue={search}
+      onSearchChange={setSearch}
+      placeholder="Chọn Stories..."
+      getId={(item) => item.id}
+      getValueId={(v) => v.id}
+      getLabel={(item) => item.id}
+      createValue={(item) => ({ id: item.id, path: item.path })}
+      renderOption={(item) => (
+        <div className="flex flex-col min-w-0">
+          <span className="font-mono text-xs">{item.id}</span>
+          {item.story && (
+            <span className="text-muted-foreground text-xs truncate">
+              {item.story}
+            </span>
+          )}
+        </div>
+      )}
+    />
   );
 }
 

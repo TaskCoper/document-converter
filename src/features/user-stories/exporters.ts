@@ -92,16 +92,22 @@ export function toMarkdown(data: Schema): string {
 
   lines.push("## References");
   lines.push("");
-  lines.push("### Business Rules");
+  lines.push("### TDDs");
   lines.push("");
-  for (const r of data.references.businessRules) {
-    lines.push(`- ${r}`);
+  for (const t of data.references.tdds) {
+    lines.push(`- [${t.id}](${t.path})`);
+  }
+  lines.push("");
+  lines.push("### Rules");
+  lines.push("");
+  for (const r of data.references.rules) {
+    lines.push(`- [${r.id}](${r.path})`);
   }
   lines.push("");
   lines.push("### Dependencies");
   lines.push("");
-  for (const r of data.references.dependencies) {
-    lines.push(`- ${r}`);
+  for (const d of data.references.dependencies) {
+    lines.push(`- [${d.id}](${d.path})`);
   }
   lines.push("");
 
@@ -148,6 +154,18 @@ function parseBulletList(lines: string[]): string[] {
     .filter((l) => l.startsWith("- "))
     .map((l) => l.slice(2).trim())
     .filter(Boolean);
+}
+
+const LINK_BULLET_RE = /^-\s+\[(.+?)\]\((.+?)\)\s*$/;
+
+function parseLinkList(lines: string[]): { id: string; path: string }[] {
+  const out: { id: string; path: string }[] = [];
+  for (const raw of lines) {
+    const m = raw.trim().match(LINK_BULLET_RE);
+    if (!m) continue;
+    out.push({ id: m[1].trim(), path: m[2].trim() });
+  }
+  return out;
 }
 
 function parseOrderedList(lines: string[]): string[] {
@@ -294,8 +312,9 @@ export function fromMarkdown(md: string): Schema {
 
   // ── References ──
   const refH3 = splitByHeading(h2["References"] ?? [], 3);
-  const businessRules = parseBulletList(refH3["Business Rules"] ?? []);
-  const dependencies = parseBulletList(refH3["Dependencies"] ?? []);
+  const tdds = parseLinkList(refH3["TDDs"] ?? []);
+  const rules = parseLinkList(refH3["Rules"] ?? []);
+  const dependencies = parseLinkList(refH3["Dependencies"] ?? []);
 
   // ── Non-Functional & Out of Scope ──
   const nonFunctional = parseBulletList(h2["Non-Functional"] ?? []);
@@ -316,7 +335,7 @@ export function fromMarkdown(md: string): Schema {
     flow: { mainFlow, alternativeFlow, exceptionFlow },
     acceptanceCriteria,
     activityDiagram,
-    references: { businessRules, dependencies },
+    references: { tdds, rules, dependencies },
     nonFunctional,
     outOfScope,
   };
@@ -327,7 +346,9 @@ export function fromMarkdown(md: string): Schema {
       const label = pathToLabel(i.path as (string | number)[]);
       return `${label}: ${i.message}`;
     });
-    const err = new Error("Dữ liệu không hợp lệ") as Error & { messages: string[] };
+    const err = new Error("Dữ liệu không hợp lệ") as Error & {
+      messages: string[];
+    };
     err.messages = messages;
     throw err;
   }
@@ -441,16 +462,23 @@ export function toSampleMarkdown(): string {
   lines.push("");
   lines.push("## References");
   lines.push("");
-  lines.push("### Business Rules");
+  lines.push("### TDDs");
   lines.push(
-    '<!-- One bullet per business rule, e.g. "BR-01: Password must be at least 8 chars" -->',
+    "<!-- One bullet per Technical Design Document. Use markdown link syntax: `- [TDD-ID](relative/path/to/tdd.md)` -->",
+  );
+  lines.push("");
+  lines.push("- ");
+  lines.push("");
+  lines.push("### Rules");
+  lines.push(
+    "<!-- One bullet per Business Rule. Use markdown link syntax: `- [BR-ID](relative/path/to/rule.md)` -->",
   );
   lines.push("");
   lines.push("- ");
   lines.push("");
   lines.push("### Dependencies");
   lines.push(
-    '<!-- One bullet per dependency on another story or system, e.g. "STORY-010: Email service" -->',
+    "<!-- One bullet per user story dependency. Use markdown link syntax: `- [STORY-ID](relative/path/to/story.md)` -->",
   );
   lines.push("");
   lines.push("- ");
@@ -714,7 +742,9 @@ export function toHtml(data: Schema): string {
   rows.push(separatorRow("s5"));
 
   // ---- ACCEPTANCE CRITERIA ----
-  const acGroups = data.acceptanceCriteria.filter((ac) => ac.criterias.length > 0);
+  const acGroups = data.acceptanceCriteria.filter(
+    (ac) => ac.criterias.length > 0,
+  );
   if (acGroups.length) {
     const totalAcRows = acGroups.reduce((n, ac) => n + ac.criterias.length, 0);
     let firstAcRow = true;
@@ -722,11 +752,19 @@ export function toHtml(data: Schema): string {
       ac.criterias.forEach((c, ci) => {
         const cells: Cell[] = [];
         if (firstAcRow) {
-          cells.push({ content: "ACCEPTANCE CRITERIA", cls: "s13", rowspan: totalAcRows });
+          cells.push({
+            content: "ACCEPTANCE CRITERIA",
+            cls: "s13",
+            rowspan: totalAcRows,
+          });
           firstAcRow = false;
         }
         if (ci === 0) {
-          cells.push({ content: escapeHtml(ac.code || "AC"), cls: "s4", rowspan: ac.criterias.length });
+          cells.push({
+            content: escapeHtml(ac.code || "AC"),
+            cls: "s4",
+            rowspan: ac.criterias.length,
+          });
         }
         cells.push({ content: c.type, cls: "s2" });
         cells.push({ content: escapeHtml(c.step), cls: "s2", colspan: 4 });
@@ -737,13 +775,17 @@ export function toHtml(data: Schema): string {
   }
 
   // ---- REFERENCES ----
-  const brs = data.references.businessRules;
-  const deps = data.references.dependencies;
-  if (brs.length || deps.length) {
-    const refRowCount = Math.max(brs.length, 1) + Math.max(deps.length, 1);
+  const refTdds = data.references.tdds;
+  const refRules = data.references.rules;
+  const refDeps = data.references.dependencies;
+  if (refTdds.length || refRules.length || refDeps.length) {
+    const refRowCount = refTdds.length + refRules.length + refDeps.length;
     let refFirst = true;
-    if (brs.length) {
-      brs.forEach((r, i) => {
+    const renderLinkGroup = (
+      groupLabel: string,
+      items: { id: string; path: string }[],
+    ) => {
+      items.forEach((t, i) => {
         const cells: Cell[] = [];
         if (refFirst) {
           cells.push({
@@ -755,39 +797,20 @@ export function toHtml(data: Schema): string {
         }
         if (i === 0) {
           cells.push({
-            content: "Business Rules",
+            content: groupLabel,
             cls: "s2",
             colspan: 2,
-            rowspan: brs.length,
+            rowspan: items.length,
           });
         }
-        cells.push({ content: escapeHtml(r), cls: "s16", colspan: 4 });
+        const linkHtml = `<a href="/view/${escapeHtml(t.path)}" target="_top">${escapeHtml(t.id)}</a>`;
+        cells.push({ content: linkHtml, cls: "s16", colspan: 4 });
         rows.push(row(cells));
       });
-    }
-    if (deps.length) {
-      deps.forEach((r, i) => {
-        const cells: Cell[] = [];
-        if (refFirst) {
-          cells.push({
-            content: "REFERENCES",
-            cls: "s15",
-            rowspan: refRowCount,
-          });
-          refFirst = false;
-        }
-        if (i === 0) {
-          cells.push({
-            content: "Dependencies",
-            cls: "s2",
-            colspan: 2,
-            rowspan: deps.length,
-          });
-        }
-        cells.push({ content: escapeHtml(r), cls: "s16", colspan: 4 });
-        rows.push(row(cells));
-      });
-    }
+    };
+    renderLinkGroup("TDDs", refTdds);
+    renderLinkGroup("Rules", refRules);
+    renderLinkGroup("Dependencies", refDeps);
     rows.push(separatorRow("s14"));
   }
 

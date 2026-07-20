@@ -11,10 +11,71 @@ import {
   Target,
   Workflow,
 } from "lucide-react";
+import mermaid from "mermaid";
+import { useEffect, useId, useRef, useState } from "react";
 import type { Control } from "react-hook-form";
 import { useWatch } from "react-hook-form";
 
 import { DocStatusLabel, type TddSchema } from "./validations";
+
+mermaid.initialize({
+  startOnLoad: false,
+  theme: "default",
+  securityLevel: "loose",
+  fontFamily: "inherit",
+});
+
+export function MermaidDiagram({ code }: { code: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const reactId = useId();
+  const renderId = `mermaid-${reactId.replace(/[^a-zA-Z0-9]/g, "")}`;
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const trimmed = code.trim();
+    if (!trimmed) {
+      if (containerRef.current) containerRef.current.innerHTML = "";
+      return;
+    }
+    mermaid
+      .render(renderId, trimmed)
+      .then(({ svg, bindFunctions }) => {
+        if (cancelled || !containerRef.current) return;
+        containerRef.current.innerHTML = svg;
+        bindFunctions?.(containerRef.current);
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : String(err));
+        if (containerRef.current) containerRef.current.innerHTML = "";
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [code, renderId]);
+
+  if (error && code.trim()) {
+    return (
+      <div className="border border-destructive/40 bg-destructive/5 p-2">
+        <div className="text-destructive text-[10px] font-medium mb-1">
+          Mermaid render error
+        </div>
+        <pre className="text-[10px] whitespace-pre-wrap wrap-break-word text-destructive/80">
+          {error}
+        </pre>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="bg-muted/40 p-2 overflow-x-auto [&_svg]:max-w-full [&_svg]:h-auto"
+    />
+  );
+}
 
 function PreviewSection({
   title,
@@ -97,22 +158,17 @@ function DiagramPreview({
   data?: TddSchema["architecture"];
 }) {
   const hasContent =
-    !!data?.description?.trim() || !!data?.url?.trim() || (data?.notes?.length ?? 0) > 0;
+    !!data?.description?.trim() ||
+    !!data?.mermaid?.trim() ||
+    (data?.notes?.length ?? 0) > 0;
   if (!hasContent) return null;
   return (
     <PreviewSection title={title} icon={icon}>
       <PreviewBlock label="Mô tả" value={data?.description} />
-      {data?.url?.trim() && (
+      {data?.mermaid?.trim() && (
         <div>
-          <div className="text-muted-foreground mb-0.5">URL</div>
-          <a
-            href={data.url}
-            target="_blank"
-            rel="noreferrer"
-            className="text-primary underline break-all"
-          >
-            {data.url}
-          </a>
+          <div className="text-muted-foreground mb-1">Sơ đồ</div>
+          <MermaidDiagram code={data.mermaid} />
         </div>
       )}
       <PreviewList label="Ghi chú" items={data?.notes} />
@@ -120,8 +176,7 @@ function DiagramPreview({
   );
 }
 
-export function TddPreviewPanel({ control }: { control: Control<TddSchema> }) {
-  const data = useWatch({ control }) as Partial<TddSchema>;
+export function TddPreviewContent({ data }: { data: Partial<TddSchema> }) {
   const filled = (items?: string[]) => (items ?? []).some((s) => s?.trim());
 
   const info = data.documentInfo;
@@ -168,19 +223,19 @@ export function TddPreviewPanel({ control }: { control: Control<TddSchema> }) {
 
   const anyDiagram =
     !!data.architecture?.description?.trim() ||
-    !!data.architecture?.url?.trim() ||
+    !!data.architecture?.mermaid?.trim() ||
     (data.architecture?.notes?.length ?? 0) > 0 ||
     !!data.sequenceDiagram?.description?.trim() ||
-    !!data.sequenceDiagram?.url?.trim() ||
+    !!data.sequenceDiagram?.mermaid?.trim() ||
     (data.sequenceDiagram?.notes?.length ?? 0) > 0 ||
     !!data.activityDiagram?.description?.trim() ||
-    !!data.activityDiagram?.url?.trim() ||
+    !!data.activityDiagram?.mermaid?.trim() ||
     (data.activityDiagram?.notes?.length ?? 0) > 0 ||
     !!data.stateDiagram?.description?.trim() ||
-    !!data.stateDiagram?.url?.trim() ||
+    !!data.stateDiagram?.mermaid?.trim() ||
     (data.stateDiagram?.notes?.length ?? 0) > 0 ||
     !!data.dataModel?.description?.trim() ||
-    !!data.dataModel?.url?.trim() ||
+    !!data.dataModel?.mermaid?.trim() ||
     (data.dataModel?.notes?.length ?? 0) > 0;
 
   const hasAny =
@@ -214,14 +269,8 @@ export function TddPreviewPanel({ control }: { control: Control<TddSchema> }) {
           />
           <PreviewRow label="Phiên bản" value={info?.version} />
           <PreviewRow label="Cập nhật" value={info?.updatedAt} />
-          <PreviewList
-            label="Story liên quan"
-            items={info?.relatedStories}
-          />
-          <PreviewList
-            label="Business Rules"
-            items={info?.businessRules}
-          />
+          <PreviewList label="Story liên quan" items={info?.relatedStories} />
+          <PreviewList label="Business Rules" items={info?.businessRules} />
         </PreviewSection>
       )}
 
@@ -378,4 +427,9 @@ export function TddPreviewPanel({ control }: { control: Control<TddSchema> }) {
       )}
     </div>
   );
+}
+
+export function TddPreviewPanel({ control }: { control: Control<TddSchema> }) {
+  const data = useWatch({ control }) as Partial<TddSchema>;
+  return <TddPreviewContent data={data} />;
 }

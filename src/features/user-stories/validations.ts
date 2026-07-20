@@ -64,7 +64,6 @@ const assigneeSchema = z.object({
   position: z.enum(Position, "Vị trí phải là FE hoặc BE"),
 });
 
-
 const metadataSchema = z.object({
   id: z.string().min(1, "Không được để trống"),
   story: z.string().min(1, "Không được để trống"),
@@ -74,7 +73,9 @@ const metadataSchema = z.object({
     Priority,
     `Phải là một trong: ${Object.values(Priority).join(", ")}`,
   ),
-  assignee: z.array(assigneeSchema).min(1, "Phải có ít nhất một người phụ trách"),
+  assignee: z
+    .array(assigneeSchema)
+    .min(1, "Phải có ít nhất một người phụ trách"),
   creator: z.string().min(1, "Không được để trống"),
   status: z.enum(
     Status,
@@ -83,17 +84,23 @@ const metadataSchema = z.object({
 });
 
 const conditionsSchema = z.object({
-  preconditions: z.array(z.string().min(1, "Điều kiện tiên quyết không được để trống")),
+  preconditions: z.array(
+    z.string().min(1, "Điều kiện tiên quyết không được để trống"),
+  ),
   trigger: z.string().min(1, "Trigger không được để trống"),
 });
 
 const otherFlowSchema = z.object({
   code: z.string().min(1, "Mã luồng không được để trống"),
-  steps: z.array(z.string().min(1, "Bước không được để trống")).min(1, "Phải có ít nhất một bước"),
+  steps: z
+    .array(z.string().min(1, "Bước không được để trống"))
+    .min(1, "Phải có ít nhất một bước"),
 });
 
 const flowSchema = z.object({
-  mainFlow: z.array(z.string().min(1, "Bước không được để trống")).min(1, "Luồng chính phải có ít nhất một bước"),
+  mainFlow: z
+    .array(z.string().min(1, "Bước không được để trống"))
+    .min(1, "Luồng chính phải có ít nhất một bước"),
   alternativeFlow: z.array(otherFlowSchema),
   exceptionFlow: z.array(otherFlowSchema),
 });
@@ -108,18 +115,30 @@ const acGroupSchema = z.object({
   criterias: z.array(acItemSchema).min(1, "Phải có ít nhất một điều kiện"),
 });
 
+const linkRefSchema = z.object({
+  id: z.string().min(1, "ID không được để trống"),
+  path: z.string().min(1, "Đường dẫn không được để trống"),
+});
+
 export const schema = z.object({
   metadata: metadataSchema,
   conditions: conditionsSchema,
   flow: flowSchema,
-  acceptanceCriteria: z.array(acGroupSchema).min(1, "Phải có ít nhất một tiêu chí chấp nhận"),
+  acceptanceCriteria: z
+    .array(acGroupSchema)
+    .min(1, "Phải có ít nhất một tiêu chí chấp nhận"),
   activityDiagram: z.url("Phải là URL hợp lệ"),
   references: z.object({
-    businessRules: z.array(z.string().min(1, "Business rule không được để trống")),
-    dependencies: z.array(z.string().min(1, "Dependency không được để trống")),
+    tdds: z.array(linkRefSchema),
+    rules: z.array(linkRefSchema),
+    dependencies: z.array(linkRefSchema),
   }),
-  nonFunctional: z.array(z.string().min(1, "Yêu cầu phi chức năng không được để trống")),
-  outOfScope: z.array(z.string().min(1, "Nội dung ngoài phạm vi không được để trống")),
+  nonFunctional: z.array(
+    z.string().min(1, "Yêu cầu phi chức năng không được để trống"),
+  ),
+  outOfScope: z.array(
+    z.string().min(1, "Nội dung ngoài phạm vi không được để trống"),
+  ),
 });
 
 export type Schema = z.infer<typeof schema>;
@@ -151,8 +170,10 @@ const fieldNameLabels: Record<string, string> = {
   step: "Nội dung",
   activityDiagram: "Sơ đồ hoạt động",
   references: "Tài liệu tham khảo",
-  businessRules: "Quy tắc nghiệp vụ",
-  dependencies: "Phụ thuộc",
+  dependencies: "Phụ thuộc (Stories)",
+  tdds: "TDDs",
+  rules: "Rules",
+  path: "Đường dẫn",
   nonFunctional: "Yêu cầu phi chức năng",
   outOfScope: "Ngoài phạm vi",
 };

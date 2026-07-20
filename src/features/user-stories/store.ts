@@ -202,19 +202,9 @@ export const sampleData: Schema = {
   ],
   activityDiagram: "https://lucid.app/lucidchart/example-activity-diagram",
   references: {
-    businessRules: [
-      "BR-05: Mật khẩu phải có ít nhất 8 ký tự, gồm chữ hoa, chữ thường và số",
-      "BR-06: Không được đặt lại thành mật khẩu giống 3 mật khẩu gần nhất",
-      "BR-07: Token đặt lại mật khẩu hết hạn sau 15 phút kể từ khi tạo",
-      "BR-08: Giới hạn 3 lần gửi yêu cầu đặt lại mật khẩu mỗi giờ trên mỗi tài khoản",
-    ],
-    dependencies: [
-      "STORY-002: Xác thực email người dùng",
-      "STORY-010: Gửi email thông báo hệ thống",
-      "STORY-015: Quản lý session và đăng xuất",
-      "STORY-022: Rate limiting API endpoint",
-      "STORY-031: Ghi log audit trail bảo mật",
-    ],
+    tdds: [],
+    rules: [],
+    dependencies: [],
   },
   nonFunctional: [
     "Thời gian phản hồi gửi email < 2 giây (P95)",
@@ -259,7 +249,8 @@ export const initialData: Schema = {
   ],
   activityDiagram: "",
   references: {
-    businessRules: [],
+    tdds: [],
+    rules: [],
     dependencies: [],
   },
   nonFunctional: [],
@@ -283,7 +274,7 @@ export const useFormStore = create<FormStore>()(
       setData: (data) => set({ data }),
       reset: () => set({ step: 0, data: initialData }),
     }),
-    { name: "vnz-converter-form", version: 1 },
+    { name: "vnz-converter-form", version: 4 },
   ),
 );
 

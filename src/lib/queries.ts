@@ -1,20 +1,31 @@
 import {
-  type Change,
-  type CommitResult,
-  type DirEntry,
-  type FileData,
   GhError,
   commitFiles,
   getFile,
   getHistory,
   listDir,
+  type Change,
+  type CommitResult,
+  type DirEntry,
+  type FileData,
 } from "@/lib/github";
 import {
+  buildSitemapMarkdown,
   collectFolderContents,
+  computeRootSitemapChange,
   computeSitemapChange,
   computeSitemapChangeFromContents,
+  entriesFromContents,
+  entryFromContent,
   isSitemapPath,
+  parseRootSitemapMarkdown,
+  parseSitemapMarkdown,
   sitemapPathFor,
+  type RootSitemapOverrides,
+  type RuleSitemapEntry,
+  type SitemapEntry,
+  type StorySitemapEntry,
+  type TddSitemapEntry,
 } from "@/lib/sitemap";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -33,6 +44,10 @@ export function parentOf(path: string): string {
   return idx === -1 ? "" : trimmed.slice(0, idx);
 }
 
+function topLevelOf(folder: string): string {
+  return folder.split("/")[0];
+}
+
 async function withSitemap(
   folders: string[],
   base: Change[],
@@ -40,48 +55,90 @@ async function withSitemap(
   const uniq = Array.from(
     new Set(folders.map((f) => f.replace(/^\/+|\/+$/g, "")).filter(Boolean)),
   );
-  const sm = (
-    await Promise.all(
-      uniq.map(async (folder) => {
-        let existing: { path: string; content: string }[] = [];
+
+  const perFolder = await Promise.all(
+    uniq.map(async (folder) => {
+      const smPath = sitemapPathFor(folder);
+
+      // Fast path: parse the existing sitemap and splice the change into it.
+      // Avoids listDir + per-file getFile for the target folder.
+      let existingSitemap: { content: string } | null = null;
+      let entries: SitemapEntry[] | null = null;
+      try {
+        existingSitemap = await getFile(smPath);
+        if (existingSitemap) {
+          entries = parseSitemapMarkdown(existingSitemap.content);
+        }
+      } catch (e) {
+        if (!(e instanceof GhError && e.kind === "NOT_FOUND")) throw e;
+      }
+
+      // Fallback: sitemap missing or unparsable → full folder scan.
+      if (entries === null) {
         try {
-          existing = await collectFolderContents(folder);
+          const contents = await collectFolderContents(folder);
+          entries = entriesFromContents(contents);
         } catch (e) {
-          if (!(e instanceof GhError && e.kind === "NOT_FOUND")) throw e;
+          if (e instanceof GhError && e.kind === "NOT_FOUND") entries = [];
+          else throw e;
         }
+      }
 
-        const inFolder = (p: string) => parentOf(p) === folder;
-        const deletes = new Set(
-          base
-            .filter((c) => c.action === "delete" && inFolder(c.path))
-            .map((c) => c.path),
-        );
-        const upserts = new Map(
-          base
-            .filter(
-              (c): c is Extract<Change, { action: "upsert" }> =>
-                c.action === "upsert" &&
-                inFolder(c.path) &&
-                !isSitemapPath(c.path),
-            )
-            .map((c) => [c.path, c.content]),
-        );
+      const inFolder = (p: string) => parentOf(p) === folder;
+      const deletes = new Set(
+        base
+          .filter((c) => c.action === "delete" && inFolder(c.path))
+          .map((c) => c.path),
+      );
+      const upserts = base.filter(
+        (c): c is Extract<Change, { action: "upsert" }> =>
+          c.action === "upsert" && inFolder(c.path) && !isSitemapPath(c.path),
+      );
 
-        const merged = new Map<string, string>();
-        for (const f of existing) {
-          if (deletes.has(f.path)) continue;
-          merged.set(f.path, f.content);
+      entries = entries.filter((e) => !deletes.has(e.path));
+      for (const c of upserts) {
+        const next = entryFromContent(c.path, c.content);
+        const idx = entries.findIndex((e) => e.path === c.path);
+        if (idx >= 0) entries[idx] = next;
+        else entries.push(next);
+      }
+      entries.sort((a, b) => a.path.localeCompare(b.path));
+
+      let change: Change | null = null;
+      if (entries.length === 0) {
+        if (existingSitemap) change = { action: "delete", path: smPath };
+      } else {
+        const newContent = buildSitemapMarkdown(folder, entries);
+        if (!existingSitemap || existingSitemap.content !== newContent) {
+          change = { action: "upsert", path: smPath, content: newContent };
         }
-        for (const [p, c] of upserts) merged.set(p, c);
+      }
 
-        return computeSitemapChangeFromContents(
-          folder,
-          Array.from(merged, ([path, content]) => ({ path, content })),
-        );
-      }),
-    )
-  ).filter((c): c is Change => !!c);
-  return [...base, ...sm];
+      return { folder, change, entries };
+    }),
+  );
+
+  const sitemapChanges = perFolder
+    .map((r) => r.change)
+    .filter((c): c is Change => !!c);
+
+  const overrides: RootSitemapOverrides = {
+    upserts: new Map<string, SitemapEntry[]>(),
+    deletedFolders: new Set<string>(),
+  };
+  for (const r of perFolder) {
+    const top = topLevelOf(r.folder);
+    if (top !== r.folder) continue;
+    if (r.entries.length === 0) overrides.deletedFolders!.add(top);
+    else overrides.upserts!.set(top, r.entries);
+  }
+
+  const rootChange = await computeRootSitemapChange(overrides, {
+    trustExistingRoot: true,
+  });
+  const all = [...base, ...sitemapChanges];
+  if (rootChange) all.push(rootChange);
+  return all;
 }
 
 export function useDir(path: string) {
@@ -101,6 +158,78 @@ export function useFile(path: string, enabled = true) {
   });
 }
 
+export function useAllTdds() {
+  return useQuery<TddSitemapEntry[], GhError>({
+    queryKey: ["gh", "tdds", "all"] as const,
+    queryFn: async () => {
+      const root = await getFile(sitemapPathFor(""));
+      if (!root) return [];
+      const folders = parseRootSitemapMarkdown(root.content).filter((f) =>
+        f.types.includes("tdd"),
+      );
+      const perFolder = await Promise.all(
+        folders.map(async (f) => {
+          const sm = await getFile(sitemapPathFor(f.name));
+          if (!sm) return [] as TddSitemapEntry[];
+          return parseSitemapMarkdown(sm.content).filter(
+            (e): e is TddSitemapEntry => e.type === "tdd",
+          );
+        }),
+      );
+      return perFolder.flat();
+    },
+    staleTime: STALE,
+  });
+}
+
+export function useAllStories() {
+  return useQuery<StorySitemapEntry[], GhError>({
+    queryKey: ["gh", "stories", "all"] as const,
+    queryFn: async () => {
+      const root = await getFile(sitemapPathFor(""));
+      if (!root) return [];
+      const folders = parseRootSitemapMarkdown(root.content).filter((f) =>
+        f.types.includes("user-story"),
+      );
+      const perFolder = await Promise.all(
+        folders.map(async (f) => {
+          const sm = await getFile(sitemapPathFor(f.name));
+          if (!sm) return [] as StorySitemapEntry[];
+          return parseSitemapMarkdown(sm.content).filter(
+            (e): e is StorySitemapEntry => e.type === "user-story",
+          );
+        }),
+      );
+      return perFolder.flat();
+    },
+    staleTime: STALE,
+  });
+}
+
+export function useAllRules() {
+  return useQuery<RuleSitemapEntry[], GhError>({
+    queryKey: ["gh", "rules", "all"] as const,
+    queryFn: async () => {
+      const root = await getFile(sitemapPathFor(""));
+      if (!root) return [];
+      const folders = parseRootSitemapMarkdown(root.content).filter((f) =>
+        f.types.includes("business-rule"),
+      );
+      const perFolder = await Promise.all(
+        folders.map(async (f) => {
+          const sm = await getFile(sitemapPathFor(f.name));
+          if (!sm) return [] as RuleSitemapEntry[];
+          return parseSitemapMarkdown(sm.content).filter(
+            (e): e is RuleSitemapEntry => e.type === "business-rule",
+          );
+        }),
+      );
+      return perFolder.flat();
+    },
+    staleTime: STALE,
+  });
+}
+
 export function useHistory(path?: string) {
   const key = path ? ghKeys.historyPath(path) : ghKeys.historyAll();
   return useQuery({
@@ -116,6 +245,18 @@ export type SaveFileArgs = {
   message: string;
   websiteUser: string;
 };
+
+function topLevelFolderExists(
+  qc: ReturnType<typeof useQueryClient>,
+  path: string,
+): boolean {
+  const parent = parentOf(path);
+  if (!parent) return true;
+  const top = topLevelOf(parent);
+  const cached = qc.getQueryData<DirEntry[]>(ghKeys.dir(""));
+  if (!cached) return false;
+  return cached.some((e) => e.type === "dir" && e.name === top);
+}
 
 export function useSaveFile() {
   const qc = useQueryClient();
@@ -133,7 +274,12 @@ export function useSaveFile() {
     },
     onSuccess: (_result, args) => {
       qc.invalidateQueries({ queryKey: ghKeys.file(args.path) });
-      qc.invalidateQueries({ queryKey: ghKeys.dir("") });
+      // Root dir only needs invalidation when the top-level folder was created
+      // by this save. If it already exists in cache, subscribers (e.g. the
+      // stories folder picker) don't need to refetch.
+      if (!topLevelFolderExists(qc, args.path)) {
+        qc.invalidateQueries({ queryKey: ghKeys.dir("") });
+      }
       qc.invalidateQueries({ queryKey: ghKeys.dir(parentOf(args.path)) });
       qc.invalidateQueries({ queryKey: ghKeys.historyAll() });
       qc.invalidateQueries({ queryKey: ghKeys.historyPath(args.path) });
@@ -142,6 +288,7 @@ export function useSaveFile() {
         qc.invalidateQueries({ queryKey: ghKeys.file(smPath) });
         qc.invalidateQueries({ queryKey: ghKeys.historyPath(smPath) });
       }
+      qc.invalidateQueries({ queryKey: ghKeys.file(sitemapPathFor("")) });
     },
   });
 }
@@ -177,6 +324,7 @@ export function useDeleteFile() {
         qc.invalidateQueries({ queryKey: ghKeys.file(smPath) });
         qc.invalidateQueries({ queryKey: ghKeys.historyPath(smPath) });
       }
+      qc.invalidateQueries({ queryKey: ghKeys.file(sitemapPathFor("")) });
     },
   });
 }
@@ -226,6 +374,7 @@ export function useRenameFile() {
         qc.invalidateQueries({ queryKey: ghKeys.file(smPath) });
         qc.invalidateQueries({ queryKey: ghKeys.historyPath(smPath) });
       }
+      qc.invalidateQueries({ queryKey: ghKeys.file(sitemapPathFor("")) });
     },
   });
 }
@@ -276,6 +425,23 @@ export function useRenameFolder() {
       );
       if (newSitemap) changes.push(newSitemap);
 
+      const oldTop = topLevelOf(oldFolder);
+      const newTop = topLevelOf(newFolder);
+      const rootOverrides: RootSitemapOverrides = {
+        upserts: new Map<string, SitemapEntry[]>(),
+        deletedFolders: new Set<string>(),
+      };
+      if (oldTop && oldTop !== newTop)
+        rootOverrides.deletedFolders!.add(oldTop);
+      if (newTop) {
+        rootOverrides.upserts!.set(
+          newTop,
+          entriesFromContents(movedForSitemap),
+        );
+      }
+      const rootChange = await computeRootSitemapChange(rootOverrides);
+      if (rootChange) changes.push(rootChange);
+
       const commit = await commitFiles({
         changes,
         message: `Rename folder ${oldFolder} to ${newFolder}`,
@@ -314,6 +480,13 @@ export function useDeleteFolder() {
         action: "delete" as const,
         path: f.path,
       }));
+      const top = topLevelOf(folder);
+      if (top) {
+        const rootChange = await computeRootSitemapChange({
+          deletedFolders: new Set([top]),
+        });
+        if (rootChange) changes.push(rootChange);
+      }
       const commit = await commitFiles({
         changes,
         message: `Delete folder ${folder}`,
@@ -343,11 +516,18 @@ export function useRegenerateSitemap() {
   const qc = useQueryClient();
   return useMutation<CommitResult | null, GhError, RegenerateSitemapArgs>({
     mutationFn: async (args) => {
-      const change = await computeSitemapChange(args.folder);
-      if (!change) return null;
+      const clean = args.folder.replace(/^\/+|\/+$/g, "");
+      const changes: Change[] = [];
+      if (clean) {
+        const folderChange = await computeSitemapChange(clean);
+        if (folderChange) changes.push(folderChange);
+      }
+      const rootChange = await computeRootSitemapChange();
+      if (rootChange) changes.push(rootChange);
+      if (!changes.length) return null;
       return commitFiles({
-        changes: [change],
-        message: args.message ?? `chore: update ${sitemapPathFor(args.folder)}`,
+        changes,
+        message: args.message ?? `chore: update ${sitemapPathFor(clean)}`,
         websiteUser: args.websiteUser,
       });
     },
@@ -355,6 +535,9 @@ export function useRegenerateSitemap() {
       const smPath = sitemapPathFor(args.folder);
       qc.invalidateQueries({ queryKey: ghKeys.file(smPath) });
       qc.invalidateQueries({ queryKey: ghKeys.historyPath(smPath) });
+      const rootPath = sitemapPathFor("");
+      qc.invalidateQueries({ queryKey: ghKeys.file(rootPath) });
+      qc.invalidateQueries({ queryKey: ghKeys.historyPath(rootPath) });
       qc.invalidateQueries({ queryKey: ghKeys.historyAll() });
     },
   });

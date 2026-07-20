@@ -15,7 +15,7 @@ export const sampleRuleData: RuleSchema = {
     "Khách cá nhân: không áp dụng. Không yêu cầu VAT: không áp dụng. Không tính trên phí ship.",
   source: "Chính sách kế toán nội bộ Hoa Theo Mùa",
   owner: "Kế toán trưởng",
-  relatedStories: ["HTM-118", "HTM-142", "HTM-155"],
+  relatedStories: [],
   status: RuleStatus.Active,
   version: "v1.1",
   effectiveDate: "2026-07-01",

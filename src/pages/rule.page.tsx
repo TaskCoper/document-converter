@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuthorStore } from "@/features/user-stories/store";
-import { getFile, slugifyAuthor } from "@/lib/github";
+import { slugifyAuthor } from "@/lib/github";
 import {
   messageFor,
   parentOf,
@@ -245,11 +245,10 @@ export default function RulePage() {
 
     const content = toRuleMarkdown(data);
     try {
-      const existing = await getFile(path);
       await save.mutateAsync({
         path,
         content,
-        message: buildCreateCommitMessage(path, data, author, !!existing),
+        message: buildCreateCommitMessage(path, data, author),
         websiteUser: author,
       });
       resetStore();
@@ -657,7 +656,7 @@ function FolderPicker({
           type="text"
           value={value}
           onChange={(e) =>
-            onChange(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""))
+            onChange(e.target.value)
           }
           placeholder={authorSlug}
           className="h-7 text-xs max-w-[16rem]"
@@ -753,7 +752,6 @@ function buildCreateCommitMessage(
   _path: string,
   data: RuleSchema,
   author: string,
-  isUpdate: boolean,
 ): string {
   const ruleId = data.ruleId;
   const name = data.name;
@@ -769,8 +767,7 @@ function buildCreateCommitMessage(
     .filter(Boolean)
     .join(" | ");
   if (versionStatus) parts.push(versionStatus);
-  const action = isUpdate ? "Update" : "Create";
-  parts.push("", `${action}d by ${author} on the web.`);
+  parts.push("", `Created by ${author} on the web.`);
   return parts.join("\n");
 }
 

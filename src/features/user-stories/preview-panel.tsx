@@ -1,11 +1,4 @@
 import {
-  CriteriaConditionLabel,
-  PositionLabel,
-  PriorityLabel,
-  StatusLabel,
-  type Schema,
-} from "./validations";
-import {
   Ban,
   BookOpen,
   Filter,
@@ -17,6 +10,13 @@ import {
 } from "lucide-react";
 import type { Control } from "react-hook-form";
 import { useWatch } from "react-hook-form";
+import {
+  CriteriaConditionLabel,
+  PositionLabel,
+  PriorityLabel,
+  StatusLabel,
+  type Schema,
+} from "./validations";
 
 function PreviewSection({
   title,
@@ -89,6 +89,28 @@ function PreviewList({ label, items }: { label?: string; items?: string[] }) {
   );
 }
 
+function PreviewLinkList({
+  label,
+  items,
+}: {
+  label: string;
+  items: { id: string; path: string }[];
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <div className="text-muted-foreground mb-1">{label}</div>
+      <ul className="list-disc ml-4 flex flex-col gap-0.5">
+        {items.map((item, i) => (
+          <li key={i} className="wrap-break-word font-mono">
+            {item.id}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function PreviewPanel({ control }: { control: Control<Schema> }) {
   const data = useWatch({ control }) as Partial<Schema>;
 
@@ -120,9 +142,11 @@ export function PreviewPanel({ control }: { control: Control<Schema> }) {
       (ac) => ac.code?.trim() || ac.criterias?.some((c) => c.step?.trim()),
     );
   const showDiagram = !!data.activityDiagram?.trim();
+  const refTdds = data.references?.tdds ?? [];
+  const refRules = data.references?.rules ?? [];
+  const refDeps = data.references?.dependencies ?? [];
   const showRefs =
-    filled(data.references?.businessRules) ||
-    filled(data.references?.dependencies);
+    refTdds.length > 0 || refRules.length > 0 || refDeps.length > 0;
   const showNonFunc = filled(data.nonFunctional);
   const showOutOfScope = filled(data.outOfScope);
 
@@ -274,14 +298,9 @@ export function PreviewPanel({ control }: { control: Control<Schema> }) {
 
       {showRefs && (
         <PreviewSection title="Tham chiếu" icon={BookOpen}>
-          <PreviewList
-            label="Quy tắc nghiệp vụ"
-            items={data.references?.businessRules}
-          />
-          <PreviewList
-            label="Phụ thuộc"
-            items={data.references?.dependencies}
-          />
+          <PreviewLinkList label="TDDs" items={refTdds} />
+          <PreviewLinkList label="Rules" items={refRules} />
+          <PreviewLinkList label="Phụ thuộc (Stories)" items={refDeps} />
         </PreviewSection>
       )}
 

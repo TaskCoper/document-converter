@@ -283,156 +283,188 @@ const escapeHtml = (s: string): string =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
+const nl2br = (s: string): string =>
+  escapeHtml(s).replace(/\n/g, "<br>");
+
+const STATUS_COLORS: Record<string, string> = {
+  Active: "#16a34a",
+  Draft: "#6b7280",
+  "In Review": "#d97706",
+  Deprecated: "#dc2626",
+};
+
 const RULE_STYLE = `
 * { box-sizing: border-box; }
 body {
   font-family: Arial, sans-serif;
-  color: #000;
-  background: #fff;
+  color: #111827;
+  background: #f9fafb;
   margin: 0;
-  padding: 16px;
-  overflow-x: hidden;
+  padding: 24px 20px;
 }
-.ritz.grid-container {
-  overflow-x: auto;
-  width: 100%;
+.card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  max-width: 860px;
+  margin: 0 auto;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
 }
-.ritz .waffle {
-  border-collapse: collapse;
-  table-layout: fixed;
-  width: max-content;
+.card-header {
+  background: #1f2a37;
+  padding: 20px 24px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
 }
-.ritz .waffle a { color: inherit; }
-.ritz .waffle .s0 {
-  background-color: #1f2a37;
-  text-align: left;
+.rule-id {
+  background: #e8a13a;
+  color: #fff;
   font-weight: bold;
-  color: #ffffff;
-  font-family: Arial;
-  font-size: 15pt;
-  vertical-align: bottom;
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 4px;
   white-space: nowrap;
-  padding: 4px 6px;
+  margin-top: 2px;
 }
-.ritz .waffle .s1 {
-  border-bottom: 1px solid #d9d5cc;
-  background-color: #fbe7cc;
-  text-align: left;
-  font-style: italic;
-  color: #6b7280;
-  font-family: Arial;
-  font-size: 9pt;
-  vertical-align: bottom;
-  white-space: nowrap;
-  padding: 2px 3px;
-}
-.ritz .waffle .s2 {
-  border-bottom: 1px solid #d9d5cc;
-  border-right: 1px solid #d9d5cc;
-  background-color: #e8a13a;
-  text-align: center;
+.rule-name {
+  color: #fff;
+  font-size: 18px;
   font-weight: bold;
-  color: #ffffff;
-  font-family: Arial;
-  font-size: 10pt;
-  vertical-align: bottom;
-  white-space: nowrap;
-  padding: 4px 6px;
+  line-height: 1.3;
 }
-.ritz .waffle .s3 {
-  border-bottom: 1px solid #d9d5cc;
-  border-right: 1px solid #d9d5cc;
-  background-color: #fbe7cc;
-  text-align: left;
-  font-style: italic;
-  color: #6b7280;
-  font-family: Arial;
-  font-size: 9pt;
-  vertical-align: top;
-  white-space: nowrap;
-  padding: 4px 6px;
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border-bottom: 1px solid #e5e7eb;
 }
-.ritz .waffle .s4 {
-  border-bottom: 1px solid #d9d5cc;
-  border-right: 1px solid #d9d5cc;
-  background-color: #fbe7cc;
-  text-align: center;
-  font-style: italic;
-  color: #6b7280;
-  font-family: Arial;
-  font-size: 9pt;
-  vertical-align: top;
-  white-space: nowrap;
-  padding: 4px 6px;
+.meta-cell {
+  padding: 10px 16px;
+  border-right: 1px solid #e5e7eb;
 }
-.ritz .waffle .s5 {
-  border-bottom: 1px solid #d9d5cc;
-  border-right: 1px solid #d9d5cc;
-  background-color: #fbe7cc;
-  text-align: left;
-  font-style: italic;
+.meta-cell:last-child { border-right: none; }
+.meta-label {
+  font-size: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: .05em;
   color: #6b7280;
-  font-family: Arial;
-  font-size: 9pt;
-  vertical-align: top;
-  white-space: normal;
-  word-wrap: break-word;
-  padding: 4px 6px;
+  margin-bottom: 2px;
+}
+.meta-value {
+  font-size: 13px;
+  color: #111827;
+}
+.status-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: bold;
+  color: #fff;
+}
+.sections { padding: 0 24px 20px; }
+.section {
+  border-left: 3px solid #e8a13a;
+  margin: 16px 0 0;
+  padding: 10px 14px;
+  background: #fffbf5;
+  border-radius: 0 6px 6px 0;
+}
+.section-label {
+  font-size: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #e8a13a;
+  margin-bottom: 4px;
+}
+.section-body {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #111827;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.section.except { border-color: #6b7280; background: #f9fafb; }
+.section.except .section-label { color: #6b7280; }
+.section.notes { border-color: #93c5fd; background: #eff6ff; }
+.section.notes .section-label { color: #2563eb; }
+.stories {
+  margin: 16px 0 0;
+  padding: 10px 14px;
+  border-top: 1px solid #e5e7eb;
+}
+.stories-label {
+  font-size: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+.story-pill {
+  display: inline-block;
+  background: #fbe7cc;
+  color: #92400e;
+  border: 1px solid #e8a13a;
+  border-radius: 999px;
+  font-size: 11px;
+  padding: 2px 10px;
+  margin: 2px 4px 2px 0;
 }
 `.trim();
 
-const HEADERS: { label: string; width: number }[] = [
-  { label: "Rule ID", width: 90 },
-  { label: "Tên rule", width: 170 },
-  { label: "Danh mục", width: 140 },
-  { label: "Phát biểu (Statement)", width: 340 },
-  { label: "Điều kiện (When)", width: 260 },
-  { label: "Hành vi (Then)", width: 320 },
-  { label: "Ngoại lệ (Except)", width: 320 },
-  { label: "Nguồn", width: 200 },
-  { label: "Người sở hữu", width: 130 },
-  { label: "Story liên quan", width: 160 },
-  { label: "Trạng thái", width: 100 },
-  { label: "Version", width: 90 },
-  { label: "Ngày hiệu lực", width: 110 },
-  { label: "Ghi chú / Link logic", width: 240 },
-];
-
-const COL_COUNT = HEADERS.length;
-
 export function toRuleHtml(data: RuleSchema): string {
-  const dataCells: { content: string; cls: string }[] = [
-    { content: escapeHtml(data.ruleId), cls: "s3" },
-    { content: escapeHtml(data.name), cls: "s3" },
-    { content: escapeHtml(data.category), cls: "s4" },
-    { content: escapeHtml(data.statement), cls: "s5" },
-    { content: escapeHtml(data.when), cls: "s3" },
-    { content: escapeHtml(data.then), cls: "s3" },
-    { content: escapeHtml(data.except), cls: "s3" },
-    { content: escapeHtml(data.source), cls: "s3" },
-    { content: escapeHtml(data.owner), cls: "s3" },
-    { content: escapeHtml(data.relatedStories.join(", ")), cls: "s3" },
-    { content: escapeHtml(RuleStatusLabel[data.status]), cls: "s4" },
-    { content: escapeHtml(data.version), cls: "s4" },
-    { content: escapeHtml(data.effectiveDate), cls: "s4" },
-    { content: escapeHtml(data.notes), cls: "s3" },
+  const statusLabel = RuleStatusLabel[data.status];
+  const statusColor = STATUS_COLORS[statusLabel] ?? "#6b7280";
+
+  const metaCells = [
+    { label: "Danh mục", value: escapeHtml(data.category) },
+    { label: "Trạng thái", value: `<span class="status-badge" style="background:${statusColor}">${escapeHtml(statusLabel)}</span>` },
+    { label: "Version", value: escapeHtml(data.version) },
+    { label: "Ngày hiệu lực", value: escapeHtml(data.effectiveDate) },
+    { label: "Người sở hữu", value: escapeHtml(data.owner) },
+    { label: "Nguồn", value: escapeHtml(data.source) },
   ];
 
-  const colgroup = `<colgroup>${HEADERS.map(
-    (h) => `<col style="width:${h.width}px">`,
-  ).join("")}</colgroup>`;
+  const metaHtml = metaCells
+    .map(
+      (c) =>
+        `<div class="meta-cell"><div class="meta-label">${c.label}</div><div class="meta-value">${c.value}</div></div>`,
+    )
+    .join("");
 
-  const titleRow = `<tr><td class="s0" colspan="${COL_COUNT}">BUSINESS RULES REGISTER</td></tr>`;
+  const mainSections = [
+    { label: "Phát biểu (Statement)", body: nl2br(data.statement), cls: "" },
+    { label: "Điều kiện (When)", body: nl2br(data.when), cls: "" },
+    { label: "Hành vi (Then)", body: nl2br(data.then), cls: "" },
+  ];
 
-  const subtitleRow = `<tr><td class="s1" colspan="${COL_COUNT}">Kho rule tập trung — mỗi rule 1 dòng, 1 nguồn chân lý duy nhất. Story chỉ THAM CHIẾU bằng Rule ID, không chép nội dung. Rule nhiều nhánh (decision table) → tách file chi tiết, ghi link ở cột cuối.</td></tr>`;
+  const optionalSections = [
+    { label: "Ngoại lệ (Except)", body: nl2br(data.except), cls: "except", show: !!data.except.trim() },
+    { label: "Ghi chú / Link logic", body: nl2br(data.notes), cls: "notes", show: !!data.notes.trim() },
+  ];
 
-  const headerRow = `<tr>${HEADERS.map(
-    (h) => `<td class="s2">${escapeHtml(h.label)}</td>`,
-  ).join("")}</tr>`;
+  const sectionsHtml = [
+    ...mainSections.map(
+      (s) =>
+        `<div class="section ${s.cls}"><div class="section-label">${s.label}</div><div class="section-body">${s.body}</div></div>`,
+    ),
+    ...optionalSections
+      .filter((s) => s.show)
+      .map(
+        (s) =>
+          `<div class="section ${s.cls}"><div class="section-label">${s.label}</div><div class="section-body">${s.body}</div></div>`,
+      ),
+  ].join("");
 
-  const dataRow = `<tr>${dataCells
-    .map((c) => `<td class="${c.cls}">${c.content}</td>`)
-    .join("")}</tr>`;
+  const storiesHtml =
+    data.relatedStories.length > 0
+      ? `<div class="stories"><div class="stories-label">Story liên quan</div>${data.relatedStories.map((s) => `<span class="story-pill">${escapeHtml(s)}</span>`).join("")}</div>`
+      : "";
 
   const title = `Business Rule — ${data.ruleId || "BR"}`;
 
@@ -444,16 +476,16 @@ export function toRuleHtml(data: RuleSchema): string {
 <style>${RULE_STYLE}</style>
 </head>
 <body>
-<div class="ritz grid-container" dir="ltr">
-<table class="waffle" cellspacing="0" cellpadding="0">
-${colgroup}
-<tbody>
-${titleRow}
-${subtitleRow}
-${headerRow}
-${dataRow}
-</tbody>
-</table>
+<div class="card">
+  <div class="card-header">
+    <div class="rule-id">${escapeHtml(data.ruleId)}</div>
+    <div class="rule-name">${escapeHtml(data.name)}</div>
+  </div>
+  <div class="meta-grid">${metaHtml}</div>
+  <div class="sections">
+    ${sectionsHtml}
+    ${storiesHtml}
+  </div>
 </div>
 </body>
 </html>

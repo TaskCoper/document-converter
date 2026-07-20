@@ -65,18 +65,17 @@ export function toTddMarkdown(data: TddSchema): string {
   }
 
   // ── Diagram sections ──
-  const diagramSection = (
-    heading: string,
-    d: TddSchema["architecture"],
-  ) => {
+  const diagramSection = (heading: string, d: TddSchema["architecture"]) => {
     lines.push(`## ${heading}`);
     lines.push("");
     if (d.description) {
       lines.push(d.description);
       lines.push("");
     }
-    if (d.url) {
-      lines.push(`**URL**: ${d.url}`);
+    if (d.mermaid) {
+      lines.push("```mermaid");
+      lines.push(d.mermaid);
+      lines.push("```");
       lines.push("");
     }
     if (d.notes.length) {
@@ -237,20 +236,16 @@ function joinTextBlock(lines: string[]): string {
   const cleaned: string[] = [];
   for (const raw of lines) {
     const line = raw.replace(/\r$/, "");
-    if (line.startsWith("**") || line.startsWith("- ") || /^#{1,6}\s/.test(line))
+    if (
+      line.startsWith("**") ||
+      line.startsWith("- ") ||
+      line.startsWith("```") ||
+      /^#{1,6}\s/.test(line)
+    )
       break;
     cleaned.push(line);
   }
   return cleaned.join("\n").trim();
-}
-
-function extractLabeledLine(lines: string[], label: string): string {
-  const prefix = `**${label}**:`;
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith(prefix)) return trimmed.slice(prefix.length).trim();
-  }
-  return "";
 }
 
 function extractLabeledList(lines: string[], label: string): string[] {
@@ -270,13 +265,27 @@ function extractLabeledList(lines: string[], label: string): string[] {
   return result.filter(Boolean);
 }
 
-function parseDiagramSection(
-  section: string[],
-): TddSchema["architecture"] {
+function parseMermaidBlock(lines: string[]): string {
+  let inMermaid = false;
+  const buffer: string[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed === "```mermaid") {
+      inMermaid = true;
+    } else if (inMermaid && trimmed === "```") {
+      break;
+    } else if (inMermaid) {
+      buffer.push(line);
+    }
+  }
+  return buffer.join("\n").trim();
+}
+
+function parseDiagramSection(section: string[]): TddSchema["architecture"] {
   const description = joinTextBlock(section);
-  const url = extractLabeledLine(section, "URL");
+  const mermaid = parseMermaidBlock(section);
   const notes = extractLabeledList(section, "Notes");
-  return { description, url, notes };
+  return { description, mermaid, notes };
 }
 
 function parseCodeBlocks(lines: string[]): string[] {
@@ -302,8 +311,7 @@ function parseCodeBlocks(lines: string[]): string[] {
 
 const INTERNAL_ENDPOINT_RE =
   /^-\s+\*\*(GET|POST|PUT|PATCH|DELETE)\*\*\s+`([^`]+)`\s+—\s+(.+)$/;
-const INTERNAL_ERROR_RE =
-  /^-\s+\*\*([A-Z0-9_]+)\*\*\s+\(([^)]+)\):\s+(.+)$/;
+const INTERNAL_ERROR_RE = /^-\s+\*\*([A-Z0-9_]+)\*\*\s+\(([^)]+)\):\s+(.+)$/;
 
 const EXTERNAL_ENDPOINT_RE =
   /^-\s+\*\*(.+?)\*\*\s+—\s+(.+?)(?:\s+\(([^)]+)\))?$/;
@@ -559,7 +567,9 @@ export function toTddSampleMarkdown(): string {
   lines.push("-->");
   lines.push("");
   lines.push("# TDD-XXX");
-  lines.push("<!-- Replace TDD-XXX with the actual doc ID, e.g. TDD-BAOKIM-001 -->");
+  lines.push(
+    "<!-- Replace TDD-XXX with the actual doc ID, e.g. TDD-BAOKIM-001 -->",
+  );
   lines.push("");
   lines.push("## Document Info");
   lines.push("");
@@ -595,7 +605,9 @@ export function toTddSampleMarkdown(): string {
 
   const diagramTemplate = (heading: string) => {
     lines.push(`## ${heading}`);
-    lines.push(`<!-- Free-text description of the ${heading.toLowerCase()} -->`);
+    lines.push(
+      `<!-- Free-text description of the ${heading.toLowerCase()} -->`,
+    );
     lines.push("");
     lines.push("");
     lines.push("**URL**: ");
@@ -615,7 +627,7 @@ export function toTddSampleMarkdown(): string {
   lines.push("## Internal API");
   lines.push("");
   lines.push("### Endpoints");
-  lines.push('<!-- Format: - **METHOD** `/path` — description -->');
+  lines.push("<!-- Format: - **METHOD** `/path` — description -->");
   lines.push("");
   lines.push("- **POST** `/example` — Example endpoint");
   lines.push("");
@@ -630,7 +642,7 @@ export function toTddSampleMarkdown(): string {
   lines.push("```");
   lines.push("");
   lines.push("### Error Codes");
-  lines.push('<!-- Format: - **CODE** (HTTP): when -->');
+  lines.push("<!-- Format: - **CODE** (HTTP): when -->");
   lines.push("");
   lines.push("- **ERROR_CODE** (400): Khi nào xảy ra");
   lines.push("");
@@ -638,12 +650,12 @@ export function toTddSampleMarkdown(): string {
   lines.push("## External API");
   lines.push("");
   lines.push("### Endpoints");
-  lines.push('<!-- Format: - **name** — purpose (note) -->');
+  lines.push("<!-- Format: - **name** — purpose (note) -->");
   lines.push("");
   lines.push("- **Vendor endpoint** — Mục đích (ghi chú)");
   lines.push("");
   lines.push("### Fields");
-  lines.push('<!-- Format: - **field** — meaning (note) -->');
+  lines.push("<!-- Format: - **field** — meaning (note) -->");
   lines.push("");
   lines.push("- **field_name** — Ý nghĩa (ghi chú)");
   lines.push("");
@@ -677,7 +689,7 @@ export function toTddSampleMarkdown(): string {
   lines.push("");
 
   lines.push("## Change Log");
-  lines.push('<!-- Each entry: #### VERSION (YYYY-MM-DD), then bullets -->');
+  lines.push("<!-- Each entry: #### VERSION (YYYY-MM-DD), then bullets -->");
   lines.push("");
   lines.push("#### v1.0 (2026-01-01)");
   lines.push("");
@@ -697,9 +709,6 @@ const escapeHtml = (s: string): string =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
-
-const escapeAttr = (s: string): string =>
-  s.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 
 const TDD_STYLE = `
   * { box-sizing: border-box; }
@@ -800,28 +809,18 @@ function renderDataTable(headers: string[], rows: string[][]): string {
   return `<table class="data-table">${thead}${tbody}</table>`;
 }
 
-const IMAGE_URL_RE = /\.(png|jpe?g|gif|svg|webp|bmp)(\?.*)?$/i;
-
 function renderDiagramSection(
   num: string,
   label: string,
   d: TddSchema["architecture"],
 ): string {
-  if (!d.description && !d.url && !d.notes.length) return "";
+  if (!d.description && !d.mermaid && !d.notes.length) return "";
   const parts: string[] = [
     `<h2 class="section">${num}. ${escapeHtml(label)}</h2>`,
   ];
   if (d.description) parts.push(renderParagraph(d.description));
-  if (d.url) {
-    if (IMAGE_URL_RE.test(d.url)) {
-      parts.push(
-        `<p class="body"><img src="${escapeAttr(d.url)}" alt="${escapeHtml(label)}"></p>`,
-      );
-    } else {
-      parts.push(
-        `<p class="body"><strong>URL:</strong> <a href="${escapeAttr(d.url)}" target="_blank" rel="noreferrer">${escapeHtml(d.url)}</a></p>`,
-      );
-    }
+  if (d.mermaid) {
+    parts.push(`<pre class="mermaid body">${escapeHtml(d.mermaid)}</pre>`);
   }
   if (d.notes.length) {
     parts.push(`<p class="body"><strong>Ghi chú:</strong></p>`);
@@ -885,12 +884,18 @@ export function toTddHtml(data: TddSchema): string {
 
   // 3–7. Diagram sections
   parts.push(
-    renderDiagramSection("3", "Kiến trúc tổng quan (Architecture)", architecture),
+    renderDiagramSection(
+      "3",
+      "Kiến trúc tổng quan (Architecture)",
+      architecture,
+    ),
   );
   parts.push(renderDiagramSection("4", "Sequence Diagram", sequenceDiagram));
   parts.push(renderDiagramSection("5", "Activity Diagram", activityDiagram));
   parts.push(renderDiagramSection("6", "State Diagram", stateDiagram));
-  parts.push(renderDiagramSection("7", "Mô hình dữ liệu (Data Model)", dataModel));
+  parts.push(
+    renderDiagramSection("7", "Mô hình dữ liệu (Data Model)", dataModel),
+  );
 
   // 8. Internal API
   if (
@@ -915,9 +920,7 @@ export function toTddHtml(data: TddSchema): string {
     if (internalApi.examples.length) {
       parts.push(`<h3 class="subsection">8.2. Ví dụ request/response</h3>`);
       for (const ex of internalApi.examples) {
-        parts.push(
-          `<h4 class="example-title">${escapeHtml(ex.title)}</h4>`,
-        );
+        parts.push(`<h4 class="example-title">${escapeHtml(ex.title)}</h4>`);
         parts.push(`<pre class="code-block">${escapeHtml(ex.content)}</pre>`);
       }
     }
@@ -973,7 +976,9 @@ export function toTddHtml(data: TddSchema): string {
       );
     }
     if (externalApi.errorHandling) {
-      parts.push(`<h3 class="subsection">9.3. Error/response phía đối tác</h3>`);
+      parts.push(
+        `<h3 class="subsection">9.3. Error/response phía đối tác</h3>`,
+      );
       parts.push(renderParagraph(externalApi.errorHandling));
     }
     if (externalApi.quirks.length) {

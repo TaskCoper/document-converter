@@ -269,13 +269,12 @@ export function DiagramSection({
             {...register(`${name}.description`)}
           />
         </Field>
-        <Field data-invalid={!!errors[name]?.url || undefined}>
-          <FieldLabel htmlFor={`${name}.url`}>URL sơ đồ</FieldLabel>
-          <Input
-            id={`${name}.url`}
-            type="url"
-            placeholder="https://..."
-            {...register(`${name}.url`)}
+        <Field data-invalid={!!errors[name]?.mermaid || undefined}>
+          <FieldLabel htmlFor={`${name}.mermaid`}>Mermaid</FieldLabel>
+          <Textarea
+            id={`${name}.mermaid`}
+            placeholder="flowchart LR&#10;    A --> B"
+            {...register(`${name}.mermaid`)}
           />
         </Field>
         <TddStringArrayField
@@ -319,9 +318,7 @@ export function InternalApiSection({
               <div key={f.id} className="flex gap-1 items-start">
                 <div className="flex-1 grid grid-cols-[8rem_1fr] gap-2">
                   <Field>
-                    <FieldLabel
-                      htmlFor={`internalApi.endpoints.${idx}.method`}
-                    >
+                    <FieldLabel htmlFor={`internalApi.endpoints.${idx}.method`}>
                       Method
                     </FieldLabel>
                     <Controller
@@ -601,12 +598,11 @@ export function ExternalApiSection({
                 </div>
                 <Field
                   data-invalid={
-                    !!errors.externalApi?.endpoints?.[idx]?.endpoint || undefined
+                    !!errors.externalApi?.endpoints?.[idx]?.endpoint ||
+                    undefined
                   }
                 >
-                  <FieldLabel
-                    htmlFor={`externalApi.endpoints.${idx}.endpoint`}
-                  >
+                  <FieldLabel htmlFor={`externalApi.endpoints.${idx}.endpoint`}>
                     Endpoint
                   </FieldLabel>
                   <Input
@@ -620,9 +616,7 @@ export function ExternalApiSection({
                     !!errors.externalApi?.endpoints?.[idx]?.purpose || undefined
                   }
                 >
-                  <FieldLabel
-                    htmlFor={`externalApi.endpoints.${idx}.purpose`}
-                  >
+                  <FieldLabel htmlFor={`externalApi.endpoints.${idx}.purpose`}>
                     Mục đích
                   </FieldLabel>
                   <Input
@@ -802,7 +796,11 @@ export function ReferencesSection({
   );
 }
 
-export function ChangeLogSection({ register, control, errors }: TddSectionProps) {
+export function ChangeLogSection({
+  register,
+  control,
+  errors,
+}: TddSectionProps) {
   const { fields, append, remove } = useFieldArray({
     control,
     name: "changeLog",
@@ -830,7 +828,9 @@ export function ChangeLogSection({ register, control, errors }: TddSectionProps)
               </Button>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <Field data-invalid={!!errors.changeLog?.[idx]?.date || undefined}>
+              <Field
+                data-invalid={!!errors.changeLog?.[idx]?.date || undefined}
+              >
                 <FieldLabel htmlFor={`changeLog.${idx}.date`}>Ngày</FieldLabel>
                 <Input
                   id={`changeLog.${idx}.date`}

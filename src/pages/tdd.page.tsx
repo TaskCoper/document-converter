@@ -13,9 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuthorStore } from "@/features/user-stories/store";
-import { getFile, slugifyAuthor } from "@/lib/github";
+import { slugifyAuthor } from "@/lib/github";
 import {
-  ghKeys,
   messageFor,
   parentOf,
   useDir,
@@ -25,7 +24,6 @@ import {
 } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   ArrowLeft,
@@ -177,7 +175,6 @@ export default function TddPage() {
   const author = useAuthorStore((s) => s.name);
   const save = useSaveFile();
   const rename = useRenameFile();
-  const qc = useQueryClient();
 
   const docId = useWatch({ control, name: "documentInfo.docId" });
 
@@ -273,14 +270,10 @@ export default function TddPage() {
       documentInfo: { ...data.documentInfo, author },
     });
     try {
-      const existing = await qc.fetchQuery({
-        queryKey: ghKeys.file(path),
-        queryFn: () => getFile(path),
-      });
       await save.mutateAsync({
         path,
         content,
-        message: buildCreateCommitMessage(path, data, author, !!existing),
+        message: buildCreateCommitMessage(path, data, author),
         websiteUser: author,
       });
       resetStore();
@@ -750,9 +743,7 @@ function FolderPicker({
         <Input
           type="text"
           value={value}
-          onChange={(e) =>
-            onChange(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""))
-          }
+          onChange={(e) => onChange(e.target.value)}
           placeholder={authorSlug}
           className="h-7 text-xs max-w-[16rem]"
         />
@@ -847,7 +838,6 @@ function buildCreateCommitMessage(
   _path: string,
   data: TddSchema,
   author: string,
-  isUpdate: boolean,
 ): string {
   const docId = data.documentInfo.docId;
   const feature = data.documentInfo.feature;
@@ -863,8 +853,7 @@ function buildCreateCommitMessage(
     .filter(Boolean)
     .join(" | ");
   if (versionStatus) parts.push(versionStatus);
-  const action = isUpdate ? "Update" : "Create";
-  parts.push("", `${action}d by ${author} on the web.`);
+  parts.push("", `Created by ${author} on the web.`);
   return parts.join("\n");
 }
 

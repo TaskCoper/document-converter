@@ -2,7 +2,7 @@ import { fromMarkdown } from "@/features/user-stories/exporters";
 import { fromTddMarkdown } from "@/features/tdds/exporters";
 import { fromRuleMarkdown } from "@/features/business-rules/exporters";
 import { detectType, type FileType } from "@/lib/file-type";
-import { type Change, getFile, listDir } from "@/lib/github";
+import { type Change, GhError, getFile, listDir } from "@/lib/github";
 import {
   PriorityLabel,
   StatusLabel,
@@ -208,7 +208,10 @@ function storyEntry(
   };
 }
 
-function entryFromContent(path: string, content: string | null): SitemapEntry {
+export function entryFromContent(
+  path: string,
+  content: string | null,
+): SitemapEntry {
   const baseName = path.split("/").pop() ?? path;
   const fallbackId = baseName.replace(/\.md$/i, "");
 
@@ -288,6 +291,16 @@ async function collectFolderEntries(folder: string): Promise<SitemapEntry[]> {
   return files.map((f) => entryFromContent(f.path, f.content));
 }
 
+export function entriesFromContents(
+  files: { path: string; content: string }[],
+): SitemapEntry[] {
+  return files
+    .filter(
+      (f) => f.path.toLowerCase().endsWith(".md") && !isSitemapPath(f.path),
+    )
+    .map((f) => entryFromContent(f.path, f.content));
+}
+
 export async function collectFolderContents(
   folder: string,
 ): Promise<{ path: string; content: string }[]> {
@@ -327,6 +340,164 @@ export async function computeSitemapChangeFromContents(
   const content = buildSitemapMarkdown(clean, entries);
   if (existing && existing.content === content) return null;
   return { action: "upsert", path, content };
+}
+
+export type RootSitemapFolder = {
+  name: string;
+  types: FileType[];
+  count: number;
+};
+
+const TYPE_ORDER: Record<FileType, number> = {
+  "user-story": 0,
+  tdd: 1,
+  "business-rule": 2,
+};
+
+function sortTypes(types: FileType[]): FileType[] {
+  return Array.from(new Set(types)).sort((a, b) => TYPE_ORDER[a] - TYPE_ORDER[b]);
+}
+
+export function buildRootSitemapMarkdown(folders: RootSitemapFolder[]): string {
+  const lines: string[] = [
+    "# Docs",
+    "",
+    "_Auto-generated. Do not edit manually._",
+    "",
+    "Root index of documentation folders. Each entry declares which document",
+    "types live in that folder so tooling can resolve type by folder name.",
+    "",
+  ];
+
+  for (const f of folders) {
+    const typesStr = f.types.length
+      ? f.types.map((t) => `\`${t}\``).join(", ")
+      : "`empty`";
+    const count = f.count === 1 ? "1 file" : `${f.count} files`;
+    lines.push(
+      `- [${f.name}](${f.name}/${SITEMAP_FILENAME}) ${typesStr} — ${count}`,
+    );
+  }
+
+  return lines.join("\n");
+}
+
+const ROOT_ROW_RE =
+  /^-\s+\[(.+?)\]\((.+?)\)\s+((?:`(?:user-story|tdd|business-rule|empty)`(?:,\s*)?)+)(?:\s+—\s+(\d+)\s+files?)?$/;
+
+export function parseRootSitemapMarkdown(md: string): RootSitemapFolder[] {
+  const out: RootSitemapFolder[] = [];
+  for (const raw of md.split("\n")) {
+    const line = raw.trimEnd();
+    const m = line.match(ROOT_ROW_RE);
+    if (!m) continue;
+    const [, name, , typesStr, countStr] = m;
+    const types = Array.from(typesStr.matchAll(/`([^`]+)`/g))
+      .map((t) => t[1])
+      .filter((t): t is FileType =>
+        t === "user-story" || t === "tdd" || t === "business-rule",
+      );
+    out.push({
+      name,
+      types: sortTypes(types),
+      count: countStr ? Number(countStr) : 0,
+    });
+  }
+  return out;
+}
+
+async function loadFolderEntriesForRoot(
+  folder: string,
+): Promise<SitemapEntry[]> {
+  const smPath = sitemapPathFor(folder);
+  const sm = await getFile(smPath);
+  if (sm) return parseSitemapMarkdown(sm.content);
+  try {
+    return await collectFolderEntries(folder);
+  } catch (e) {
+    if (e instanceof GhError && e.kind === "NOT_FOUND") return [];
+    throw e;
+  }
+}
+
+export type RootSitemapOverrides = {
+  upserts?: Map<string, SitemapEntry[]>;
+  deletedFolders?: Set<string>;
+};
+
+export type RootSitemapComputeOpts = {
+  // When true and a root sitemap already exists, trust its folder membership
+  // and only recompute (types, count) for folders touched by `overrides`.
+  // Avoids listDir("") and per-folder sitemap fetches — the common save/delete
+  // path where the folder set doesn't change.
+  trustExistingRoot?: boolean;
+};
+
+export async function computeRootSitemapChange(
+  overrides: RootSitemapOverrides = {},
+  opts: RootSitemapComputeOpts = {},
+): Promise<Change | null> {
+  const rootPath = sitemapPathFor("");
+  const existing = await getFile(rootPath);
+
+  if (opts.trustExistingRoot && existing) {
+    const parsed = parseRootSitemapMarkdown(existing.content);
+    const map = new Map<string, RootSitemapFolder>(
+      parsed.map((f) => [f.name, f]),
+    );
+    overrides.upserts?.forEach((entries, name) => {
+      map.set(name, {
+        name,
+        types: sortTypes(entries.map((e) => e.type)),
+        count: entries.length,
+      });
+    });
+    overrides.deletedFolders?.forEach((f) => map.delete(f));
+    const sorted = Array.from(map.values()).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+    if (sorted.length === 0) {
+      return { action: "delete", path: rootPath };
+    }
+    const content = buildRootSitemapMarkdown(sorted);
+    if (existing.content === content) return null;
+    return { action: "upsert", path: rootPath, content };
+  }
+
+  let rootEntries: { name: string; type: "file" | "dir" }[] = [];
+  try {
+    rootEntries = await listDir("");
+  } catch (e) {
+    if (!(e instanceof GhError && e.kind === "NOT_FOUND")) throw e;
+  }
+
+  const folderNames = new Set(
+    rootEntries.filter((e) => e.type === "dir").map((e) => e.name),
+  );
+  overrides.deletedFolders?.forEach((f) => folderNames.delete(f));
+  overrides.upserts?.forEach((_, f) => folderNames.add(f));
+
+  const sorted = Array.from(folderNames).sort((a, b) => a.localeCompare(b));
+  const infos: RootSitemapFolder[] = await Promise.all(
+    sorted.map(async (name) => {
+      const entries = overrides.upserts?.has(name)
+        ? overrides.upserts.get(name)!
+        : await loadFolderEntriesForRoot(name);
+      return {
+        name,
+        types: sortTypes(entries.map((e) => e.type)),
+        count: entries.length,
+      };
+    }),
+  );
+
+  if (infos.length === 0) {
+    return existing ? { action: "delete", path: rootPath } : null;
+  }
+
+  const content = buildRootSitemapMarkdown(infos);
+  if (existing && existing.content === content) return null;
+  return { action: "upsert", path: rootPath, content };
 }
 
 export async function computeSitemapChange(

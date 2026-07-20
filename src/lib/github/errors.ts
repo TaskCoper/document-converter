@@ -31,7 +31,9 @@ export function messageFor(err: unknown): string {
     case "NOT_FOUND":
       return "Không tìm thấy file hoặc thư mục.";
     case "CONFLICT":
-      return "Có người vừa chỉnh sửa file này. Vui lòng tải lại rồi thử lại.";
+      return err.detail
+        ? `Xung đột khi ghi lên GitHub: ${err.detail}`
+        : "Có người vừa chỉnh sửa file này. Vui lòng tải lại rồi thử lại.";
     case "VALIDATION":
       return `Yêu cầu không hợp lệ${err.detail ? `: ${err.detail}` : ""}.`;
     case "NETWORK":

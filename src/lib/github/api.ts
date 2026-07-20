@@ -1,5 +1,5 @@
 import axios, { AxiosError, type AxiosInstance } from "axios";
-import { CFG, encPath, scoped, stripRoot } from "./config";
+import { encPath, requireActiveRepo, scoped, stripRoot } from "./config";
 import { GhError } from "./errors";
 import type {
   Change,
@@ -13,13 +13,14 @@ import type {
 const api: AxiosInstance = axios.create({
   baseURL: "https://api.github.com",
   headers: {
-    Authorization: `Bearer ${CFG.token}`,
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2026-03-10",
   },
 });
 
 api.interceptors.request.use((config) => {
+  const repo = requireActiveRepo();
+  config.headers.set("Authorization", `Bearer ${repo.token}`);
   if ((config.method ?? "get").toLowerCase() === "get") {
     config.params = { ...(config.params ?? {}), _ts: Date.now() };
   }
@@ -61,13 +62,15 @@ export function authorFor(name: string) {
 }
 
 function contentsUrl(path: string) {
-  return `/repos/${CFG.owner}/${CFG.repo}/contents/${encPath(scoped(path))}`;
+  const { owner, repo } = requireActiveRepo();
+  return `/repos/${owner}/${repo}/contents/${encPath(scoped(path))}`;
 }
 
 export async function getFile(path: string): Promise<FileData | null> {
   try {
+    const { branch } = requireActiveRepo();
     const { data } = await api.get(contentsUrl(path), {
-      params: { ref: CFG.branch },
+      params: { ref: branch },
     });
     if (Array.isArray(data))
       throw new GhError("VALIDATION", 200, "path is a directory, not a file");
@@ -84,8 +87,9 @@ export async function getFile(path: string): Promise<FileData | null> {
 
 export async function listDir(path: string): Promise<DirEntry[]> {
   try {
+    const { branch } = requireActiveRepo();
     const { data } = await api.get(contentsUrl(path), {
-      params: { ref: CFG.branch },
+      params: { ref: branch },
     });
     if (!Array.isArray(data))
       throw new GhError("VALIDATION", 200, "path is a file, not a directory");
@@ -137,7 +141,8 @@ function buildTreeEntries(changes: Change[]): TreeEntry[] {
 
 async function attemptCommit(input: CommitInput): Promise<CommitResult> {
   const author = authorFor(input.websiteUser);
-  const refUrl = `/repos/${CFG.owner}/${CFG.repo}/git/refs/heads/${CFG.branch}`;
+  const { owner, repo, branch } = requireActiveRepo();
+  const refUrl = `/repos/${owner}/${repo}/git/refs/heads/${branch}`;
 
   let baseCommitSha: string | null = null;
   let baseTreeSha: string | null = null;
@@ -153,7 +158,7 @@ async function attemptCommit(input: CommitInput): Promise<CommitResult> {
 
   if (!emptyBranch && baseCommitSha) {
     const { data: commitData } = await api.get(
-      `/repos/${CFG.owner}/${CFG.repo}/git/commits/${baseCommitSha}`,
+      `/repos/${owner}/${repo}/git/commits/${baseCommitSha}`,
     );
     baseTreeSha = commitData.tree.sha as string;
   }
@@ -163,13 +168,13 @@ async function attemptCommit(input: CommitInput): Promise<CommitResult> {
   };
   if (baseTreeSha) treeBody.base_tree = baseTreeSha;
   const { data: treeData } = await api.post(
-    `/repos/${CFG.owner}/${CFG.repo}/git/trees`,
+    `/repos/${owner}/${repo}/git/trees`,
     treeBody,
   );
   const newTreeSha = treeData.sha as string;
 
   const { data: commitData } = await api.post(
-    `/repos/${CFG.owner}/${CFG.repo}/git/commits`,
+    `/repos/${owner}/${repo}/git/commits`,
     {
       message: input.message,
       tree: newTreeSha,
@@ -182,8 +187,8 @@ async function attemptCommit(input: CommitInput): Promise<CommitResult> {
   const htmlUrl = commitData.html_url as string;
 
   if (emptyBranch) {
-    await api.post(`/repos/${CFG.owner}/${CFG.repo}/git/refs`, {
-      ref: `refs/heads/${CFG.branch}`,
+    await api.post(`/repos/${owner}/${repo}/git/refs`, {
+      ref: `refs/heads/${branch}`,
       sha: newCommitSha,
     });
   } else {
@@ -272,10 +277,11 @@ export async function getHistory(
   path?: string,
   perPage = 20,
 ): Promise<Commit[]> {
-  const filter = path ? scoped(path) : CFG.rootDir || undefined;
-  const { data } = await api.get(`/repos/${CFG.owner}/${CFG.repo}/commits`, {
+  const { owner, repo, branch, rootDir } = requireActiveRepo();
+  const filter = path ? scoped(path) : rootDir || undefined;
+  const { data } = await api.get(`/repos/${owner}/${repo}/commits`, {
     params: {
-      sha: CFG.branch,
+      sha: branch,
       per_page: perPage,
       ...(filter ? { path: filter } : {}),
     },

@@ -1,28 +1,46 @@
+import { getActiveRepo, type RepoConfig } from "@/features/repos/store";
+import { GhError } from "./errors";
+
 const trim = (s: string) => s.replace(/^\/+|\/+$/g, "");
 
-export const CFG = {
-  token: import.meta.env.VITE_GH_TOKEN as string,
-  owner: import.meta.env.VITE_GH_OWNER as string,
-  repo: import.meta.env.VITE_GH_REPO as string,
-  branch: (import.meta.env.VITE_GH_BRANCH as string) || "main",
-  rootDir: trim((import.meta.env.VITE_GH_ROOT_DIR as string) || ""),
-};
+export function requireActiveRepo(): RepoConfig {
+  const repo = getActiveRepo();
+  if (!repo) {
+    throw new GhError(
+      "VALIDATION",
+      undefined,
+      "Chưa chọn kho. Hãy chọn một kho trước khi thao tác.",
+    );
+  }
+  return repo;
+}
 
-export const REPO_LABEL = `${CFG.owner}/${CFG.repo}@${CFG.branch}${
-  CFG.rootDir ? `:${CFG.rootDir}/` : ""
-}`;
-export const BRANCH = CFG.branch;
-export const ROOT_DIR = CFG.rootDir;
+export function getRepoLabel(): string {
+  const r = getActiveRepo();
+  if (!r) return "";
+  const suffix = r.rootDir ? `:${r.rootDir}/` : "";
+  return `${r.owner}/${r.repo}@${r.branch}${suffix}`;
+}
+
+export function getBranch(): string {
+  return getActiveRepo()?.branch ?? "main";
+}
+
+export function getRootDir(): string {
+  return getActiveRepo()?.rootDir ?? "";
+}
 
 export function scoped(path: string): string {
   const clean = trim(path);
-  if (!CFG.rootDir) return clean;
-  return clean ? `${CFG.rootDir}/${clean}` : CFG.rootDir;
+  const root = getRootDir();
+  if (!root) return clean;
+  return clean ? `${root}/${clean}` : root;
 }
 
 export function stripRoot(p: string): string {
-  if (!CFG.rootDir) return p;
-  const prefix = `${CFG.rootDir}/`;
+  const root = getRootDir();
+  if (!root) return p;
+  const prefix = `${root}/`;
   return p.startsWith(prefix) ? p.slice(prefix.length) : p;
 }
 

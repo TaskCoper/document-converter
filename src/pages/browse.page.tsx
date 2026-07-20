@@ -24,13 +24,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useActiveRepo } from "@/features/repos/store";
+import { useAuthorStore } from "@/features/user-stories/store";
 import { useDeleteFile } from "@/hooks/use-delete-file";
 import { useDeleteFolder } from "@/hooks/use-delete-folder";
 import { useDir } from "@/hooks/use-dir";
 import { useFile } from "@/hooks/use-file";
 import { useRegenerateSitemap } from "@/hooks/use-regenerate-sitemap";
 import { useRenameFolder } from "@/hooks/use-rename-folder";
-import { ROOT_DIR, messageFor } from "@/lib/github";
+import { messageFor } from "@/lib/github";
 import {
   parseSitemapMarkdown,
   sitemapPathFor,
@@ -40,7 +42,6 @@ import {
   type TddSitemapEntry,
 } from "@/lib/sitemap";
 import { cn } from "@/lib/utils";
-import { useAuthorStore } from "@/features/user-stories/store";
 import {
   ExternalLink,
   Folder,
@@ -82,10 +83,30 @@ const STORY_COLUMNS: ColumnDef<StorySitemapEntry>[] = [
     cellClassName: "text-center",
     render: (e) => e.sprint,
   },
-  { key: "priority", label: "Priority", className: "w-20", render: (e) => e.priority },
-  { key: "status", label: "Status", className: "w-24", render: (e) => e.status },
-  { key: "assignee", label: "Assignee", className: "w-96", render: (e) => e.assignee },
-  { key: "creator", label: "Creator", className: "w-28", render: (e) => e.creator },
+  {
+    key: "priority",
+    label: "Priority",
+    className: "w-20",
+    render: (e) => e.priority,
+  },
+  {
+    key: "status",
+    label: "Status",
+    className: "w-24",
+    render: (e) => e.status,
+  },
+  {
+    key: "assignee",
+    label: "Assignee",
+    className: "w-96",
+    render: (e) => e.assignee,
+  },
+  {
+    key: "creator",
+    label: "Creator",
+    className: "w-28",
+    render: (e) => e.creator,
+  },
 ];
 
 const TDD_COLUMNS: ColumnDef<TddSitemapEntry>[] = [
@@ -103,11 +124,36 @@ const TDD_COLUMNS: ColumnDef<TddSitemapEntry>[] = [
     cellClassName: "max-w-[280px] truncate",
     render: (e) => e.feature,
   },
-  { key: "status", label: "Status", className: "w-24", render: (e) => e.status },
-  { key: "version", label: "Version", className: "w-20", render: (e) => e.version },
-  { key: "author", label: "Author", className: "w-40", render: (e) => e.author },
-  { key: "reviewer", label: "Reviewer", className: "w-40", render: (e) => e.reviewer },
-  { key: "updatedAt", label: "Updated", className: "w-28", render: (e) => e.updatedAt },
+  {
+    key: "status",
+    label: "Status",
+    className: "w-24",
+    render: (e) => e.status,
+  },
+  {
+    key: "version",
+    label: "Version",
+    className: "w-20",
+    render: (e) => e.version,
+  },
+  {
+    key: "author",
+    label: "Author",
+    className: "w-40",
+    render: (e) => e.author,
+  },
+  {
+    key: "reviewer",
+    label: "Reviewer",
+    className: "w-40",
+    render: (e) => e.reviewer,
+  },
+  {
+    key: "updatedAt",
+    label: "Updated",
+    className: "w-28",
+    render: (e) => e.updatedAt,
+  },
 ];
 
 const RULE_COLUMNS: ColumnDef<RuleSitemapEntry>[] = [
@@ -125,9 +171,24 @@ const RULE_COLUMNS: ColumnDef<RuleSitemapEntry>[] = [
     cellClassName: "max-w-[280px] truncate",
     render: (e) => e.name,
   },
-  { key: "category", label: "Danh mục", className: "w-32", render: (e) => e.category },
-  { key: "status", label: "Status", className: "w-24", render: (e) => e.status },
-  { key: "version", label: "Version", className: "w-20", render: (e) => e.version },
+  {
+    key: "category",
+    label: "Danh mục",
+    className: "w-32",
+    render: (e) => e.category,
+  },
+  {
+    key: "status",
+    label: "Status",
+    className: "w-24",
+    render: (e) => e.status,
+  },
+  {
+    key: "version",
+    label: "Version",
+    className: "w-20",
+    render: (e) => e.version,
+  },
   { key: "owner", label: "Owner", className: "w-40", render: (e) => e.owner },
   {
     key: "effectiveDate",
@@ -501,6 +562,8 @@ export default function BrowsePage() {
   const path = useSplat();
   const navigate = useNavigate();
   const authorName = useAuthorStore((s) => s.name);
+  const activeRepo = useActiveRepo();
+  const rootDir = activeRepo?.rootDir ?? "";
   const renameFolderMutation = useRenameFolder();
   const deleteFolderMutation = useDeleteFolder();
   const [renamingFolder, setRenamingFolder] = useState<string | null>(null);
@@ -550,7 +613,7 @@ export default function BrowsePage() {
   const urlFolder = path.split("/").filter(Boolean)[0] ?? "";
   const activeTab = urlFolder || rootFolders[0]?.name || "";
 
-  const currentPath = [ROOT_DIR, activeTab].filter(Boolean).join("/");
+  const currentPath = [rootDir, activeTab].filter(Boolean).join("/");
 
   const { data: activeSitemapData } = useFile(
     activeTab ? sitemapPathFor(activeTab) : "",
@@ -562,8 +625,12 @@ export default function BrowsePage() {
   const addTarget = (() => {
     const hasStory = activeSitemapEntries.some((e) => e.type === "user-story");
     const hasTdd = activeSitemapEntries.some((e) => e.type === "tdd");
-    const hasRule = activeSitemapEntries.some((e) => e.type === "business-rule");
-    const folderParam = activeTab ? `?folder=${encodeURIComponent(activeTab)}` : "";
+    const hasRule = activeSitemapEntries.some(
+      (e) => e.type === "business-rule",
+    );
+    const folderParam = activeTab
+      ? `?folder=${encodeURIComponent(activeTab)}`
+      : "";
     if (!hasStory && hasTdd && !hasRule) return `/tdd${folderParam}`;
     if (!hasStory && !hasTdd && hasRule) return `/rules${folderParam}`;
     return `/stories${folderParam}`;

@@ -3,3 +3,4 @@
 _Auto-generated. Do not edit manually._
 
 - [BR-08](Business Rules/BR-07.md) `business-rule` — Phụ phí VAT khách doanh nghiệp · Tax / Pricing · Active · v1.1 · Kế toán trưởng · 2026-07-01
+- [BR-08](Business Rules/BR-08.md) `business-rule` — Phụ phí VAT khách doanh nghiệp · Tax / Pricing · Active · v1.1 · Kế toán trưởng · 2026-07-01

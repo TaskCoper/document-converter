@@ -12,7 +12,8 @@ export default defineConfig({
     babel({
       presets: [
         reactCompilerPreset({
-          sources: (filename: string) => !filename.includes("form-sections"),
+          sources: (filename: string) =>
+            !/-section\.tsx$|-form-sections\.tsx$/.test(filename),
         }),
       ],
     }),

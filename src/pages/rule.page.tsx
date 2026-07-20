@@ -13,15 +13,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuthorStore } from "@/features/user-stories/store";
-import { slugifyAuthor } from "@/lib/github";
-import {
-  messageFor,
-  parentOf,
-  useDir,
-  useFile,
-  useRenameFile,
-  useSaveFile,
-} from "@/lib/queries";
+import { useDir } from "@/hooks/use-dir";
+import { useFile } from "@/hooks/use-file";
+import { useRenameFile } from "@/hooks/use-rename-file";
+import { useSaveFile } from "@/hooks/use-save-file";
+import { messageFor, parentOf, slugifyAuthor } from "@/lib/github";
 import { cn } from "@/lib/utils";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import {
@@ -59,8 +55,8 @@ import {
   RuleGovernanceSection,
   RuleIdentitySection,
   RuleLogicSection,
-} from "../features/business-rules/rule-form-sections";
-import { RulePreviewPanel } from "../features/business-rules/rule-preview-panel";
+} from "../features/business-rules/components/rule-form-sections";
+import { RulePreviewPanel } from "../features/business-rules/components/rule-preview-panel";
 import {
   initialRuleData,
   sampleRuleData,

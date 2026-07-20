@@ -12,14 +12,10 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import { GhError } from "@/lib/github";
-import {
-  messageFor,
-  parentOf,
-  useDeleteFile,
-  useFile,
-  useSaveFile,
-} from "@/lib/queries";
+import { useDeleteFile } from "@/hooks/use-delete-file";
+import { useFile } from "@/hooks/use-file";
+import { useSaveFile } from "@/hooks/use-save-file";
+import { GhError, messageFor, parentOf } from "@/lib/github";
 import { useAuthorStore } from "@/features/user-stories/store";
 import { ExternalLink, History, Save, Trash2 } from "lucide-react";
 import { useState } from "react";

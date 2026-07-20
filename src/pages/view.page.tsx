@@ -16,17 +16,14 @@ import {
 } from "@/features/business-rules/exporters";
 import { RuleStatusLabel } from "@/features/business-rules/validations";
 import { fromTddMarkdown, toTddHtml } from "@/features/tdds/exporters";
-import { TddDocumentView } from "@/features/tdds/tdd-document-view";
+import { TddDocumentView } from "@/features/tdds/components/tdd-document-view";
 import { fromMarkdown, toHtml } from "@/features/user-stories/exporters";
 import { useAuthorStore } from "@/features/user-stories/store";
 import { detectType, type FileType } from "@/lib/file-type";
-import {
-  messageFor,
-  parentOf,
-  useDir,
-  useFile,
-  useRenameFile,
-} from "@/lib/queries";
+import { useDir } from "@/hooks/use-dir";
+import { useFile } from "@/hooks/use-file";
+import { useRenameFile } from "@/hooks/use-rename-file";
+import { messageFor, parentOf } from "@/lib/github";
 import { isSitemapPath } from "@/lib/sitemap";
 import { cn } from "@/lib/utils";
 import {

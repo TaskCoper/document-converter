@@ -1,6 +1,6 @@
 import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch";
 import { MermaidDiagram } from "./tdd-preview-panel";
-import { DocStatusLabel, type TddSchema } from "./validations";
+import { DocStatusLabel, type TddSchema } from "../validations";
 
 type DiagramData = TddSchema["architecture"];
 

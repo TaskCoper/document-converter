@@ -24,16 +24,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ROOT_DIR } from "@/lib/github";
-import {
-  messageFor,
-  useDeleteFile,
-  useDeleteFolder,
-  useDir,
-  useFile,
-  useRegenerateSitemap,
-  useRenameFolder,
-} from "@/lib/queries";
+import { useDeleteFile } from "@/hooks/use-delete-file";
+import { useDeleteFolder } from "@/hooks/use-delete-folder";
+import { useDir } from "@/hooks/use-dir";
+import { useFile } from "@/hooks/use-file";
+import { useRegenerateSitemap } from "@/hooks/use-regenerate-sitemap";
+import { useRenameFolder } from "@/hooks/use-rename-folder";
+import { ROOT_DIR, messageFor } from "@/lib/github";
 import {
   parseSitemapMarkdown,
   sitemapPathFor,

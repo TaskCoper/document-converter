@@ -16,7 +16,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { Control } from "react-hook-form";
 import { useWatch } from "react-hook-form";
 
-import { DocStatusLabel, type TddSchema } from "./validations";
+import { DocStatusLabel, type TddSchema } from "../validations";
 
 mermaid.initialize({
   startOnLoad: false,

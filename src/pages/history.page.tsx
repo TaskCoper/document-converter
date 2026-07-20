@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { messageFor, useHistory } from "@/lib/queries";
+import { useHistory } from "@/hooks/use-history";
+import { messageFor } from "@/lib/github";
 import { ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";

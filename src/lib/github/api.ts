@@ -1,49 +1,14 @@
 import axios, { AxiosError, type AxiosInstance } from "axios";
-
-const trim = (s: string) => s.replace(/^\/+|\/+$/g, "");
-
-const CFG = {
-  token: import.meta.env.VITE_GH_TOKEN as string,
-  owner: import.meta.env.VITE_GH_OWNER as string,
-  repo: import.meta.env.VITE_GH_REPO as string,
-  branch: (import.meta.env.VITE_GH_BRANCH as string) || "main",
-  rootDir: trim((import.meta.env.VITE_GH_ROOT_DIR as string) || ""),
-};
-
-export const REPO_LABEL = `${CFG.owner}/${CFG.repo}@${CFG.branch}${
-  CFG.rootDir ? `:${CFG.rootDir}/` : ""
-}`;
-export const BRANCH = CFG.branch;
-export const ROOT_DIR = CFG.rootDir;
-
-function scoped(path: string): string {
-  const clean = trim(path);
-  if (!CFG.rootDir) return clean;
-  return clean ? `${CFG.rootDir}/${clean}` : CFG.rootDir;
-}
-
-export type GhErrorKind =
-  | "CONFLICT"
-  | "NOT_FOUND"
-  | "RATE_LIMIT"
-  | "UNAUTHORIZED"
-  | "VALIDATION"
-  | "NETWORK"
-  | "OTHER";
-
-export class GhError extends Error {
-  kind: GhErrorKind;
-  status?: number;
-  detail?: string;
-  constructor(kind: GhErrorKind, status?: number, detail?: string) {
-    super(
-      `${kind}${status ? ` (${status})` : ""}${detail ? `: ${detail}` : ""}`,
-    );
-    this.kind = kind;
-    this.status = status;
-    this.detail = detail;
-  }
-}
+import { CFG, encPath, scoped, stripRoot } from "./config";
+import { GhError } from "./errors";
+import type {
+  Change,
+  Commit,
+  CommitInput,
+  CommitResult,
+  DirEntry,
+  FileData,
+} from "./types";
 
 const api: AxiosInstance = axios.create({
   baseURL: "https://api.github.com",
@@ -86,9 +51,6 @@ function decodeB64(b64: string): string {
   return new TextDecoder().decode(bytes);
 }
 
-const encPath = (p: string) =>
-  p.split("/").filter(Boolean).map(encodeURIComponent).join("/");
-
 export function slugifyAuthor(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9.-]/g, "") || "web-guest";
 }
@@ -98,22 +60,8 @@ export function authorFor(name: string) {
   return { name: clean, email: `${slugifyAuthor(clean)}@hoatheomua.web` };
 }
 
-export type FileData = { content: string; sha: string; htmlUrl: string };
-export type DirEntry = {
-  name: string;
-  path: string;
-  type: "file" | "dir";
-  sha: string;
-};
-
 function contentsUrl(path: string) {
   return `/repos/${CFG.owner}/${CFG.repo}/contents/${encPath(scoped(path))}`;
-}
-
-function stripRoot(p: string): string {
-  if (!CFG.rootDir) return p;
-  const prefix = `${CFG.rootDir}/`;
-  return p.startsWith(prefix) ? p.slice(prefix.length) : p;
 }
 
 export async function getFile(path: string): Promise<FileData | null> {
@@ -155,28 +103,16 @@ export async function listDir(path: string): Promise<DirEntry[]> {
     });
   } catch (e) {
     // Empty scoped root (docs/ not yet created) → treat as empty listing.
-    if (e instanceof GhError && e.kind === "NOT_FOUND" && !trim(path)) {
+    if (
+      e instanceof GhError &&
+      e.kind === "NOT_FOUND" &&
+      !path.replace(/^\/+|\/+$/g, "")
+    ) {
       return [];
     }
     throw e;
   }
 }
-
-export type Change =
-  | { action: "upsert"; path: string; content: string }
-  | { action: "delete"; path: string };
-
-export type CommitInput = {
-  changes: Change[];
-  message: string;
-  websiteUser: string;
-};
-
-export type CommitResult = {
-  commitSha: string;
-  treeSha: string;
-  htmlUrl: string;
-};
 
 type TreeEntry =
   | { path: string; mode: "100644"; type: "blob"; content: string }
@@ -189,7 +125,12 @@ const isFastForwardError = (e: GhError) =>
 function buildTreeEntries(changes: Change[]): TreeEntry[] {
   return changes.map((c) =>
     c.action === "upsert"
-      ? { path: scoped(c.path), mode: "100644", type: "blob", content: c.content }
+      ? {
+          path: scoped(c.path),
+          mode: "100644",
+          type: "blob",
+          content: c.content,
+        }
       : { path: scoped(c.path), mode: "100644", type: "blob", sha: null },
   );
 }
@@ -326,16 +267,6 @@ export async function moveDoc(
     websiteUser,
   });
 }
-
-
-export type Commit = {
-  sha: string;
-  shortSha: string;
-  message: string;
-  author: string;
-  date: string;
-  htmlUrl: string;
-};
 
 export async function getHistory(
   path?: string,

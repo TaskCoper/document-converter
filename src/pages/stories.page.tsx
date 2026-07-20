@@ -20,15 +20,11 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { slugifyAuthor } from "@/lib/github";
-import {
-  messageFor,
-  parentOf,
-  useDir,
-  useFile,
-  useRenameFile,
-  useSaveFile,
-} from "@/lib/queries";
+import { useDir } from "@/hooks/use-dir";
+import { useFile } from "@/hooks/use-file";
+import { useRenameFile } from "@/hooks/use-rename-file";
+import { useSaveFile } from "@/hooks/use-save-file";
+import { messageFor, parentOf, slugifyAuthor } from "@/lib/github";
 import { cn } from "@/lib/utils";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import {
@@ -61,15 +57,13 @@ import {
   toMarkdown,
   toSampleMarkdown,
 } from "../features/user-stories/exporters";
-import {
-  AcceptanceCriteriaSection,
-  ConditionsSection,
-  FlowSection,
-  MetadataSection,
-  ReferencesSection,
-  StringListSection,
-} from "../features/user-stories/form-sections";
-import { PreviewPanel } from "../features/user-stories/preview-panel";
+import { AcceptanceCriteriaSection } from "../features/user-stories/components/acceptance-criteria-section";
+import { ConditionsSection } from "../features/user-stories/components/conditions-section";
+import { FlowSection } from "../features/user-stories/components/flow-section";
+import { MetadataSection } from "../features/user-stories/components/metadata-section";
+import { PreviewPanel } from "../features/user-stories/components/preview-panel";
+import { ReferencesSection } from "../features/user-stories/components/references-section";
+import { StringListSection } from "../features/user-stories/components/string-list-section";
 import {
   initialData,
   sampleData,

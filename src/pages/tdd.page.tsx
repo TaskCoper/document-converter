@@ -13,15 +13,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuthorStore } from "@/features/user-stories/store";
-import { slugifyAuthor } from "@/lib/github";
-import {
-  messageFor,
-  parentOf,
-  useDir,
-  useFile,
-  useRenameFile,
-  useSaveFile,
-} from "@/lib/queries";
+import { useDir } from "@/hooks/use-dir";
+import { useFile } from "@/hooks/use-file";
+import { useRenameFile } from "@/hooks/use-rename-file";
+import { useSaveFile } from "@/hooks/use-save-file";
+import { messageFor, parentOf, slugifyAuthor } from "@/lib/github";
 import { cn } from "@/lib/utils";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import {
@@ -60,16 +56,14 @@ import {
   sampleTddData,
   useTddFormStore,
 } from "../features/tdds/store";
-import {
-  ChangeLogSection,
-  ContextGoalsSection,
-  DiagramSection,
-  DocumentInfoSection,
-  ExternalApiSection,
-  InternalApiSection,
-  ReferencesSection,
-} from "../features/tdds/tdd-form-sections";
-import { TddPreviewPanel } from "../features/tdds/tdd-preview-panel";
+import { ChangeLogSection } from "../features/tdds/components/change-log-section";
+import { ContextGoalsSection } from "../features/tdds/components/context-goals-section";
+import { DiagramSection } from "../features/tdds/components/diagram-section";
+import { DocumentInfoSection } from "../features/tdds/components/document-info-section";
+import { ExternalApiSection } from "../features/tdds/components/external-api-section";
+import { InternalApiSection } from "../features/tdds/components/internal-api-section";
+import { ReferencesSection } from "../features/tdds/components/references-section";
+import { TddPreviewPanel } from "../features/tdds/components/tdd-preview-panel";
 import {
   pathToLabel,
   tddSchema,

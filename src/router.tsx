@@ -1,32 +1,49 @@
+import { Suspense, lazy } from "react";
 import { createBrowserRouter } from "react-router-dom";
 
+import { Spinner } from "@/components/ui/spinner";
 import RootLayout from "@/layout";
-import BrowsePage from "@/pages/browse.page";
-import FilesPage from "@/pages/files.page";
-import NotFoundPage from "@/pages/not-found.page";
-import RulePage from "@/pages/rule.page";
-import StoriesPage from "@/pages/stories.page";
-import TddPage from "@/pages/tdd.page";
-import ViewPage from "@/pages/view.page";
-import HistoryPage from "./pages/history.page";
+
+const BrowsePage = lazy(() => import("@/pages/browse.page"));
+const FilesPage = lazy(() => import("@/pages/files.page"));
+const HistoryPage = lazy(() => import("@/pages/history.page"));
+const NotFoundPage = lazy(() => import("@/pages/not-found.page"));
+const RulePage = lazy(() => import("@/pages/rule.page"));
+const StoriesPage = lazy(() => import("@/pages/stories.page"));
+const TddPage = lazy(() => import("@/pages/tdd.page"));
+const ViewPage = lazy(() => import("@/pages/view.page"));
+
+function LazyRoute({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-full items-center justify-center">
+          <Spinner />
+        </div>
+      }
+    >
+      {children}
+    </Suspense>
+  );
+}
 
 export const router = createBrowserRouter([
   {
     path: "/",
     element: <RootLayout />,
     children: [
-      { index: true, element: <BrowsePage /> },
-      { path: "browse/*", element: <BrowsePage /> },
-      { path: "file/*", element: <FilesPage /> },
-      { path: "view/*", element: <ViewPage /> },
-      { path: "history", element: <HistoryPage /> },
-      { path: "stories", element: <StoriesPage key="create" /> },
-      { path: "edit/*", element: <StoriesPage key="edit" /> },
-      { path: "tdd", element: <TddPage key="tdd-create" /> },
-      { path: "edit-tdd/*", element: <TddPage key="tdd-edit" /> },
-      { path: "rules", element: <RulePage key="rule-create" /> },
-      { path: "edit-rule/*", element: <RulePage key="rule-edit" /> },
-      { path: "*", element: <NotFoundPage /> },
+      { index: true, element: <LazyRoute><BrowsePage /></LazyRoute> },
+      { path: "browse/*", element: <LazyRoute><BrowsePage /></LazyRoute> },
+      { path: "file/*", element: <LazyRoute><FilesPage /></LazyRoute> },
+      { path: "view/*", element: <LazyRoute><ViewPage /></LazyRoute> },
+      { path: "history", element: <LazyRoute><HistoryPage /></LazyRoute> },
+      { path: "stories", element: <LazyRoute><StoriesPage key="create" /></LazyRoute> },
+      { path: "edit/*", element: <LazyRoute><StoriesPage key="edit" /></LazyRoute> },
+      { path: "tdd", element: <LazyRoute><TddPage key="tdd-create" /></LazyRoute> },
+      { path: "edit-tdd/*", element: <LazyRoute><TddPage key="tdd-edit" /></LazyRoute> },
+      { path: "rules", element: <LazyRoute><RulePage key="rule-create" /></LazyRoute> },
+      { path: "edit-rule/*", element: <LazyRoute><RulePage key="rule-edit" /></LazyRoute> },
+      { path: "*", element: <LazyRoute><NotFoundPage /></LazyRoute> },
     ],
   },
 ]);

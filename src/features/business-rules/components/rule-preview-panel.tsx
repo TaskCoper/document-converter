@@ -10,7 +10,7 @@ import {
 import type { Control } from "react-hook-form";
 import { useWatch } from "react-hook-form";
 
-import { RuleStatusLabel, type RuleSchema } from "./validations";
+import { RuleStatusLabel, type RuleSchema } from "../validations";
 
 function PreviewSection({
   title,

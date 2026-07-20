@@ -24,7 +24,7 @@ import {
   RuleStatus,
   RuleStatusLabel,
   type RuleSchema,
-} from "./validations";
+} from "../validations";
 
 export type RuleSectionProps = {
   register: UseFormRegister<RuleSchema>;

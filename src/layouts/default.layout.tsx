@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import AuthWidget from "@/features/auth/components/auth-widget";
 import { useActiveRepo } from "@/features/repos/store";
 import { useAuthorStore } from "@/features/user-stories/store";
 import { cn } from "@/lib/utils";
@@ -94,12 +95,13 @@ function AuthorField() {
   );
 }
 
-export default function RootLayout() {
+export default function DefaultLayout() {
   const activeRepo = useActiveRepo();
   const { pathname } = useLocation();
   const onPicker = pathname === "/";
+  const isRepoIndependent = pathname === "/profile";
 
-  if (!activeRepo && !onPicker) {
+  if (!activeRepo && !onPicker && !isRepoIndependent) {
     return <Navigate to="/" replace />;
   }
 
@@ -113,7 +115,7 @@ export default function RootLayout() {
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       <header className="z-40 shrink-0 border-b border-border bg-background">
-        <div className="mx-auto flex h-12 max-w-7xl items-center gap-4 px-4">
+        <div className="mx-auto flex h-12 items-center gap-4 px-2">
           <NavLink
             to="/"
             className="flex items-center gap-2 text-xs font-medium hover:text-primary"
@@ -124,7 +126,7 @@ export default function RootLayout() {
             {activeRepo && <RepeatIcon className="size-3 opacity-60" />}
           </NavLink>
 
-          {activeRepo && (
+          {activeRepo && !onPicker && (
             <nav className="flex items-center gap-1">
               {NAV.map((item) => (
                 <NavLink
@@ -146,14 +148,18 @@ export default function RootLayout() {
               ))}
             </nav>
           )}
-          <div className="ml-auto">
+
+          <div className="ml-auto flex items-center gap-3">
             <AuthorField />
+            <AuthWidget />
           </div>
         </div>
       </header>
+
       <main className="min-h-0 flex-1 overflow-y-auto">
         <Outlet />
       </main>
+
       <AuthorPrompt />
     </div>
   );

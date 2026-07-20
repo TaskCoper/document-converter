@@ -8,7 +8,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -125,7 +127,7 @@ function RepoFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent position="top-center" className="min-w-2xl">
         <DialogHeader>
-          <DialogTitle>{initial ? "Sửa kho" : "Thêm kho GitHub"}</DialogTitle>
+          <DialogTitle>{initial ? "Sửa Repo" : "Thêm Repo GitHub"}</DialogTitle>
           <DialogDescription>
             Token và các trường bên dưới tương ứng với biến trong{" "}
             <code>.env.example</code>.
@@ -215,22 +217,6 @@ function RepoFormDialog({
   );
 }
 
-function Badge({
-  children,
-  className,
-}: React.PropsWithChildren<{ className?: string }>) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-none border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground",
-        className,
-      )}
-    >
-      {children}
-    </span>
-  );
-}
-
 function RepoCard({
   cfg,
   onOpen,
@@ -258,10 +244,10 @@ function RepoCard({
   const title = cfg.label || `${cfg.owner}/${cfg.repo}`;
 
   return (
-    <div
+    <Card
       className={cn(
-        "group flex flex-col gap-3 border border-border bg-background p-4 transition-colors",
-        "hover:border-primary/60 hover:bg-muted/40 cursor-pointer",
+        "group gap-2 p-4 transition-colors",
+        "hover:border-primary/60 hover:bg-muted/60 cursor-pointer",
       )}
       onClick={onOpen}
     >
@@ -315,7 +301,7 @@ function RepoCard({
         <Badge>{cfg.branch}</Badge>
         {cfg.rootDir && <Badge>:{cfg.rootDir}/</Badge>}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -369,21 +355,21 @@ export default function ReposPage() {
     <div className="mx-auto flex max-w-7xl flex-col gap-4 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold">Danh sách kho</h1>
+          <h1 className="text-lg font-semibold">Danh sách Repo</h1>
           <p className="text-xs text-muted-foreground">
-            Chọn một kho để bắt đầu, hoặc thêm kho mới.
+            Chọn một repo để bắt đầu, hoặc thêm kho mới.
           </p>
         </div>
         <Button onClick={() => setFormState({ mode: "add" })}>
           <PlusIcon />
-          Thêm kho
+          Thêm Repo
         </Button>
       </div>
 
       {repos.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 border border-dashed border-border p-12 text-center">
           <p className="text-sm text-muted-foreground">
-            Chưa có kho nào. Thêm kho GitHub đầu tiên để bắt đầu.
+            Chưa có kho nào. Thêm Repo GitHub đầu tiên để bắt đầu.
           </p>
           <Button onClick={() => setFormState({ mode: "add" })}>
             <PlusIcon />

@@ -1,3 +1,8 @@
+export const authKeys = {
+  all: ["auth"] as const,
+  me: () => [...authKeys.all, "me"] as const,
+};
+
 export const ghKeys = {
   dir: (path: string) => ["gh", "dir", path] as const,
   file: (path: string) => ["gh", "file", path] as const,

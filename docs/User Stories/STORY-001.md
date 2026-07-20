@@ -135,6 +135,7 @@ https://lucid.app/lucidchart/example-activity-diagram
 
 ### Rules
 
+- [BR-07](Business Rules/BR-07.md)
 
 ### Dependencies
 

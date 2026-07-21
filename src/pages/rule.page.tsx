@@ -44,6 +44,12 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import {
+  RuleGovernanceSection,
+  RuleIdentitySection,
+  RuleLogicSection,
+} from "../features/business-rules/components/rule-form-sections";
+import { RulePreviewPanel } from "../features/business-rules/components/rule-preview-panel";
+import {
   downloadFile,
   fromRuleMarkdown,
   RuleParseError,
@@ -51,12 +57,6 @@ import {
   toRuleMarkdown,
   toRuleSampleMarkdown,
 } from "../features/business-rules/exporters";
-import {
-  RuleGovernanceSection,
-  RuleIdentitySection,
-  RuleLogicSection,
-} from "../features/business-rules/components/rule-form-sections";
-import { RulePreviewPanel } from "../features/business-rules/components/rule-preview-panel";
 import {
   initialRuleData,
   sampleRuleData,
@@ -651,9 +651,7 @@ function FolderPicker({
         <Input
           type="text"
           value={value}
-          onChange={(e) =>
-            onChange(e.target.value)
-          }
+          onChange={(e) => onChange(e.target.value)}
           placeholder={authorSlug}
           className="h-7 text-xs max-w-[16rem]"
         />

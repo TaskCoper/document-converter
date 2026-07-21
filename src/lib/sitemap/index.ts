@@ -1,3 +1,18 @@
+export {
+  collectFolderContents,
+  computeRootSitemapChange,
+  computeSitemapChange,
+  computeSitemapChangeFromContents,
+} from "./compute";
+export { entriesFromContents, entryFromContent } from "./entry";
+export {
+  buildRootSitemapMarkdown,
+  buildSitemapMarkdown,
+  isSitemapPath,
+  parseRootSitemapMarkdown,
+  parseSitemapMarkdown,
+  sitemapPathFor,
+} from "./markdown";
 export type {
   RootSitemapComputeOpts,
   RootSitemapFolder,
@@ -7,18 +22,3 @@ export type {
   StorySitemapEntry,
   TddSitemapEntry,
 } from "./types";
-export {
-  buildRootSitemapMarkdown,
-  buildSitemapMarkdown,
-  isSitemapPath,
-  parseRootSitemapMarkdown,
-  parseSitemapMarkdown,
-  sitemapPathFor,
-} from "./markdown";
-export { entriesFromContents, entryFromContent } from "./entry";
-export {
-  collectFolderContents,
-  computeRootSitemapChange,
-  computeSitemapChange,
-  computeSitemapChangeFromContents,
-} from "./compute";

@@ -29,10 +29,7 @@ export default function SignInForm() {
             />
             <div className="min-h-4">
               {fieldState.invalid && (
-                <FieldError
-                  className="text-xs"
-                  errors={[fieldState.error]}
-                />
+                <FieldError className="text-xs" errors={[fieldState.error]} />
               )}
             </div>
           </Field>
@@ -67,10 +64,7 @@ export default function SignInForm() {
             </div>
             <div className="min-h-4">
               {fieldState.invalid && (
-                <FieldError
-                  className="text-xs"
-                  errors={[fieldState.error]}
-                />
+                <FieldError className="text-xs" errors={[fieldState.error]} />
               )}
             </div>
           </Field>

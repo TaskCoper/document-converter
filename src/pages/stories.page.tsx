@@ -50,13 +50,6 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
-import {
-  downloadFile,
-  fromMarkdown,
-  toHtml,
-  toMarkdown,
-  toSampleMarkdown,
-} from "../features/user-stories/exporters";
 import { AcceptanceCriteriaSection } from "../features/user-stories/components/acceptance-criteria-section";
 import { ConditionsSection } from "../features/user-stories/components/conditions-section";
 import { FlowSection } from "../features/user-stories/components/flow-section";
@@ -64,6 +57,13 @@ import { MetadataSection } from "../features/user-stories/components/metadata-se
 import { PreviewPanel } from "../features/user-stories/components/preview-panel";
 import { ReferencesSection } from "../features/user-stories/components/references-section";
 import { StringListSection } from "../features/user-stories/components/string-list-section";
+import {
+  downloadFile,
+  fromMarkdown,
+  toHtml,
+  toMarkdown,
+  toSampleMarkdown,
+} from "../features/user-stories/exporters";
 import {
   initialData,
   sampleData,

@@ -1,4 +1,9 @@
-import { FieldGroup, FieldLegend, FieldSeparator, FieldSet } from "@/components/ui/field";
+import {
+  FieldGroup,
+  FieldLegend,
+  FieldSeparator,
+  FieldSet,
+} from "@/components/ui/field";
 import type { SectionProps } from "../section-types";
 import { OtherFlowArrayField } from "./other-flow-array-field";
 import { StringArrayField } from "./string-array-field";

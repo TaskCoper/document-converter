@@ -24,38 +24,38 @@ export default function SignInPage() {
   return (
     <Card className="w-full max-w-md p-6">
       <FormProvider {...signInMethods}>
-          <form
-            onSubmit={signInMethods.handleSubmit(onSignIn)}
-            className="flex w-full flex-col gap-6"
+        <form
+          onSubmit={signInMethods.handleSubmit(onSignIn)}
+          className="flex w-full flex-col gap-6"
+        >
+          <div className="text-center">
+            <p className="text-2xl font-bold">Đăng nhập</p>
+            <p className="text-sm text-muted-foreground">
+              Nhập email và mật khẩu để tiếp tục
+            </p>
+          </div>
+
+          <SignInForm />
+
+          <Button type="submit" disabled={isSigningIn} className="w-full">
+            {isSigningIn ? <Spinner /> : null}
+            Đăng nhập
+          </Button>
+
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="h-px flex-1 bg-border" />
+            hoặc
+            <span className="h-px flex-1 bg-border" />
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onFake}
+            className="w-full"
           >
-            <div className="text-center">
-              <p className="text-2xl font-bold">Đăng nhập</p>
-              <p className="text-sm text-muted-foreground">
-                Nhập email và mật khẩu để tiếp tục
-              </p>
-            </div>
-
-            <SignInForm />
-
-            <Button type="submit" disabled={isSigningIn} className="w-full">
-              {isSigningIn ? <Spinner /> : null}
-              Đăng nhập
-            </Button>
-
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="h-px flex-1 bg-border" />
-              hoặc
-              <span className="h-px flex-1 bg-border" />
-            </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onFake}
-              className="w-full"
-            >
-              🎭 Fake sign-in (dev)
-            </Button>
+            🎭 Fake sign-in (dev)
+          </Button>
         </form>
       </FormProvider>
     </Card>

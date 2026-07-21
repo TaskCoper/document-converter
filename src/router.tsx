@@ -54,114 +54,116 @@ export const router = createBrowserRouter([
   {
     path: "/",
     element: <AuthGuardLayout requiresAuth={true} />,
-    children: [{
-    element: <DefaultLayout />,
     children: [
       {
-        index: true,
-        element: (
-          <LazyRoute>
-            <ReposPage />
-          </LazyRoute>
-        ),
-      },
-      {
-        path: "browse/*",
-        element: (
-          <LazyRoute>
-            <BrowsePage />
-          </LazyRoute>
-        ),
-      },
-      {
-        path: "file/*",
-        element: (
-          <LazyRoute>
-            <FilesPage />
-          </LazyRoute>
-        ),
-      },
-      {
-        path: "view/*",
-        element: (
-          <LazyRoute>
-            <ViewPage />
-          </LazyRoute>
-        ),
-      },
-      {
-        path: "history",
-        element: (
-          <LazyRoute>
-            <HistoryPage />
-          </LazyRoute>
-        ),
-      },
-      {
-        path: "stories",
-        element: (
-          <LazyRoute>
-            <StoriesPage key="create" />
-          </LazyRoute>
-        ),
-      },
-      {
-        path: "edit/*",
-        element: (
-          <LazyRoute>
-            <StoriesPage key="edit" />
-          </LazyRoute>
-        ),
-      },
-      {
-        path: "tdd",
-        element: (
-          <LazyRoute>
-            <TddPage key="tdd-create" />
-          </LazyRoute>
-        ),
-      },
-      {
-        path: "edit-tdd/*",
-        element: (
-          <LazyRoute>
-            <TddPage key="tdd-edit" />
-          </LazyRoute>
-        ),
-      },
-      {
-        path: "profile",
-        element: (
-          <LazyRoute>
-            <ProfilePage />
-          </LazyRoute>
-        ),
-      },
-      {
-        path: "rules",
-        element: (
-          <LazyRoute>
-            <RulePage key="rule-create" />
-          </LazyRoute>
-        ),
-      },
-      {
-        path: "edit-rule/*",
-        element: (
-          <LazyRoute>
-            <RulePage key="rule-edit" />
-          </LazyRoute>
-        ),
-      },
-      {
-        path: "*",
-        element: (
-          <LazyRoute>
-            <NotFoundPage />
-          </LazyRoute>
-        ),
+        element: <DefaultLayout />,
+        children: [
+          {
+            index: true,
+            element: (
+              <LazyRoute>
+                <ReposPage />
+              </LazyRoute>
+            ),
+          },
+          {
+            path: "browse/*",
+            element: (
+              <LazyRoute>
+                <BrowsePage />
+              </LazyRoute>
+            ),
+          },
+          {
+            path: "file/*",
+            element: (
+              <LazyRoute>
+                <FilesPage />
+              </LazyRoute>
+            ),
+          },
+          {
+            path: "view/*",
+            element: (
+              <LazyRoute>
+                <ViewPage />
+              </LazyRoute>
+            ),
+          },
+          {
+            path: "history",
+            element: (
+              <LazyRoute>
+                <HistoryPage />
+              </LazyRoute>
+            ),
+          },
+          {
+            path: "stories",
+            element: (
+              <LazyRoute>
+                <StoriesPage key="create" />
+              </LazyRoute>
+            ),
+          },
+          {
+            path: "edit/*",
+            element: (
+              <LazyRoute>
+                <StoriesPage key="edit" />
+              </LazyRoute>
+            ),
+          },
+          {
+            path: "tdd",
+            element: (
+              <LazyRoute>
+                <TddPage key="tdd-create" />
+              </LazyRoute>
+            ),
+          },
+          {
+            path: "edit-tdd/*",
+            element: (
+              <LazyRoute>
+                <TddPage key="tdd-edit" />
+              </LazyRoute>
+            ),
+          },
+          {
+            path: "profile",
+            element: (
+              <LazyRoute>
+                <ProfilePage />
+              </LazyRoute>
+            ),
+          },
+          {
+            path: "rules",
+            element: (
+              <LazyRoute>
+                <RulePage key="rule-create" />
+              </LazyRoute>
+            ),
+          },
+          {
+            path: "edit-rule/*",
+            element: (
+              <LazyRoute>
+                <RulePage key="rule-edit" />
+              </LazyRoute>
+            ),
+          },
+          {
+            path: "*",
+            element: (
+              <LazyRoute>
+                <NotFoundPage />
+              </LazyRoute>
+            ),
+          },
+        ],
       },
     ],
-  }],
   },
 ]);

@@ -165,10 +165,7 @@ export function RulePreviewPanel({
         <PreviewSection title="Quản trị & Tham chiếu" icon={Scale}>
           <PreviewRow label="Nguồn" value={data.source} />
           <PreviewRow label="Người sở hữu" value={data.owner} />
-          <PreviewList
-            label="Story liên quan"
-            items={data.relatedStories}
-          />
+          <PreviewList label="Story liên quan" items={data.relatedStories} />
         </PreviewSection>
       )}
 
@@ -180,10 +177,7 @@ export function RulePreviewPanel({
 
       {!showGovernance && filled(data.relatedStories) && (
         <PreviewSection title="Tham chiếu" icon={BookOpen}>
-          <PreviewList
-            label="Story liên quan"
-            items={data.relatedStories}
-          />
+          <PreviewList label="Story liên quan" items={data.relatedStories} />
         </PreviewSection>
       )}
     </div>

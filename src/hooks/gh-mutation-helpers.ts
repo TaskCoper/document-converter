@@ -1,11 +1,12 @@
 import {
-  type Change,
-  type DirEntry,
   GhError,
   getFile,
   parentOf,
   topLevelOf,
+  type Change,
+  type DirEntry,
 } from "@/lib/github";
+import { ghKeys } from "@/lib/query-keys";
 import {
   buildSitemapMarkdown,
   collectFolderContents,
@@ -19,7 +20,6 @@ import {
   type SitemapEntry,
 } from "@/lib/sitemap";
 import type { QueryClient } from "@tanstack/react-query";
-import { ghKeys } from "@/lib/query-keys";
 
 export function topLevelFolderExists(qc: QueryClient, path: string): boolean {
   const parent = parentOf(path);

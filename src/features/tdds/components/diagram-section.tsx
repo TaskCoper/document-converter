@@ -1,6 +1,16 @@
-import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
+import {
+  Field,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
-import type { DiagramName, StringArrayName, TddSectionProps } from "../section-types";
+import type {
+  DiagramName,
+  StringArrayName,
+  TddSectionProps,
+} from "../section-types";
 import { TddStringArrayField } from "./tdd-string-array-field";
 
 export function DiagramSection({

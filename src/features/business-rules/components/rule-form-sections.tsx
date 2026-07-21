@@ -20,11 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  RuleStatus,
-  RuleStatusLabel,
-  type RuleSchema,
-} from "../validations";
+import { RuleStatus, RuleStatusLabel, type RuleSchema } from "../validations";
 
 export type RuleSectionProps = {
   register: UseFormRegister<RuleSchema>;

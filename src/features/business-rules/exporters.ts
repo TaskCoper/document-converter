@@ -227,7 +227,9 @@ export function toRuleSampleMarkdown(): string {
   lines.push("  ────────────────────────────────────────────────────────────");
   lines.push('  "Fill in the business rule template below. Keep every heading');
   lines.push("  and bullet prefix (**Bold**:) exactly as-is. Only replace the");
-  lines.push("  placeholder text after each colon. Do NOT change enum values —");
+  lines.push(
+    "  placeholder text after each colon. Do NOT change enum values —",
+  );
   lines.push('  use only the options listed in the comments."');
   lines.push("  ════════════════════════════════════════════════════════════");
   lines.push("-->");
@@ -266,7 +268,9 @@ export function toRuleSampleMarkdown(): string {
   lines.push("");
   lines.push("");
   lines.push("## Notes");
-  lines.push("<!-- Optional. Ghi chú, link tới decision table hoặc rule liên quan -->");
+  lines.push(
+    "<!-- Optional. Ghi chú, link tới decision table hoặc rule liên quan -->",
+  );
   lines.push("");
   lines.push("");
 
@@ -283,8 +287,7 @@ const escapeHtml = (s: string): string =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
-const nl2br = (s: string): string =>
-  escapeHtml(s).replace(/\n/g, "<br>");
+const nl2br = (s: string): string => escapeHtml(s).replace(/\n/g, "<br>");
 
 const STATUS_COLORS: Record<string, string> = {
   Active: "#16a34a",
@@ -423,7 +426,10 @@ export function toRuleHtml(data: RuleSchema): string {
 
   const metaCells = [
     { label: "Danh mục", value: escapeHtml(data.category) },
-    { label: "Trạng thái", value: `<span class="status-badge" style="background:${statusColor}">${escapeHtml(statusLabel)}</span>` },
+    {
+      label: "Trạng thái",
+      value: `<span class="status-badge" style="background:${statusColor}">${escapeHtml(statusLabel)}</span>`,
+    },
     { label: "Version", value: escapeHtml(data.version) },
     { label: "Ngày hiệu lực", value: escapeHtml(data.effectiveDate) },
     { label: "Người sở hữu", value: escapeHtml(data.owner) },
@@ -444,8 +450,18 @@ export function toRuleHtml(data: RuleSchema): string {
   ];
 
   const optionalSections = [
-    { label: "Ngoại lệ (Except)", body: nl2br(data.except), cls: "except", show: !!data.except.trim() },
-    { label: "Ghi chú / Link logic", body: nl2br(data.notes), cls: "notes", show: !!data.notes.trim() },
+    {
+      label: "Ngoại lệ (Except)",
+      body: nl2br(data.except),
+      cls: "except",
+      show: !!data.except.trim(),
+    },
+    {
+      label: "Ghi chú / Link logic",
+      body: nl2br(data.notes),
+      cls: "notes",
+      show: !!data.notes.trim(),
+    },
   ];
 
   const sectionsHtml = [

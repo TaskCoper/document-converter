@@ -1,7 +1,4 @@
-import {
-  topLevelFolderExists,
-  withSitemap,
-} from "@/hooks/gh-mutation-helpers";
+import { topLevelFolderExists, withSitemap } from "@/hooks/gh-mutation-helpers";
 import {
   type CommitResult,
   GhError,

@@ -1,8 +1,5 @@
 import type { FileType } from "@/lib/file-type";
-import type {
-  RootSitemapFolder,
-  SitemapEntry,
-} from "./types";
+import type { RootSitemapFolder, SitemapEntry } from "./types";
 
 export const SITEMAP_FILENAME = "sitemap.md";
 const SEP = " · ";
@@ -148,7 +145,9 @@ const TYPE_ORDER: Record<FileType, number> = {
 };
 
 export function sortTypes(types: FileType[]): FileType[] {
-  return Array.from(new Set(types)).sort((a, b) => TYPE_ORDER[a] - TYPE_ORDER[b]);
+  return Array.from(new Set(types)).sort(
+    (a, b) => TYPE_ORDER[a] - TYPE_ORDER[b],
+  );
 }
 
 export function buildRootSitemapMarkdown(folders: RootSitemapFolder[]): string {
@@ -187,8 +186,9 @@ export function parseRootSitemapMarkdown(md: string): RootSitemapFolder[] {
     const [, name, , typesStr, countStr] = m;
     const types = Array.from(typesStr.matchAll(/`([^`]+)`/g))
       .map((t) => t[1])
-      .filter((t): t is FileType =>
-        t === "user-story" || t === "tdd" || t === "business-rule",
+      .filter(
+        (t): t is FileType =>
+          t === "user-story" || t === "tdd" || t === "business-rule",
       );
     out.push({
       name,

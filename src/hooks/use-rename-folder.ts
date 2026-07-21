@@ -1,12 +1,12 @@
 import {
-  type Change,
-  type CommitResult,
-  type DirEntry,
   GhError,
   commitFiles,
   getFile,
   listDir,
   topLevelOf,
+  type Change,
+  type CommitResult,
+  type DirEntry,
 } from "@/lib/github";
 import { ghKeys } from "@/lib/query-keys";
 import {

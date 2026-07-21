@@ -1,4 +1,9 @@
-import { type Change, type CommitResult, GhError, commitFiles } from "@/lib/github";
+import {
+  type Change,
+  type CommitResult,
+  GhError,
+  commitFiles,
+} from "@/lib/github";
 import { ghKeys } from "@/lib/query-keys";
 import {
   computeRootSitemapChange,

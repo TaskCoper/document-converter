@@ -41,9 +41,11 @@ export function MermaidDiagram({ code }: { code: string }) {
     mermaid
       .render(renderId, trimmed)
       .then(({ svg, bindFunctions }) => {
-        if (cancelled || !containerRef.current) return;
-        containerRef.current.innerHTML = svg;
-        bindFunctions?.(containerRef.current);
+        if (cancelled) return;
+        if (containerRef.current) {
+          containerRef.current.innerHTML = svg;
+          bindFunctions?.(containerRef.current);
+        }
         setError(null);
       })
       .catch((err: unknown) => {
@@ -56,24 +58,23 @@ export function MermaidDiagram({ code }: { code: string }) {
     };
   }, [code, renderId]);
 
-  if (error && code.trim()) {
-    return (
-      <div className="border border-destructive/40 bg-destructive/5 p-2">
-        <div className="text-destructive text-[10px] font-medium mb-1">
-          Mermaid render error
-        </div>
-        <pre className="text-[10px] whitespace-pre-wrap wrap-break-word text-destructive/80">
-          {error}
-        </pre>
-      </div>
-    );
-  }
-
   return (
-    <div
-      ref={containerRef}
-      className="bg-muted/40 p-2 overflow-x-auto [&_svg]:max-w-full [&_svg]:h-auto"
-    />
+    <>
+      {error && code.trim() && (
+        <div className="border border-destructive/40 bg-destructive/5 p-2">
+          <div className="text-destructive text-[10px] font-medium mb-1">
+            Mermaid render error
+          </div>
+          <pre className="text-[10px] whitespace-pre-wrap wrap-break-word text-destructive/80">
+            {error}
+          </pre>
+        </div>
+      )}
+      <div
+        ref={containerRef}
+        className="bg-muted/40 p-2 overflow-x-auto [&_svg]:max-w-full [&_svg]:h-auto"
+      />
+    </>
   );
 }
 

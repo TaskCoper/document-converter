@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import {
   Command,
+  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
@@ -303,6 +304,17 @@ function ComboboxList<TData>({
         className="h-9"
       />
       <CommandList className={items.length > 0 ? "border-t" : ""}>
+        {isLoading && (
+          <div className="flex items-center justify-center py-4 gap-1.5 text-xs text-muted-foreground">
+            <Spinner className="size-3.5" />
+            Đang tải...
+          </div>
+        )}
+        {!isLoading && items.length === 0 && (
+          <CommandEmpty className="py-4 text-center text-xs text-muted-foreground">
+            Không tìm thấy kết quả.
+          </CommandEmpty>
+        )}
         {!isLoading && items.length > 0 && (
           <CommandGroup>
             {items.map((item) => {

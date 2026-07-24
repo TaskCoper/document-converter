@@ -25,7 +25,8 @@ export const useSignIn = () => {
   const { mutate: signIn, isPending: isSigningIn } = useMutation({
     mutationFn: userService.signIn,
     onSuccess: (data) => {
-      setTokens(data.accessToken, data.refreshToken);
+      // Backend chỉ trả accessToken trong body; refresh token nằm trong cookie httpOnly.
+      setTokens(data.accessToken);
       queryClient.removeQueries({ queryKey: authKeys.me() });
       signInMethods.reset();
       navigate("/", { replace: true });

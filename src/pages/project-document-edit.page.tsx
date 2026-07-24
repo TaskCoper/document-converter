@@ -1,0 +1,955 @@
+import { Button } from "@/components/ui/button";
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  adaptRule,
+  adaptTdd,
+  adaptUserStory,
+} from "@/features/projects/adapt-document";
+import { NumberSelect } from "@/features/projects/components/number-select";
+import { RelatedDocumentsPanel } from "@/features/projects/components/related-documents-panel";
+import {
+  DocumentStatusLabel,
+  DocumentType,
+  LIFECYCLE_OPTIONS,
+  LifecycleStateLabel,
+  STATUS_OPTIONS_BY_TYPE,
+} from "@/features/projects/document-types";
+import { errorDetail } from "@/features/projects/error";
+import { useDocument } from "@/features/projects/hooks/use-document";
+import { useMyProjectRole } from "@/features/projects/hooks/use-my-role";
+import { canEditDocuments } from "@/features/projects/permissions";
+import {
+  saveRule,
+  saveTdd,
+  saveUserStory,
+} from "@/features/projects/save-document";
+import type { DocumentDetail } from "@/features/projects/document-types";
+// Tái dùng ĐÚNG các form-section của trang stories.page — chỉ đổi nguồn load/save sang backend.
+import { AcceptanceCriteriaSection } from "@/features/user-stories/components/acceptance-criteria-section";
+import { ConditionsSection } from "@/features/user-stories/components/conditions-section";
+import { FlowSection } from "@/features/user-stories/components/flow-section";
+import { MetadataSection } from "@/features/user-stories/components/metadata-section";
+import { PreviewPanel } from "@/features/user-stories/components/preview-panel";
+import { ReferencesSection } from "@/features/user-stories/components/references-section";
+import { StringListSection } from "@/features/user-stories/components/string-list-section";
+import { schema, type Schema } from "@/features/user-stories/validations";
+// Tái dùng ĐÚNG các form-section của trang tdd.page — chỉ bỏ 2 bước API nội bộ/bên ngoài và
+// Change Log (backend chưa có endpoint replace cho endpoints/errorCodes/changeLog).
+import { ContextGoalsSection } from "@/features/tdds/components/context-goals-section";
+import { DiagramSection } from "@/features/tdds/components/diagram-section";
+import { DocumentInfoSection } from "@/features/tdds/components/document-info-section";
+import { ReferencesSection as TddReferencesSection } from "@/features/tdds/components/references-section";
+import { TddPreviewPanel } from "@/features/tdds/components/tdd-preview-panel";
+import { tddSchema, type TddSchema } from "@/features/tdds/validations";
+// Tái dùng ĐÚNG các form-section của trang rule.page.
+import {
+  RuleGovernanceSection,
+  RuleIdentitySection,
+  RuleLogicSection,
+} from "@/features/business-rules/components/rule-form-sections";
+import { RulePreviewPanel } from "@/features/business-rules/components/rule-preview-panel";
+import {
+  ruleSchema,
+  type RuleSchema,
+} from "@/features/business-rules/validations";
+import { projectKeys } from "@/lib/query-keys";
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  ArrowLeftIcon,
+  CheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from "lucide-react";
+import { useState } from "react";
+import type { FieldPath } from "react-hook-form";
+import { useForm } from "react-hook-form";
+import { Link, useNavigate, useParams } from "react-router-dom";
+
+export default function ProjectDocumentEditPage() {
+  const { projectId = "", documentId = "" } = useParams();
+  const { document, isLoading, isError } = useDocument(documentId);
+  const myRole = useMyProjectRole(projectId);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-16">
+        <Spinner />
+      </div>
+    );
+  }
+
+  if (isError || !document) {
+    return (
+      <div className="mx-auto max-w-3xl p-6 text-center">
+        <p className="text-sm text-muted-foreground">
+          Không tìm thấy tài liệu, hoặc bạn không có quyền truy cập.
+        </p>
+      </div>
+    );
+  }
+
+  const backTo = `/projects/${projectId}/documents/${documentId}`;
+
+  if (!myRole || !canEditDocuments(myRole)) {
+    return (
+      <div className="mx-auto max-w-3xl p-6 text-center">
+        <p className="text-sm text-muted-foreground">
+          Bạn cần quyền Biên tập trở lên để sửa tài liệu.
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-4"
+          render={<Link to={backTo} />}
+        >
+          Quay lại
+        </Button>
+      </div>
+    );
+  }
+
+  if (document.docType === DocumentType.Tdd) {
+    return (
+      <TddEditor projectId={projectId} documentId={documentId} doc={document} />
+    );
+  }
+
+  if (document.docType === DocumentType.BusinessRule) {
+    return (
+      <RuleEditor
+        projectId={projectId}
+        documentId={documentId}
+        doc={document}
+      />
+    );
+  }
+
+  return (
+    <UserStoryEditor
+      projectId={projectId}
+      documentId={documentId}
+      doc={document}
+    />
+  );
+}
+
+// Khối "Thông tin tài liệu" (title/status/lifecycle/notes) dùng chung cho TDD & Rule — các
+// field này thuộc metadata mức tài liệu (updateMetadata), không nằm trong TddSchema/RuleSchema.
+function DocMetaFields({
+  docType,
+  title,
+  onTitle,
+  status,
+  onStatus,
+  lifecycle,
+  onLifecycle,
+  notes,
+  onNotes,
+}: {
+  docType: typeof DocumentType.Tdd | typeof DocumentType.BusinessRule;
+  title: string;
+  onTitle: (v: string) => void;
+  status: number;
+  onStatus: (v: number) => void;
+  lifecycle: number;
+  onLifecycle: (v: number) => void;
+  notes: string;
+  onNotes: (v: string) => void;
+}) {
+  return (
+    <FieldSet>
+      <FieldLegend>Thông tin tài liệu</FieldLegend>
+      <FieldGroup>
+        <Field>
+          <FieldLabel htmlFor="doc-title">Tiêu đề</FieldLabel>
+          <Input
+            id="doc-title"
+            value={title}
+            onChange={(e) => onTitle(e.target.value)}
+          />
+        </Field>
+        <div className="grid grid-cols-2 gap-4">
+          <Field>
+            <FieldLabel htmlFor="doc-status">Trạng thái</FieldLabel>
+            <NumberSelect
+              id="doc-status"
+              value={status}
+              onChange={onStatus}
+              options={STATUS_OPTIONS_BY_TYPE[docType].map((v) => ({
+                value: v,
+                label: DocumentStatusLabel[v] ?? String(v),
+              }))}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="doc-life">Vòng đời</FieldLabel>
+            <NumberSelect
+              id="doc-life"
+              value={lifecycle}
+              onChange={onLifecycle}
+              options={LIFECYCLE_OPTIONS.map((v) => ({
+                value: v,
+                label: LifecycleStateLabel[v],
+              }))}
+            />
+          </Field>
+        </div>
+        <Field>
+          <FieldLabel htmlFor="doc-notes">Ghi chú</FieldLabel>
+          <Textarea
+            id="doc-notes"
+            value={notes}
+            onChange={(e) => onNotes(e.target.value)}
+            rows={2}
+          />
+        </Field>
+      </FieldGroup>
+    </FieldSet>
+  );
+}
+
+function EditorStepper({
+  steps,
+  current,
+  onSelect,
+}: {
+  steps: { title: string }[];
+  current: number;
+  onSelect: (i: number) => void;
+}) {
+  return (
+    <ol className="flex items-center gap-2">
+      {steps.map((s, i) => {
+        const isActive = i === current;
+        const isDone = i < current;
+        return (
+          <li key={s.title} className="flex-1">
+            <button
+              type="button"
+              onClick={() => onSelect(i)}
+              className={
+                "cursor-pointer w-full flex flex-col items-start gap-1 border-t-2 pt-2 text-left transition-colors " +
+                (isActive
+                  ? "border-primary"
+                  : isDone
+                    ? "border-primary/60"
+                    : "border-border hover:border-foreground/30")
+              }
+            >
+              <span
+                className={
+                  "text-[10px] uppercase tracking-wide " +
+                  (isActive
+                    ? "text-primary"
+                    : isDone
+                      ? "text-primary/70"
+                      : "text-muted-foreground")
+                }
+              >
+                Bước {i + 1}
+              </span>
+              <span
+                className={
+                  "text-xs font-medium " +
+                  (!isActive && !isDone ? "text-muted-foreground" : "")
+                }
+              >
+                {s.title}
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+// ── TDD ──────────────────────────────────────────────────────────────────────────────
+// Chỉ 3/5 bước của tdd.page.tsx: bỏ "API nội bộ" và "API bên ngoài" (xem ghi chú trong
+// save-document.ts#saveTdd — backend chưa có endpoint lưu endpoints/errorCodes/changeLog).
+const TDD_STEPS: {
+  title: string;
+  description: string;
+  fields: FieldPath<TddSchema>[];
+}[] = [
+  {
+    title: "Thông tin & Bối cảnh",
+    description: "Thông tin tài liệu, vấn đề và mục tiêu",
+    fields: ["documentInfo", "contextGoals"],
+  },
+  {
+    title: "Kiến trúc & Sơ đồ",
+    description: "Architecture, Sequence, Activity, State và Data Model",
+    fields: [
+      "architecture",
+      "sequenceDiagram",
+      "activityDiagram",
+      "stateDiagram",
+      "dataModel",
+    ],
+  },
+  {
+    title: "Tham chiếu",
+    description: "User Story, Business Rule, Use Case liên quan",
+    fields: ["references"],
+  },
+];
+
+function TddEditor({
+  projectId,
+  documentId,
+  doc,
+}: {
+  projectId: string;
+  documentId: string;
+  doc: DocumentDetail;
+}) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const backTo = `/projects/${projectId}/documents/${documentId}`;
+
+  const {
+    register,
+    control,
+    formState: { errors },
+    trigger,
+    getValues,
+  } = useForm<TddSchema>({
+    resolver: standardSchemaResolver(tddSchema),
+    defaultValues: adaptTdd(doc),
+  });
+
+  const [title, setTitle] = useState(doc.content.title);
+  const [status, setStatus] = useState<number>(doc.status);
+  const [lifecycle, setLifecycle] = useState<number>(doc.lifecycleState);
+  const [notes, setNotes] = useState(doc.content.notesMd ?? "");
+  const [step, setStep] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const isFirst = step === 0;
+  const isLast = step === TDD_STEPS.length - 1;
+  const current = TDD_STEPS[step];
+
+  const goNext = async () => {
+    const ok = await trigger(current.fields);
+    if (ok) setStep((s) => s + 1);
+  };
+  const goBack = () => setStep((s) => Math.max(0, s - 1));
+
+  const onSave = async () => {
+    if (!title.trim()) {
+      setSaveError("Vui lòng nhập tiêu đề tài liệu.");
+      return;
+    }
+    const valid = await trigger();
+    if (!valid) {
+      setSaveError("Còn trường chưa hợp lệ — kiểm tra lại các bước.");
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await saveTdd(doc, getValues(), {
+        title: title.trim(),
+        status,
+        lifecycleState: lifecycle,
+        notesMd: notes.trim() || null,
+      });
+      queryClient.invalidateQueries({ queryKey: projectKeys.all });
+      navigate(backTo);
+    } catch (err) {
+      setSaveError(errorDetail(err, "Lưu tài liệu thất bại."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-4 py-4 lg:grid-cols-[1fr_32rem]">
+      <div className="flex min-w-0 flex-col gap-6">
+        <Link
+          to={backTo}
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+        >
+          <ArrowLeftIcon className="size-3.5" />
+          {doc.docKey} · {doc.content.title}
+        </Link>
+
+        <h2 className="text-lg font-semibold text-primary">
+          Sửa nội dung (TDD)
+        </h2>
+
+        <RelatedDocumentsPanel
+          projectId={projectId}
+          documentId={documentId}
+          currentDocKey={doc.docKey}
+          currentTitle={title}
+          currentDocType={doc.docType}
+          outgoingLinks={doc.content.links}
+        />
+
+        <DocMetaFields
+          docType={DocumentType.Tdd}
+          title={title}
+          onTitle={setTitle}
+          status={status}
+          onStatus={setStatus}
+          lifecycle={lifecycle}
+          onLifecycle={setLifecycle}
+          notes={notes}
+          onNotes={setNotes}
+        />
+
+        <EditorStepper steps={TDD_STEPS} current={step} onSelect={setStep} />
+
+        <div className="-space-y-0.5">
+          <h3 className="text-sm font-semibold text-primary">
+            Bước {step + 1}. {current.title}
+          </h3>
+          <p className="text-xs text-muted-foreground">{current.description}</p>
+        </div>
+
+        <form className="flex flex-col gap-8">
+          <div className="flex flex-col gap-8">
+            {step === 0 && (
+              <>
+                <DocumentInfoSection
+                  register={register}
+                  control={control}
+                  errors={errors}
+                />
+                <ContextGoalsSection
+                  register={register}
+                  control={control}
+                  errors={errors}
+                />
+              </>
+            )}
+
+            {step === 1 && (
+              <>
+                <DiagramSection
+                  register={register}
+                  control={control}
+                  errors={errors}
+                  name="architecture"
+                  legend="Kiến trúc tổng quan (Architecture)"
+                  description="Sơ đồ các thành phần và cách chúng ghép với nhau"
+                />
+                <DiagramSection
+                  register={register}
+                  control={control}
+                  errors={errors}
+                  name="sequenceDiagram"
+                  legend="Sequence Diagram"
+                  description="Luồng nhiều bên gọi qua lại theo thời gian"
+                />
+                <DiagramSection
+                  register={register}
+                  control={control}
+                  errors={errors}
+                  name="activityDiagram"
+                  legend="Activity Diagram"
+                  description="Logic nhiều nhánh điều kiện"
+                />
+                <DiagramSection
+                  register={register}
+                  control={control}
+                  errors={errors}
+                  name="stateDiagram"
+                  legend="State Diagram"
+                  description="Vòng đời trạng thái của thực thể chính"
+                />
+                <DiagramSection
+                  register={register}
+                  control={control}
+                  errors={errors}
+                  name="dataModel"
+                  legend="Mô hình dữ liệu (Data Model / ERD)"
+                  description="Bảng và quan hệ liên quan"
+                />
+              </>
+            )}
+
+            {step === 2 && (
+              <TddReferencesSection register={register} control={control} />
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 border-t border-border pt-2">
+            <Button variant="outline" render={<Link to={backTo} />}>
+              Huỷ
+            </Button>
+            <div className="flex-1" />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={goBack}
+              disabled={isFirst}
+            >
+              <ChevronLeftIcon />
+              Quay lại
+            </Button>
+            {isLast ? (
+              <Button type="button" onClick={onSave} disabled={saving}>
+                {saving ? <Spinner /> : <CheckIcon />}
+                Lưu
+              </Button>
+            ) : (
+              <Button type="button" onClick={goNext}>
+                Tiếp theo
+                <ChevronRightIcon />
+              </Button>
+            )}
+          </div>
+
+          {saveError && <p className="text-xs text-destructive">{saveError}</p>}
+        </form>
+      </div>
+
+      <div className="hidden lg:flex lg:flex-col lg:gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto">
+        <div className="border border-border p-4">
+          <TddPreviewPanel control={control} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Business Rule ────────────────────────────────────────────────────────────────────
+const RULE_STEPS: {
+  title: string;
+  description: string;
+  fields: FieldPath<RuleSchema>[];
+}[] = [
+  {
+    title: "Định danh & Phân loại",
+    description: "Rule ID, tên, danh mục, trạng thái, phiên bản",
+    fields: [
+      "ruleId",
+      "name",
+      "category",
+      "status",
+      "version",
+      "effectiveDate",
+    ],
+  },
+  {
+    title: "Nội dung rule",
+    description: "Phát biểu, điều kiện, hành vi, ngoại lệ",
+    fields: ["statement", "when", "then", "except"],
+  },
+  {
+    title: "Quản trị & Tham chiếu",
+    description: "Nguồn, người sở hữu, story liên quan, ghi chú",
+    fields: ["source", "owner", "relatedStories", "notes"],
+  },
+];
+
+function RuleEditor({
+  projectId,
+  documentId,
+  doc,
+}: {
+  projectId: string;
+  documentId: string;
+  doc: DocumentDetail;
+}) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const backTo = `/projects/${projectId}/documents/${documentId}`;
+
+  const {
+    register,
+    control,
+    formState: { errors },
+    trigger,
+    getValues,
+  } = useForm<RuleSchema>({
+    resolver: standardSchemaResolver(ruleSchema),
+    defaultValues: adaptRule(doc),
+  });
+
+  const [title, setTitle] = useState(doc.content.title);
+  const [status, setStatus] = useState<number>(doc.status);
+  const [lifecycle, setLifecycle] = useState<number>(doc.lifecycleState);
+  const [notes, setNotes] = useState(doc.content.notesMd ?? "");
+  const [step, setStep] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const isFirst = step === 0;
+  const isLast = step === RULE_STEPS.length - 1;
+  const current = RULE_STEPS[step];
+
+  const goNext = async () => {
+    const ok = await trigger(current.fields);
+    if (ok) setStep((s) => s + 1);
+  };
+  const goBack = () => setStep((s) => Math.max(0, s - 1));
+
+  const onSave = async () => {
+    if (!title.trim()) {
+      setSaveError("Vui lòng nhập tiêu đề tài liệu.");
+      return;
+    }
+    const valid = await trigger();
+    if (!valid) {
+      setSaveError("Còn trường chưa hợp lệ — kiểm tra lại các bước.");
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await saveRule(doc, getValues(), {
+        title: title.trim(),
+        status,
+        lifecycleState: lifecycle,
+        notesMd: notes.trim() || null,
+      });
+      queryClient.invalidateQueries({ queryKey: projectKeys.all });
+      navigate(backTo);
+    } catch (err) {
+      setSaveError(errorDetail(err, "Lưu tài liệu thất bại."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-4 py-4 lg:grid-cols-[1fr_32rem]">
+      <div className="flex min-w-0 flex-col gap-6">
+        <Link
+          to={backTo}
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+        >
+          <ArrowLeftIcon className="size-3.5" />
+          {doc.docKey} · {doc.content.title}
+        </Link>
+
+        <h2 className="text-lg font-semibold text-primary">
+          Sửa nội dung (Business Rule)
+        </h2>
+
+        <RelatedDocumentsPanel
+          projectId={projectId}
+          documentId={documentId}
+          currentDocKey={doc.docKey}
+          currentTitle={title}
+          currentDocType={doc.docType}
+          outgoingLinks={doc.content.links}
+        />
+
+        <DocMetaFields
+          docType={DocumentType.BusinessRule}
+          title={title}
+          onTitle={setTitle}
+          status={status}
+          onStatus={setStatus}
+          lifecycle={lifecycle}
+          onLifecycle={setLifecycle}
+          notes={notes}
+          onNotes={setNotes}
+        />
+
+        <EditorStepper steps={RULE_STEPS} current={step} onSelect={setStep} />
+
+        <div className="-space-y-0.5">
+          <h3 className="text-sm font-semibold text-primary">
+            Bước {step + 1}. {current.title}
+          </h3>
+          <p className="text-xs text-muted-foreground">{current.description}</p>
+        </div>
+
+        <form className="flex flex-col gap-8">
+          <div className="flex flex-col gap-8">
+            {step === 0 && (
+              <RuleIdentitySection
+                register={register}
+                control={control}
+                errors={errors}
+              />
+            )}
+            {step === 1 && (
+              <RuleLogicSection
+                register={register}
+                control={control}
+                errors={errors}
+              />
+            )}
+            {step === 2 && (
+              <RuleGovernanceSection
+                register={register}
+                control={control}
+                errors={errors}
+              />
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 border-t border-border pt-2">
+            <Button variant="outline" render={<Link to={backTo} />}>
+              Huỷ
+            </Button>
+            <div className="flex-1" />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={goBack}
+              disabled={isFirst}
+            >
+              <ChevronLeftIcon />
+              Quay lại
+            </Button>
+            {isLast ? (
+              <Button type="button" onClick={onSave} disabled={saving}>
+                {saving ? <Spinner /> : <CheckIcon />}
+                Lưu
+              </Button>
+            ) : (
+              <Button type="button" onClick={goNext}>
+                Tiếp theo
+                <ChevronRightIcon />
+              </Button>
+            )}
+          </div>
+
+          {saveError && <p className="text-xs text-destructive">{saveError}</p>}
+        </form>
+      </div>
+
+      <div className="hidden lg:flex lg:flex-col lg:gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto">
+        <div className="border border-border p-4">
+          <RulePreviewPanel control={control} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── User Story (giữ nguyên) ─────────────────────────────────────────────────────────
+function UserStoryEditor({
+  projectId,
+  documentId,
+  doc,
+}: {
+  projectId: string;
+  documentId: string;
+  doc: DocumentDetail;
+}) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const backTo = `/projects/${projectId}/documents/${documentId}`;
+
+  const {
+    register,
+    control,
+    formState: { errors },
+    getValues,
+  } = useForm<Schema>({
+    resolver: standardSchemaResolver(schema),
+    defaultValues: adaptUserStory(doc),
+  });
+
+  // Metadata mức tài liệu — gộp "Sửa thông tin" vào ngay đây.
+  const [title, setTitle] = useState(doc.content.title);
+  const [status, setStatus] = useState<number>(doc.status);
+  const [lifecycle, setLifecycle] = useState<number>(doc.lifecycleState);
+  const [notes, setNotes] = useState(doc.content.notesMd ?? "");
+
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const onSave = async () => {
+    if (!title.trim()) {
+      setSaveError("Vui lòng nhập tiêu đề tài liệu.");
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await saveUserStory(doc, getValues(), {
+        title: title.trim(),
+        status,
+        lifecycleState: lifecycle,
+        notesMd: notes.trim() || null,
+      });
+      // Refresh chi tiết + preview + danh sách.
+      queryClient.invalidateQueries({ queryKey: projectKeys.all });
+      navigate(backTo);
+    } catch (err) {
+      setSaveError(errorDetail(err, "Lưu tài liệu thất bại."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-4 py-4 lg:grid-cols-[1fr_32rem]">
+      <div className="flex min-w-0 flex-col gap-6">
+        <div className="flex items-center justify-between gap-4">
+          <Link
+            to={backTo}
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+          >
+            <ArrowLeftIcon className="size-3.5" />
+            {doc.docKey} · {doc.content.title}
+          </Link>
+        </div>
+
+        <h2 className="text-lg font-semibold text-primary">Sửa nội dung</h2>
+
+        <RelatedDocumentsPanel
+          projectId={projectId}
+          documentId={documentId}
+          currentDocKey={doc.docKey}
+          currentTitle={title}
+          currentDocType={doc.docType}
+          outgoingLinks={doc.content.links}
+        />
+
+        <form className="flex flex-col gap-8">
+          <div className="flex flex-col gap-8">
+            {/* Thông tin tài liệu (gộp từ "Sửa thông tin") */}
+            <FieldSet>
+              <FieldLegend>Thông tin tài liệu</FieldLegend>
+              <FieldGroup>
+                <Field>
+                  <FieldLabel htmlFor="doc-title">Tiêu đề</FieldLabel>
+                  <Input
+                    id="doc-title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                  />
+                </Field>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field>
+                    <FieldLabel htmlFor="doc-status">Trạng thái</FieldLabel>
+                    <NumberSelect
+                      id="doc-status"
+                      value={status}
+                      onChange={setStatus}
+                      options={STATUS_OPTIONS_BY_TYPE[
+                        DocumentType.UserStory
+                      ].map((v) => ({
+                        value: v,
+                        label: DocumentStatusLabel[v] ?? String(v),
+                      }))}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="doc-life">Vòng đời</FieldLabel>
+                    <NumberSelect
+                      id="doc-life"
+                      value={lifecycle}
+                      onChange={setLifecycle}
+                      options={LIFECYCLE_OPTIONS.map((v) => ({
+                        value: v,
+                        label: LifecycleStateLabel[v],
+                      }))}
+                    />
+                  </Field>
+                </div>
+                <Field>
+                  <FieldLabel htmlFor="doc-notes">Ghi chú</FieldLabel>
+                  <Textarea
+                    id="doc-notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={2}
+                  />
+                </Field>
+              </FieldGroup>
+            </FieldSet>
+
+            <MetadataSection
+              register={register}
+              control={control}
+              errors={errors}
+            />
+            <ConditionsSection
+              register={register}
+              control={control}
+              errors={errors}
+            />
+            <FlowSection
+              register={register}
+              control={control}
+              errors={errors}
+            />
+            <AcceptanceCriteriaSection
+              register={register}
+              control={control}
+              errors={errors}
+            />
+            <FieldSet>
+              <FieldLegend>Sơ đồ hoạt động</FieldLegend>
+              <FieldGroup>
+                <Field data-invalid={!!errors.activityDiagram || undefined}>
+                  <FieldLabel htmlFor="activityDiagram">
+                    Activity Diagram URL
+                  </FieldLabel>
+                  <Input
+                    id="activityDiagram"
+                    type="url"
+                    placeholder="https://..."
+                    aria-invalid={!!errors.activityDiagram || undefined}
+                    {...register("activityDiagram")}
+                  />
+                  {errors.activityDiagram?.message && (
+                    <FieldError>{errors.activityDiagram.message}</FieldError>
+                  )}
+                </Field>
+              </FieldGroup>
+            </FieldSet>
+            <ReferencesSection control={control} projectId={projectId} />
+            <StringListSection
+              legend="Yêu cầu phi chức năng"
+              description="Danh sách các yêu cầu phi chức năng"
+              name="nonFunctional"
+              control={control}
+              register={register}
+            />
+            <StringListSection
+              legend="Ngoài phạm vi"
+              description="Các mục nằm ngoài phạm vi công việc"
+              name="outOfScope"
+              control={control}
+              register={register}
+            />
+          </div>
+
+          <div className="flex items-center gap-2 border-t border-border pt-2">
+            <Button variant="outline" render={<Link to={backTo} />}>
+              Huỷ
+            </Button>
+            <div className="flex-1" />
+            <Button type="button" onClick={onSave} disabled={saving}>
+              {saving ? <Spinner /> : <CheckIcon />}
+              Lưu
+            </Button>
+          </div>
+
+          {saveError && <p className="text-xs text-destructive">{saveError}</p>}
+        </form>
+      </div>
+
+      <div className="hidden lg:flex lg:flex-col lg:gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto">
+        <div className="border border-border p-4">
+          <PreviewPanel control={control} />
+        </div>
+      </div>
+    </div>
+  );
+}

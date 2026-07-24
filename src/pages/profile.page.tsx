@@ -3,23 +3,40 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { useGetMe } from "@/features/auth/hooks/use-get-me";
+import { useLogoutAll } from "@/features/auth/hooks/use-logout-all";
+import { useResendVerification } from "@/features/auth/hooks/use-resend-verification";
 import { useSignOut } from "@/features/auth/hooks/use-sign-out";
 import { useAuthStore } from "@/features/auth/store";
-import { LogOutIcon, MailIcon, ShieldIcon, UserIcon } from "lucide-react";
+import {
+  LogOutIcon,
+  MailCheckIcon,
+  MailIcon,
+  MonitorOffIcon,
+  ShieldIcon,
+  UserIcon,
+} from "lucide-react";
 
 export default function ProfilePage() {
   const user = useAuthStore((s) => s.user);
   const { me, isGettingMe } = useGetMe();
   const { signOut, isSigningOut } = useSignOut();
+  const { logoutAll, isLoggingOutAll } = useLogoutAll();
+  const {
+    resend,
+    isResending,
+    isSuccess: resendSent,
+    message: resendMessage,
+  } = useResendVerification();
 
   // Prefer the fresh /me response, fall back to the decoded JWT payload
   // (this is what powers the "fake sign-in" flow where /me is never called).
   const displayEmail = me?.email ?? user?.Email ?? "—";
   const displayName = me
-    ? `${me.firstName} ${me.lastName}`.trim() || me.email
+    ? me.fullName || me.email
     : (user?.Email?.split("@")[0] ?? "—");
-  const role = me?.role ?? user?.Role ?? "—";
+  const role = user?.Role ?? "—";
   const verified = me ? me.isEmailVerified : user?.IsVerified === "true";
+  const email = me?.email ?? user?.Email;
 
   return (
     <div className="mx-auto max-w-2xl p-6">
@@ -39,15 +56,27 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => signOut()}
-            disabled={isSigningOut}
-          >
-            {isSigningOut ? <Spinner /> : <LogOutIcon />}
-            Đăng xuất
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => signOut()}
+              disabled={isSigningOut}
+            >
+              {isSigningOut ? <Spinner /> : <LogOutIcon />}
+              Đăng xuất
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              onClick={() => logoutAll()}
+              disabled={isLoggingOutAll}
+            >
+              {isLoggingOutAll ? <Spinner /> : <MonitorOffIcon />}
+              Đăng xuất mọi thiết bị
+            </Button>
+          </div>
         </div>
 
         <div className="mt-6 flex flex-wrap gap-2">
@@ -59,6 +88,33 @@ export default function ProfilePage() {
             {verified ? "Đã xác thực" : "Chưa xác thực"}
           </Badge>
         </div>
+
+        {!verified && (
+          <div className="mt-4 border border-destructive/40 bg-destructive/5 p-3">
+            <p className="text-xs text-muted-foreground">
+              Email của bạn chưa được xác thực. Kiểm tra hộp thư để lấy liên kết
+              xác thực, hoặc gửi lại email bên dưới.
+            </p>
+            {resendSent ? (
+              <p className="mt-2 flex items-center gap-1.5 text-xs text-primary">
+                <MailCheckIcon className="size-3.5" />
+                {resendMessage ?? "Đã gửi lại email xác thực."}
+              </p>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={() => email && resend({ email })}
+                disabled={!email || isResending}
+              >
+                {isResending ? <Spinner /> : <MailIcon />}
+                Gửi lại email xác thực
+              </Button>
+            )}
+          </div>
+        )}
 
         <div className="mt-6 border-t pt-4 text-xs text-muted-foreground">
           <p>User ID: {user?.UserId ?? "—"}</p>

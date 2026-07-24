@@ -1,37 +1,67 @@
 import AsyncMultiSelectField from "@/components/async-multi-select-field";
 import { FieldGroup, FieldLegend, FieldSet } from "@/components/ui/field";
 import { useAllRules } from "@/features/business-rules/hooks/use-all-rules";
+import { DocumentType } from "@/features/projects/document-types";
+import { useDocuments } from "@/features/projects/hooks/use-documents";
 import { useAllTdds } from "@/features/tdds/hooks/use-all-tdds";
 import { useAllStories } from "@/features/user-stories/hooks/use-all-stories";
-import type {
-  RuleSitemapEntry,
-  StorySitemapEntry,
-  TddSitemapEntry,
-} from "@/lib/sitemap";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Control } from "react-hook-form";
 import { useWatch } from "react-hook-form";
 import type { Schema } from "../validations";
 
-export function ReferencesSection({ control }: { control: Control<Schema> }) {
+// Shape tối thiểu mà mỗi picker cần — TddSitemapEntry/RuleSitemapEntry/StorySitemapEntry
+// (nguồn GitHub) đều là superset của các shape này, nên dùng chung được cho cả 2 nguồn.
+type TddRefItem = { id: string; path: string; feature: string };
+type RuleRefItem = { id: string; path: string; name: string };
+type StoryRefItem = { id: string; path: string; story: string };
+
+// Trì hoãn 300ms trước khi đổi từ khoá thực sự dùng để query — tránh gọi API mỗi phím gõ,
+// giống pattern debounce của project-search-palette.tsx.
+function useDebouncedValue(value: string, delayMs = 300) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(id);
+  }, [value, delayMs]);
+  return debounced;
+}
+
+export function ReferencesSection({
+  control,
+  projectId,
+}: {
+  control: Control<Schema>;
+  // Khi có projectId (trang sửa tài liệu trong Project mới), tìm tài liệu qua backend
+  // search thay vì sitemap.md trên GitHub — 2 nguồn dữ liệu độc lập, sitemap không hề
+  // chứa tài liệu của project.
+  projectId?: string;
+}) {
   return (
     <FieldSet>
       <FieldLegend>Tham chiếu</FieldLegend>
       <FieldGroup>
-        <TddsPicker control={control} />
-        <RulesPicker control={control} />
-        <DependenciesPicker control={control} />
+        <TddsPicker control={control} projectId={projectId} />
+        <RulesPicker control={control} projectId={projectId} />
+        <DependenciesPicker control={control} projectId={projectId} />
       </FieldGroup>
     </FieldSet>
   );
 }
 
-function TddsPicker({ control }: { control: Control<Schema> }) {
+function TddsPicker({
+  control,
+  projectId,
+}: {
+  control: Control<Schema>;
+  projectId?: string;
+}) {
   const [search, setSearch] = useState("");
-  const { data: allTdds = [], isPending } = useAllTdds();
+  const debouncedSearch = useDebouncedValue(search);
 
+  const { data: allTdds = [], isPending: isLegacyPending } = useAllTdds();
   const needle = search.trim().toLowerCase();
-  const items = needle
+  const legacyItems = needle
     ? allTdds.filter(
         (t) =>
           t.id.toLowerCase().includes(needle) ||
@@ -39,17 +69,31 @@ function TddsPicker({ control }: { control: Control<Schema> }) {
       )
     : allTdds;
 
+  const { documents: projectDocs, isLoading: isProjectLoading } =
+    useDocuments(projectId, {
+      docType: DocumentType.Tdd,
+      keyword: debouncedSearch,
+    });
+  const projectItems: TddRefItem[] = projectDocs.map((d) => ({
+    id: d.docKey,
+    path: d.docKey,
+    feature: d.title,
+  }));
+
+  const items = projectId ? projectItems : legacyItems;
+  const isLoading = projectId ? isProjectLoading : isLegacyPending;
+
   return (
     <AsyncMultiSelectField<
       Schema,
       Schema["references"]["tdds"][number],
-      TddSitemapEntry
+      TddRefItem
     >
       control={control}
       name="references.tdds"
       label="Tài liệu kỹ thuật (TDDs)"
       items={items}
-      isLoading={isPending}
+      isLoading={isLoading}
       searchValue={search}
       onSearchChange={setSearch}
       placeholder="Chọn TDDs..."
@@ -71,12 +115,19 @@ function TddsPicker({ control }: { control: Control<Schema> }) {
   );
 }
 
-function RulesPicker({ control }: { control: Control<Schema> }) {
+function RulesPicker({
+  control,
+  projectId,
+}: {
+  control: Control<Schema>;
+  projectId?: string;
+}) {
   const [search, setSearch] = useState("");
-  const { data: allRules = [], isPending } = useAllRules();
+  const debouncedSearch = useDebouncedValue(search);
 
+  const { data: allRules = [], isPending: isLegacyPending } = useAllRules();
   const needle = search.trim().toLowerCase();
-  const items = needle
+  const legacyItems = needle
     ? allRules.filter(
         (r) =>
           r.id.toLowerCase().includes(needle) ||
@@ -85,17 +136,31 @@ function RulesPicker({ control }: { control: Control<Schema> }) {
       )
     : allRules;
 
+  const { documents: projectDocs, isLoading: isProjectLoading } =
+    useDocuments(projectId, {
+      docType: DocumentType.BusinessRule,
+      keyword: debouncedSearch,
+    });
+  const projectItems: RuleRefItem[] = projectDocs.map((d) => ({
+    id: d.docKey,
+    path: d.docKey,
+    name: d.title,
+  }));
+
+  const items = projectId ? projectItems : legacyItems;
+  const isLoading = projectId ? isProjectLoading : isLegacyPending;
+
   return (
     <AsyncMultiSelectField<
       Schema,
       Schema["references"]["rules"][number],
-      RuleSitemapEntry
+      RuleRefItem
     >
       control={control}
       name="references.rules"
       label="Quy tắc nghiệp vụ (Rules)"
       items={items}
-      isLoading={isPending}
+      isLoading={isLoading}
       searchValue={search}
       onSearchChange={setSearch}
       placeholder="Chọn Rules..."
@@ -117,13 +182,21 @@ function RulesPicker({ control }: { control: Control<Schema> }) {
   );
 }
 
-function DependenciesPicker({ control }: { control: Control<Schema> }) {
+function DependenciesPicker({
+  control,
+  projectId,
+}: {
+  control: Control<Schema>;
+  projectId?: string;
+}) {
   const [search, setSearch] = useState("");
-  const { data: allStories = [], isPending } = useAllStories();
+  const debouncedSearch = useDebouncedValue(search);
   const currentId = useWatch({ control, name: "metadata.id" });
 
+  const { data: allStories = [], isPending: isLegacyPending } =
+    useAllStories();
   const needle = search.trim().toLowerCase();
-  const items = allStories
+  const legacyItems = allStories
     .filter((s) => !currentId || s.id !== currentId)
     .filter(
       (s) =>
@@ -132,17 +205,29 @@ function DependenciesPicker({ control }: { control: Control<Schema> }) {
         s.story.toLowerCase().includes(needle),
     );
 
+  const { documents: projectDocs, isLoading: isProjectLoading } =
+    useDocuments(projectId, {
+      docType: DocumentType.UserStory,
+      keyword: debouncedSearch,
+    });
+  const projectItems: StoryRefItem[] = projectDocs
+    .filter((d) => !currentId || d.docKey !== currentId)
+    .map((d) => ({ id: d.docKey, path: d.docKey, story: d.title }));
+
+  const items = projectId ? projectItems : legacyItems;
+  const isLoading = projectId ? isProjectLoading : isLegacyPending;
+
   return (
     <AsyncMultiSelectField<
       Schema,
       Schema["references"]["dependencies"][number],
-      StorySitemapEntry
+      StoryRefItem
     >
       control={control}
       name="references.dependencies"
       label="Phụ thuộc (User Stories)"
       items={items}
-      isLoading={isPending}
+      isLoading={isLoading}
       searchValue={search}
       onSearchChange={setSearch}
       placeholder="Chọn Stories..."

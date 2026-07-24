@@ -1,26 +1,18 @@
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import AuthWidget from "@/features/auth/components/auth-widget";
+import { DocumentTabBar } from "@/features/projects/components/document-tab-bar";
+import { ProjectSearchPalette } from "@/features/projects/components/project-search-palette";
 import { useActiveRepo } from "@/features/repos/store";
-import { useAuthorStore } from "@/features/user-stories/store";
 import { cn } from "@/lib/utils";
 import {
   BookUserIcon,
   FileCode2Icon,
-  GitBranch,
+  FolderGit2Icon,
   HomeIcon,
-  RepeatIcon,
   ScaleIcon,
+  SearchIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
 
 const NAV = [
@@ -30,100 +22,59 @@ const NAV = [
   { to: "/rules", label: "Thêm Rule", icon: ScaleIcon },
 ];
 
-function AuthorPrompt() {
-  const name = useAuthorStore((s) => s.name);
-  const setName = useAuthorStore((s) => s.setName);
-  const [value, setValue] = useState("");
-
-  const open = !name;
-
-  return (
-    <Dialog open={open}>
-      <DialogContent showCloseButton={false}>
-        <DialogHeader>
-          <DialogTitle>Bạn là ai?</DialogTitle>
-          <DialogDescription>
-            Tên này sẽ hiển thị trong mọi commit bạn tạo trên GitHub.
-          </DialogDescription>
-        </DialogHeader>
-        <Field>
-          <FieldLabel htmlFor="author-name">Tên hiển thị</FieldLabel>
-          <Input
-            id="author-name"
-            autoFocus
-            placeholder="Ví dụ: Nguyễn Văn A"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && value.trim()) setName(value);
-            }}
-          />
-        </Field>
-        <div className="flex justify-end">
-          <Button disabled={!value.trim()} onClick={() => setName(value)}>
-            Lưu
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function AuthorField() {
-  const name = useAuthorStore((s) => s.name);
-  const setName = useAuthorStore((s) => s.setName);
-  const [local, setLocal] = useState(name);
-  const [lastName, setLastName] = useState(name);
-  if (lastName !== name) {
-    setLastName(name);
-    setLocal(name);
-  }
-
-  return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-xs text-muted-foreground">Tên:</span>
-      <Input
-        className="h-7 w-40"
-        value={local}
-        onChange={(e) => setLocal(e.target.value)}
-        onBlur={() => local.trim() && setName(local)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
-        }}
-      />
-    </div>
-  );
-}
 
 export default function DefaultLayout() {
   const activeRepo = useActiveRepo();
   const { pathname } = useLocation();
   const onPicker = pathname === "/";
-  const isRepoIndependent = pathname === "/profile";
+  // Trang không phụ thuộc kho GitHub (dữ liệu lấy từ backend): hồ sơ và dự án.
+  const isRepoIndependent =
+    pathname === "/profile" || pathname.startsWith("/projects");
+
+  // Search API chỉ scope theo project (GET /projects/{projectId}/search) — lấy id từ URL
+  // thay vì useParams() vì DefaultLayout nằm NGOÀI route con /projects/:projectId/*.
+  const projectId = pathname.match(/^\/projects\/([^/]+)/)?.[1] ?? null;
+  // Chỉ hiện thanh tab điều hướng nhanh khi đang ở trang CHI TIẾT 1 tài liệu cụ thể — không
+  // hiện ở danh sách/sửa/lịch sử phiên bản/cấu hình/đồ thị.
+  const currentDocumentId = pathname.match(
+    /^\/projects\/[^/]+\/documents\/([^/]+)$/,
+  )?.[1];
+  const showDocTabBar = !!projectId && !!currentDocumentId;
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    if (!projectId) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [projectId]);
 
   if (!activeRepo && !onPicker && !isRepoIndependent) {
     return <Navigate to="/" replace />;
   }
 
-  const repoLabel = activeRepo
-    ? activeRepo.label ||
-      `${activeRepo.owner}/${activeRepo.repo}@${activeRepo.branch}${
-        activeRepo.rootDir ? `:${activeRepo.rootDir}/` : ""
-      }`
-    : "Chưa chọn kho";
-
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       <header className="z-40 shrink-0 border-b border-border bg-background">
         <div className="mx-auto flex h-12 items-center gap-4 px-2">
+
+          {/* Dự án lấy dữ liệu từ backend, không phụ thuộc kho GitHub → luôn hiện. */}
           <NavLink
-            to="/"
-            className="flex items-center gap-2 text-xs font-medium hover:text-primary"
-            title="Đổi kho"
+            to="/projects"
+            className={({ isActive }) =>
+              cn(
+                "flex items-center gap-1.5 rounded-none px-2.5 py-1 text-xs transition-colors hover:bg-muted",
+                isActive && "bg-primary text-primary-foreground",
+              )
+            }
           >
-            <GitBranch className="size-4" />
-            <span>{repoLabel}</span>
-            {activeRepo && <RepeatIcon className="size-3 opacity-60" />}
+            <FolderGit2Icon className="size-3.5" />
+            Dự án
           </NavLink>
 
           {activeRepo && !onPicker && (
@@ -150,7 +101,20 @@ export default function DefaultLayout() {
           )}
 
           <div className="ml-auto flex items-center gap-3">
-            <AuthorField />
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!projectId}
+              title={
+                projectId
+                  ? "Tìm kiếm trong dự án (⌘K)"
+                  : "Mở một dự án để tìm kiếm"
+              }
+              onClick={() => setSearchOpen(true)}
+            >
+              <SearchIcon className="size-3.5" />
+              Tìm kiếm
+            </Button>
             <AuthWidget />
           </div>
         </div>
@@ -160,7 +124,20 @@ export default function DefaultLayout() {
         <Outlet />
       </main>
 
-      <AuthorPrompt />
+      {showDocTabBar && (
+        <DocumentTabBar
+          projectId={projectId!}
+          currentDocumentId={currentDocumentId}
+        />
+      )}
+
+      {projectId && (
+        <ProjectSearchPalette
+          projectId={projectId}
+          open={searchOpen}
+          onOpenChange={setSearchOpen}
+        />
+      )}
     </div>
   );
 }

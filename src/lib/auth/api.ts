@@ -1,9 +1,21 @@
+import { useAuthStore } from "@/features/auth/store";
 import axios, {
   AxiosError,
   type AxiosInstance,
   type InternalAxiosRequestConfig,
 } from "axios";
 import authConfig from "./config";
+
+// messageCode của backend document-first-be dùng SCREAMING_SNAKE_CASE (không phải
+// PascalCase). Đây là các mã 401 nghĩa là "access token không dùng được nữa nhưng
+// refresh token có thể vẫn còn" → thử refresh. Lưu ý: khi access cookie (15 phút) hết
+// hạn, trình duyệt XOÁ nó, nên request sau không có token và backend trả UNAUTHENTICATED
+// (chứ không phải EXPIRED_ACCESS_TOKEN) — phải xử lý cả mã này thì refresh mới chạy.
+const AUTH_REFRESH_TRIGGER_CODES = new Set([
+  "EXPIRED_ACCESS_TOKEN",
+  "MISSING_ACCESS_TOKEN",
+  "UNAUTHENTICATED",
+]);
 
 interface ApiResponse {
   isSuccess: boolean;
@@ -49,8 +61,10 @@ const isPublicRoutePath = (pathname: string) =>
 
 const refreshAccessToken = async (): Promise<boolean> => {
   try {
+    // Refresh token sống trong cookie httpOnly (X-Refresh-Token) do backend đặt;
+    // gửi body rỗng, backend tự đọc cookie. withCredentials để cookie đi kèm.
     await axios.post(
-      `${authConfig.baseURL}/api/v1/users/refresh_token`,
+      `${authConfig.baseURL}/auth/refresh`,
       {},
       {
         withCredentials: true,
@@ -60,7 +74,12 @@ const refreshAccessToken = async (): Promise<boolean> => {
     return true;
   } catch (err) {
     const error = err as AxiosError<ErrorResponse>;
-    if (error.response?.data?.messageCode === "InvalidRefreshToken") {
+    // Refresh trả 401 (INVALID_REFRESH_TOKEN / EXPIRED_REFRESH_TOKEN…) → phiên chết hẳn.
+    // Phải XOÁ trạng thái cục bộ: nếu không, localStorage vẫn còn access token cũ khiến
+    // AuthGuard tưởng đã đăng nhập và lặp vô hạn giữa "/" và "/sign-in". Lỗi mạng
+    // (không có response) thì coi là tạm thời, không đăng xuất.
+    if (error.response?.status === 401) {
+      useAuthStore.getState().signOut();
       if (!isPublicRoutePath(window.location.pathname)) {
         window.location.replace("/sign-in");
       }
@@ -83,7 +102,9 @@ const onRefreshed = (error: AxiosError | null = null) => {
 
 export const createApiClient = (baseURL: string): AxiosInstance => {
   const instance = axios.create({
-    baseURL: `${baseURL}/api`,
+    // Backend (document-first-be) đặt route ngay ở gốc: /auth/login, /auth/me...
+    // — không có tiền tố /api. Đường dẫn trong services bắt đầu bằng /auth/.
+    baseURL,
     withCredentials: true,
     headers: {
       "Content-Type": "application/json",
@@ -119,15 +140,15 @@ export const createApiClient = (baseURL: string): AxiosInstance => {
       const status = error.response?.status;
       const messageCode = (error.response?.data as ErrorResponse)?.messageCode;
 
-      const isExpiredAccessToken =
+      // Chỉ refresh cho các mã "hết phiên access". KHÔNG refresh cho INVALID_CREDENTIALS
+      // (401 lúc đăng nhập sai mật khẩu) — sẽ redirect nhầm khỏi trang đăng nhập.
+      const isAuthExpired =
         status === 401 &&
-        (messageCode === "ExpiredAccessToken" ||
-          messageCode === "MissingAccessToken");
-      const isRefreshRequest = originalRequest.url?.includes(
-        "/users/refresh_token",
-      );
+        messageCode !== undefined &&
+        AUTH_REFRESH_TRIGGER_CODES.has(messageCode);
+      const isRefreshRequest = originalRequest.url?.includes("/auth/refresh");
 
-      if (!originalRequest || !isExpiredAccessToken || isRefreshRequest) {
+      if (!originalRequest || !isAuthExpired || isRefreshRequest) {
         return Promise.reject(error);
       }
 

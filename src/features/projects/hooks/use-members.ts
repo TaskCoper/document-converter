@@ -1,0 +1,24 @@
+import { useAuthStore } from "@/features/auth/store";
+import authConfig from "@/lib/auth/config";
+import { projectKeys } from "@/lib/query-keys";
+import { useQuery } from "@tanstack/react-query";
+import projectService from "../services";
+
+const hasAuthBackend = !!authConfig.baseURL;
+
+export const useMembers = (projectId: string | undefined) => {
+  const hasToken = useAuthStore((s) => !!s.accessToken);
+  const isFake = useAuthStore((s) => s.isFake);
+
+  const query = useQuery({
+    queryKey: projectKeys.members(projectId ?? ""),
+    queryFn: () => projectService.listMembers(projectId!),
+    enabled: !!projectId && hasToken && !isFake && hasAuthBackend,
+  });
+
+  return {
+    members: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+  };
+};

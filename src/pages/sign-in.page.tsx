@@ -6,7 +6,7 @@ import { fakeSignIn } from "@/features/auth/fake";
 import { useSignIn } from "@/features/auth/hooks/use-sign-in";
 import type { SignInFormValues } from "@/features/auth/validations";
 import { FormProvider, type SubmitHandler } from "react-hook-form";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function SignInPage() {
   const { signInMethods, isSigningIn, signIn } = useSignIn();
@@ -41,6 +41,21 @@ export default function SignInPage() {
             {isSigningIn ? <Spinner /> : null}
             Đăng nhập
           </Button>
+
+          <div className="flex flex-col items-center gap-1 text-xs text-muted-foreground">
+            <p>
+              Chưa có tài khoản?{" "}
+              <Link to="/register" className="text-primary hover:underline">
+                Đăng ký
+              </Link>
+            </p>
+            <Link
+              to="/forgot-password"
+              className="text-primary hover:underline"
+            >
+              Quên mật khẩu?
+            </Link>
+          </div>
 
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="h-px flex-1 bg-border" />

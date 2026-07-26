@@ -22,8 +22,8 @@ export default function AuthGuardLayout({
   const { me, isGettingMe } = useGetMe({ enabled: hasToken });
 
   // Treat either a decoded token *or* a fresh /me response as "authenticated".
-  // /me only runs when an API base URL is configured; the fake-sign-in flow
-  // relies purely on the token.
+  // /me only runs when an API base URL is configured; without one we fall back
+  // to the persisted token alone.
   const isAuthenticated = hasToken || !!me;
 
   if (hasToken && isGettingMe && !me) {

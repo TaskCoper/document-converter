@@ -10,8 +10,7 @@ const hasAuthBackend = !!authConfig.baseURL;
 
 function useGraphEnabled(documentId: string | undefined) {
   const hasToken = useAuthStore((s) => !!s.accessToken);
-  const isFake = useAuthStore((s) => s.isFake);
-  return !!documentId && hasToken && !isFake && hasAuthBackend;
+  return !!documentId && hasToken && hasAuthBackend;
 }
 
 // Tài liệu nào đang trỏ TỚI documentId — dùng ở trang sửa để biết sửa cái gì có thể ảnh

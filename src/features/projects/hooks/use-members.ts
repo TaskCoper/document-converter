@@ -8,12 +8,11 @@ const hasAuthBackend = !!authConfig.baseURL;
 
 export const useMembers = (projectId: string | undefined) => {
   const hasToken = useAuthStore((s) => !!s.accessToken);
-  const isFake = useAuthStore((s) => s.isFake);
 
   const query = useQuery({
     queryKey: projectKeys.members(projectId ?? ""),
     queryFn: () => projectService.listMembers(projectId!),
-    enabled: !!projectId && hasToken && !isFake && hasAuthBackend,
+    enabled: !!projectId && hasToken && hasAuthBackend,
   });
 
   return {

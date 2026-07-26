@@ -71,9 +71,9 @@ this pattern; mirror it (call `withSitemap`, then invalidate the matching `ghKey
 Do not confuse them: `src/lib/github/` (documents) vs `src/lib/auth/` (the *user* auth
 backend at `VITE_AUTH_API_BASE_URL`). The auth client (`lib/auth/api.ts`) has a
 cookie-based **refresh-token interceptor** with request queuing. Auth state lives in
-`src/features/auth/store.ts` (JWT decoded client-side). Local dev can bypass the backend
-with **fake tokens** (`features/auth/fake.ts`) — any token ending in `.fake-signature`
-is recognized as fake and skips network calls like `/me`.
+`src/features/auth/store.ts` (JWT decoded client-side). Signing in **always** goes
+through the real backend; when `VITE_AUTH_API_BASE_URL` is empty, hooks that call the
+backend guard on `hasAuthBackend` and simply stay disabled instead of firing requests.
 
 ### Routing
 `src/router.tsx` — `createBrowserRouter`, lazy pages, wrapped in `AuthGuardLayout`.

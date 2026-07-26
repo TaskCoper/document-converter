@@ -4,23 +4,22 @@ import { projectKeys } from "@/lib/query-keys";
 import { useQuery } from "@tanstack/react-query";
 import projectService from "../services";
 
-// Chỉ gọi backend khi thực sự có backend + phiên thật (không phải fake token dev).
+// Chỉ gọi backend khi thực sự có backend + đã đăng nhập.
 const hasAuthBackend = !!authConfig.baseURL;
 
 export const useProjects = () => {
   const hasToken = useAuthStore((s) => !!s.accessToken);
-  const isFake = useAuthStore((s) => s.isFake);
 
   const query = useQuery({
     queryKey: projectKeys.lists(),
     queryFn: projectService.list,
-    enabled: hasToken && !isFake && hasAuthBackend,
+    enabled: hasToken && hasAuthBackend,
   });
 
   return {
     projects: query.data ?? [],
     isLoading: query.isLoading,
     isError: query.isError,
-    noBackend: !hasAuthBackend || isFake,
+    noBackend: !hasAuthBackend,
   };
 };

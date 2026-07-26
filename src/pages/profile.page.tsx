@@ -28,8 +28,8 @@ export default function ProfilePage() {
     message: resendMessage,
   } = useResendVerification();
 
-  // Prefer the fresh /me response, fall back to the decoded JWT payload
-  // (this is what powers the "fake sign-in" flow where /me is never called).
+  // Prefer the fresh /me response, fall back to the decoded JWT payload for
+  // the case where /me is never called (no auth backend configured).
   const displayEmail = me?.email ?? user?.Email ?? "—";
   const displayName = me
     ? me.fullName || me.email

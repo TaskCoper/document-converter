@@ -8,8 +8,7 @@ const hasAuthBackend = !!authConfig.baseURL;
 
 export const useDocument = (documentId: string | undefined) => {
   const hasToken = useAuthStore((s) => !!s.accessToken);
-  const isFake = useAuthStore((s) => s.isFake);
-  const enabled = !!documentId && hasToken && !isFake && hasAuthBackend;
+  const enabled = !!documentId && hasToken && hasAuthBackend;
 
   const detail = useQuery({
     queryKey: projectKeys.document(documentId ?? ""),

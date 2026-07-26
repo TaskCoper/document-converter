@@ -15,7 +15,6 @@ const hasAuthBackend = !!authConfig.baseURL;
 
 export const useGetMe = ({ enabled = true }: UseGetMeOptions = {}) => {
   const hasToken = useAuthStore((s) => !!s.accessToken);
-  const isFake = useAuthStore((s) => s.isFake);
 
   const {
     data: me,
@@ -35,9 +34,9 @@ export const useGetMe = ({ enabled = true }: UseGetMeOptions = {}) => {
     },
     retry: false,
     throwOnError: false,
-    // Skip when: caller disabled it, no token, using a fake token, or no
-    // backend configured. Any of these would produce a wasted request.
-    enabled: enabled && hasToken && !isFake && hasAuthBackend,
+    // Skip when: caller disabled it, no token, or no backend configured. Any
+    // of these would produce a wasted request.
+    enabled: enabled && hasToken && hasAuthBackend,
   });
 
   return {

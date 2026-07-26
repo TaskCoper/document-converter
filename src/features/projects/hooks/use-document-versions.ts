@@ -8,8 +8,7 @@ const hasAuthBackend = !!authConfig.baseURL;
 
 function useVersionsEnabled(documentId: string | undefined) {
   const hasToken = useAuthStore((s) => !!s.accessToken);
-  const isFake = useAuthStore((s) => s.isFake);
-  return !!documentId && hasToken && !isFake && hasAuthBackend;
+  return !!documentId && hasToken && hasAuthBackend;
 }
 
 export function useVersions(documentId: string | undefined) {

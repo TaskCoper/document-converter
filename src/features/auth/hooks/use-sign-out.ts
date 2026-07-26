@@ -12,7 +12,6 @@ export const useSignOut = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const clearAuth = useAuthStore((s) => s.signOut);
-  const isFake = useAuthStore((s) => s.isFake);
   const hasToken = useAuthStore((s) => !!s.accessToken);
 
   const clearLocal = () => {
@@ -34,8 +33,8 @@ export const useSignOut = () => {
   });
 
   const signOut = () => {
-    // Fake token / chưa cấu hình phiên thật → không có gì để thu hồi ở backend.
-    if (isFake || !hasToken) {
+    // Chưa có phiên nào → không có gì để thu hồi ở backend.
+    if (!hasToken) {
       clearLocal();
       return;
     }

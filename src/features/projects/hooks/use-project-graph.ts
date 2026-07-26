@@ -8,8 +8,7 @@ const hasAuthBackend = !!authConfig.baseURL;
 
 function useGraphViewEnabled(projectId: string | undefined) {
   const hasToken = useAuthStore((s) => !!s.accessToken);
-  const isFake = useAuthStore((s) => s.isFake);
-  return !!projectId && hasToken && !isFake && hasAuthBackend;
+  return !!projectId && hasToken && hasAuthBackend;
 }
 
 export function useProjectGraph(projectId: string | undefined) {

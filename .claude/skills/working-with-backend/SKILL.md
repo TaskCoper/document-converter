@@ -72,16 +72,16 @@ Thêm endpoint mới thì để nguyên cơ chế này lo — chỉ cần gọi 
    `OrganizationId`, `IsVerified`, `Email`). Chỉ `accessToken`/`refreshToken` được persist vào
    localStorage; rehydrate sẽ decode lại.
 
-## Bypass bằng fake token (dev cục bộ)
+## Guard khi chưa cấu hình backend
 
-Không có backend vẫn chạy được nhờ [fake.ts](../../../src/features/auth/fake.ts):
+Không có fake sign-in — muốn đăng nhập là phải có backend thật. Nhưng app vẫn phải chạy
+được khi `VITE_AUTH_API_BASE_URL` để trống:
 
-- `fakeSignIn()` tạo JWT không ký hợp lệ về cú pháp, đuôi là marker `.fake-signature`.
-- `isFakeToken()` / `state.isFake` nhận diện token này. **Mọi call mạng phải tự bỏ qua khi
-  đang fake hoặc chưa cấu hình backend** — xem `enabled` trong
-  [use-get-me.ts](../../../src/features/auth/hooks/use-get-me.ts):
-  `enabled && hasToken && !isFake && hasAuthBackend`. Hook mới gọi backend phải copy điều kiện
-  guard này, nếu không sẽ bắn request rác trong dev.
+- `const hasAuthBackend = !!authConfig.baseURL;` ở đầu module.
+- **Mọi call mạng phải tự bỏ qua khi chưa cấu hình backend hoặc chưa có token** — xem
+  `enabled` trong [use-get-me.ts](../../../src/features/auth/hooks/use-get-me.ts):
+  `enabled && hasToken && hasAuthBackend`. Hook mới gọi backend phải copy điều kiện guard
+  này, nếu không sẽ bắn request rác trong dev.
 
 ## ⚠️ Kiểm tra khớp path trước khi tin
 
@@ -104,5 +104,5 @@ frontend gọi trúng.
 - [ ] Lỗi phân nhánh theo `messageCode` (`AxiosError<ErrorResponse>`).
 - [ ] Không tự xử lý 401/refresh — để interceptor lo.
 - [ ] Hook đặt trong `features/auth/hooks/`, key từ `authKeys`.
-- [ ] Có guard `!isFake && hasAuthBackend` cho call mạng.
+- [ ] Có guard `hasToken && hasAuthBackend` cho call mạng.
 - [ ] Đã xác minh path khớp service mà `VITE_AUTH_API_BASE_URL` trỏ tới.

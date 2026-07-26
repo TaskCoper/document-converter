@@ -4,7 +4,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { fakeSignIn } from "@/features/auth/fake";
 import { useSignOut } from "@/features/auth/hooks/use-sign-out";
 import { useAuthStore } from "@/features/auth/store";
 import { LogInIcon, LogOutIcon, UserIcon } from "lucide-react";
@@ -19,27 +18,15 @@ export default function AuthWidget() {
 
   if (!isAuthenticated || !user) {
     return (
-      <div className="flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 px-2 text-xs"
-          render={<Link to="/sign-in" />}
-        >
-          <LogInIcon className="size-3.5" />
-          Đăng nhập
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-7 px-2 text-xs"
-          onClick={() => fakeSignIn()}
-          title="Bỏ qua đăng nhập — dùng mock user"
-        >
-          🎭 Fake
-        </Button>
-      </div>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 px-2 text-xs"
+        render={<Link to="/sign-in" />}
+      >
+        <LogInIcon className="size-3.5" />
+        Đăng nhập
+      </Button>
     );
   }
 

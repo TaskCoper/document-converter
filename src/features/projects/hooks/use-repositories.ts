@@ -11,13 +11,11 @@ export const useRepositories = (
   enabled = true,
 ) => {
   const hasToken = useAuthStore((s) => !!s.accessToken);
-  const isFake = useAuthStore((s) => s.isFake);
 
   const query = useQuery({
     queryKey: projectKeys.repositories(projectId ?? ""),
     queryFn: () => repositoryConfigService.list(projectId!),
-    enabled:
-      enabled && !!projectId && hasToken && !isFake && hasAuthBackend,
+    enabled: enabled && !!projectId && hasToken && hasAuthBackend,
   });
 
   return {

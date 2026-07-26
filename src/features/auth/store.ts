@@ -12,17 +12,9 @@ export interface UserPayload extends JwtPayload {
   Email: string;
 }
 
-// Marker suffix baked into locally-minted tokens (see features/auth/fake.ts).
-// If a stored token ends with this, we know there is no real backend session
-// behind it, so we skip network calls like /me.
-export const FAKE_TOKEN_MARKER = ".fake-signature";
-
-export const isFakeToken = (token: string | null | undefined): boolean =>
-  !!token && token.endsWith(FAKE_TOKEN_MARKER);
-
 // Backend document-first-be phát access token với claim CHUẨN của .NET
 // (ClaimTypes.*), không phải các tên custom (Email/UserId/...) mà store này đọc.
-// Chuẩn hoá cả hai: fake token dùng tên custom, token thật dùng URI ClaimTypes.
+// Đọc cả hai dạng để không phụ thuộc vào cách backend đặt tên claim.
 const NAMEID_CLAIM =
   "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier";
 const EMAIL_CLAIM =
@@ -50,7 +42,6 @@ interface AuthState {
   refreshToken: string | null;
   user: UserPayload | null;
   isVerificationRequired: boolean;
-  isFake: boolean;
   setVerificationRequired: (required: boolean) => void;
   signIn: (accessToken: string, refreshToken?: string | null) => void;
   signOut: () => void;
@@ -68,7 +59,6 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       user: null,
       isVerificationRequired: false,
-      isFake: false,
       setVerificationRequired: (required: boolean) =>
         set({ isVerificationRequired: required }),
       signIn: (accessToken: string, refreshToken?: string | null) => {
@@ -81,7 +71,6 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: refreshToken ?? null,
           user,
           isVerificationRequired: !isVerified,
-          isFake: isFakeToken(accessToken),
         });
       },
       signOut: () => {
@@ -91,7 +80,6 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: null,
           user: null,
           isVerificationRequired: false,
-          isFake: false,
         });
       },
       updateTokens: ({ accessToken, refreshToken }) =>
@@ -102,7 +90,6 @@ export const useAuthStore = create<AuthState>()(
             refreshToken: refreshToken ?? state.refreshToken,
             user,
             isAuthenticated: true,
-            isFake: isFakeToken(accessToken),
           };
         }),
     }),
@@ -120,14 +107,12 @@ export const useAuthStore = create<AuthState>()(
             state.user = user;
             state.isAuthenticated = true;
             state.isVerificationRequired = user.IsVerified === "false";
-            state.isFake = isFakeToken(state.accessToken);
           } catch {
             state.accessToken = null;
             state.refreshToken = null;
             state.user = null;
             state.isAuthenticated = false;
             state.isVerificationRequired = false;
-            state.isFake = false;
           }
         }
       },

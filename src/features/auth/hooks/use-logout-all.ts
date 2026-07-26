@@ -13,7 +13,6 @@ export const useLogoutAll = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const clearAuth = useAuthStore((s) => s.signOut);
-  const isFake = useAuthStore((s) => s.isFake);
   const hasToken = useAuthStore((s) => !!s.accessToken);
 
   const clearLocal = () => {
@@ -34,7 +33,7 @@ export const useLogoutAll = () => {
   });
 
   const logoutAll = () => {
-    if (isFake || !hasToken) {
+    if (!hasToken) {
       clearLocal();
       return;
     }

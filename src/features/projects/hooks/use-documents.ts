@@ -13,12 +13,11 @@ export const useDocuments = (
   params: DocumentListParams,
 ) => {
   const hasToken = useAuthStore((s) => !!s.accessToken);
-  const isFake = useAuthStore((s) => s.isFake);
 
   const query = useQuery({
     queryKey: projectKeys.documents(projectId ?? "", params),
     queryFn: () => documentService.list(projectId!, params),
-    enabled: !!projectId && hasToken && !isFake && hasAuthBackend,
+    enabled: !!projectId && hasToken && hasAuthBackend,
     // Giữ danh sách cũ khi đổi filter/trang để bảng không nhấp nháy.
     placeholderData: keepPreviousData,
   });

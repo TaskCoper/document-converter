@@ -14,12 +14,11 @@ const POLL_MS = 5000;
 
 export const usePublishJobs = (projectId: string | undefined) => {
   const hasToken = useAuthStore((s) => !!s.accessToken);
-  const isFake = useAuthStore((s) => s.isFake);
 
   const query = useQuery({
     queryKey: projectKeys.publishJobs(projectId ?? ""),
     queryFn: () => repositoryConfigService.getPublishJobs(projectId!),
-    enabled: !!projectId && hasToken && !isFake && hasAuthBackend,
+    enabled: !!projectId && hasToken && hasAuthBackend,
     refetchInterval: (q) => {
       const jobs = (q.state.data as PublishJobRow[] | undefined) ?? [];
       const active = jobs.some(

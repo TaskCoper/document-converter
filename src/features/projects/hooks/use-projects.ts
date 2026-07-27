@@ -1,6 +1,6 @@
 import { useAuthStore } from "@/features/auth/store";
 import authConfig from "@/lib/auth/config";
-import { projectKeys } from "@/lib/query-keys";
+import { PROJECT_STALE, projectKeys } from "@/lib/query-keys";
 import { useQuery } from "@tanstack/react-query";
 import projectService from "../services";
 
@@ -14,6 +14,7 @@ export const useProjects = () => {
     queryKey: projectKeys.lists(),
     queryFn: projectService.list,
     enabled: hasToken && hasAuthBackend,
+    staleTime: PROJECT_STALE,
   });
 
   return {

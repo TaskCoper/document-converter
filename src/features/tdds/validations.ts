@@ -14,12 +14,17 @@ export const DocStatusLabel: Record<DocStatus, string> = {
   [DocStatus.Approved]: "Approved",
 };
 
+// Khớp trọn ApiHttpMethod của backend (Get=1 … Options=7). Thiếu HEAD/OPTIONS thì hai động từ
+// đó bị nắn về GET — bảng endpoint hiện sai hẳn ý nghĩa (HEAD "không tải nội dung", OPTIONS
+// preflight đều thành GET).
 export const HttpMethod = {
   GET: "GET",
   POST: "POST",
   PUT: "PUT",
   PATCH: "PATCH",
   DELETE: "DELETE",
+  HEAD: "HEAD",
+  OPTIONS: "OPTIONS",
 } as const;
 
 type HttpMethod = (typeof HttpMethod)[keyof typeof HttpMethod];
@@ -30,6 +35,8 @@ export const HttpMethodLabel: Record<HttpMethod, string> = {
   [HttpMethod.PUT]: "PUT",
   [HttpMethod.PATCH]: "PATCH",
   [HttpMethod.DELETE]: "DELETE",
+  [HttpMethod.HEAD]: "HEAD",
+  [HttpMethod.OPTIONS]: "OPTIONS",
 };
 
 const documentInfoSchema = z.object({
@@ -59,12 +66,52 @@ const diagramSectionSchema = z.object({
   description: z.string(),
   mermaid: z.string(),
   notes: z.array(z.string().min(1, "Ghi chú không được để trống")),
+  /** Chỉ backend: document_diagrams.title. */
+  title: z.string().optional(),
+  /** Chỉ backend: DiagramFormat 1-4. Khác Mermaid thì nội dung nằm ở sourceCode/externalUrl. */
+  format: z.number().optional(),
+  sourceCode: z.string().optional(),
+  externalUrl: z.string().optional(),
+});
+
+/** Chỉ backend: sơ đồ không thuộc 5 ô cố định của form (Flowchart, Other…). */
+const extraDiagramSchema = z.object({
+  diagramType: z.number(),
+  format: z.number(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  sourceCode: z.string().optional(),
+  externalUrl: z.string().optional(),
+});
+
+// ── Field CHỈ có ở nhánh backend ────────────────────────────────────────────────────────
+// Nguồn GitHub là Markdown, nguồn backend là DB. Tất cả để optional một cách CÓ CHỦ Ý:
+// toMarkdown không ghi và fromMarkdown không đọc chúng, nên định dạng Markdown — hợp đồng
+// dùng chung giữa hai nhánh — không đổi một ký tự.
+
+/**
+ * Một ví dụ, giữ nguyên ba mẫu tách rời như DB lưu.
+ *
+ * `apiExampleSchema` cũ gộp cả ba vào một chuỗi `content` và chỉ chọn được MỘT (ưu tiên
+ * response), nên request và error của cùng một ví dụ biến mất. Nó cũng nằm phẳng ở
+ * `internalApi.examples`, mất luôn thông tin ví dụ thuộc endpoint nào.
+ */
+const apiExampleDetailSchema = z.object({
+  title: z.string(),
+  requestSample: z.string().optional(),
+  responseSample: z.string().optional(),
+  responseStatus: z.number().nullish(),
+  errorSample: z.string().optional(),
 });
 
 const apiEndpointSchema = z.object({
   endpoint: z.string().min(1, "Endpoint không được để trống"),
   method: z.enum(HttpMethod),
   description: z.string().min(1, "Mô tả không được để trống"),
+  /** Chỉ backend: api_endpoints.name ("Danh sách gói combo"). */
+  name: z.string().optional(),
+  /** Chỉ backend: ví dụ THUỘC endpoint này. */
+  examples: z.array(apiExampleDetailSchema).optional(),
 });
 
 const apiExampleSchema = z.object({
@@ -88,6 +135,10 @@ const externalEndpointSchema = z.object({
   endpoint: z.string().min(1, "Endpoint không được để trống"),
   purpose: z.string().min(1, "Mục đích không được để trống"),
   note: z.string(),
+  /** Chỉ backend: endpoint đối tác cũng có động từ, tên và ví dụ như endpoint nội bộ. */
+  name: z.string().optional(),
+  method: z.enum(HttpMethod).optional(),
+  examples: z.array(apiExampleDetailSchema).optional(),
 });
 
 const externalFieldSchema = z.object({
@@ -110,6 +161,12 @@ const referencesSchema = z.object({
   others: z.array(z.string().min(1, "Không được để trống")),
 });
 
+/** Chỉ backend: nhãn của list item (G1, NG2…) — Markdown của TDD không có chỗ chứa. */
+const labelledItemSchema = z.object({
+  label: z.string().nullish(),
+  content: z.string(),
+});
+
 const changeLogEntrySchema = z.object({
   date: z.string().min(1, "Ngày không được để trống"),
   version: z.string().min(1, "Phiên bản không được để trống"),
@@ -129,6 +186,33 @@ export const tddSchema = z.object({
   externalApi: externalApiSchema,
   references: referencesSchema,
   changeLog: z.array(changeLogEntrySchema),
+  /** Chỉ backend: sơ đồ ngoài 5 ô cố định. */
+  extraDiagrams: z.array(extraDiagramSchema).optional(),
+  /** Chỉ backend: document_list_items 90 / 91. */
+  assumptions: z.array(z.string()).optional(),
+  openQuestions: z.array(z.string()).optional(),
+  /** Chỉ backend: nhãn G1/NG2 của Goals & Non-goals, đi song song với contextGoals. */
+  goalLabels: z.array(labelledItemSchema).optional(),
+  nonGoalLabels: z.array(labelledItemSchema).optional(),
+  /**
+   * Chỉ backend: loại cạnh + ghi chú cho từng liên kết.
+   *
+   * Tách thành mảng riêng thay vì nhét vào `references.*` (đang là `string[]`): đổi ba mảng đó
+   * sang object sẽ kéo theo toMarkdown/fromMarkdown của TDD, tức là đụng định dạng Markdown —
+   * hợp đồng dùng chung với nhánh GitHub. Mảng này Markdown không biết tới nên không ảnh hưởng.
+   *
+   * Khoá là cặp (targetKind, targetDocKey). Chứa CẢ cạnh TDD→TDD, thứ không có picker riêng.
+   */
+  linkMeta: z
+    .array(
+      z.object({
+        targetKind: z.number(),
+        targetDocKey: z.string(),
+        linkType: z.number().optional(),
+        note: z.string().optional(),
+      }),
+    )
+    .optional(),
 });
 
 export type TddSchema = z.infer<typeof tddSchema>;

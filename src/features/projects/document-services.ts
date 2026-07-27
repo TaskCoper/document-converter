@@ -5,6 +5,7 @@ import authApi, {
 import type {
   DocumentDetail,
   DocumentListRow,
+  DocumentSort,
   DocumentType,
   ImpactReport,
   IncomingLink,
@@ -19,6 +20,9 @@ import type {
 export interface DocumentListParams {
   docType?: DocumentType;
   keyword?: string;
+  sort?: DocumentSort;
+  // Trả về trang CHỨA tài liệu này thay vì trang 1; ghi đè pageIndex khi có giá trị.
+  anchorDocumentId?: string;
   pageIndex?: number;
   pageSize?: number;
 }
@@ -88,6 +92,8 @@ class DocumentService {
         params: {
           DocType: params.docType,
           Keyword: params.keyword || undefined,
+          Sort: params.sort,
+          AnchorDocumentId: params.anchorDocumentId,
           PageIndex: params.pageIndex ?? 1,
           PageSize: params.pageSize ?? 50,
         },
@@ -282,6 +288,40 @@ class DocumentService {
     await authApi.put<BaseResponse<DocumentDetail>>(
       `/documents/${documentId}/links`,
       links,
+    );
+  };
+
+  /**
+   * Thay trọn section API — endpoint (kèm ví dụ) và error code đi cùng nhau vì cùng mô tả một
+   * hợp đồng API, backend nhận chúng trong MỘT request (ApiSectionInput).
+   */
+  replaceApi = async (
+    documentId: string,
+    api: {
+      endpoints: {
+        scope: number; // ApiScope: Internal=1, External=2
+        method?: number | null; // ApiHttpMethod: Get=1 … Options=7
+        path?: string | null;
+        name?: string | null;
+        description?: string | null;
+        examples: {
+          title?: string | null;
+          requestSample?: string | null;
+          responseSample?: string | null;
+          responseStatus?: number | null;
+          errorSample?: string | null;
+        }[];
+      }[];
+      errorCodes: {
+        code: string;
+        httpStatus?: number | null;
+        description?: string | null;
+      }[];
+    },
+  ) => {
+    await authApi.put<BaseResponse<DocumentDetail>>(
+      `/documents/${documentId}/api`,
+      api,
     );
   };
 

@@ -1,6 +1,6 @@
 import { useAuthStore } from "@/features/auth/store";
 import authConfig from "@/lib/auth/config";
-import { projectKeys } from "@/lib/query-keys";
+import { PROJECT_STALE, projectKeys } from "@/lib/query-keys";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import documentService, { type SearchParams } from "../document-services";
 
@@ -17,6 +17,7 @@ export function useProjectSearch(
     queryKey: projectKeys.search(projectId ?? "", params),
     queryFn: () => documentService.search(projectId!, { ...params, q }),
     enabled: !!projectId && !!q && hasToken && hasAuthBackend,
+    staleTime: PROJECT_STALE,
     placeholderData: keepPreviousData,
   });
 

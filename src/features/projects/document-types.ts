@@ -14,6 +14,15 @@ export const DocumentTypeLabel: Record<DocumentType, string> = {
   [DocumentType.BusinessRule]: "Business Rule",
 };
 
+// Thứ tự sắp xếp của GET /projects/{id}/documents (DocumentService.DocumentSort).
+// Backend chặn PageSize ở 100, nên sắp xếp là tham số của TRUY VẤN: nó quyết định 100 dòng
+// nào lọt vào trang, không chỉ thứ tự bên trong trang. Tự sort lại sau khi nhận về là sai.
+export const DocumentSort = {
+  Recent: 0, // Mới cập nhật trước (mặc định).
+  DocKey: 1, // Theo mã tài liệu tăng dần — dùng cho thanh điều hướng.
+} as const;
+export type DocumentSort = (typeof DocumentSort)[keyof typeof DocumentSort];
+
 export const LifecycleState = {
   Draft: 1,
   InReview: 2,
@@ -79,6 +88,76 @@ export const PRIORITY_OPTIONS: StoryPriority[] = [
   StoryPriority.Could,
   StoryPriority.Wont,
 ];
+
+// AssigneeRole của backend có 9 giá trị; form US (nhánh GitHub) chỉ biết FE/BE. Bảng này để
+// HIỂN THỊ đúng thứ backend trả về — đừng dùng nó cho form, xem adaptUserStoryForm.
+// Giữ nguyên "FE"/"BE" cho hai vai trò đầu để tài liệu cũ trông không đổi.
+export const AssigneeRoleLabel: Record<number, string> = {
+  1: "FE",
+  2: "BE",
+  3: "Fullstack",
+  4: "Mobile",
+  5: "QA",
+  6: "DevOps",
+  7: "Designer",
+  8: "Reviewer",
+  99: "Khác",
+};
+
+// AssigneeRole ↔ giá trị Position của form US. Hai chiều phải là nghịch đảo của nhau, nếu
+// không thì mỗi lần lưu là một lần vai trò bị đổi.
+export const AssigneeRoleToPosition: Record<number, string> = {
+  1: "FE",
+  2: "BE",
+  3: "Fullstack",
+  4: "Mobile",
+  5: "QA",
+  6: "DevOps",
+  7: "Designer",
+  8: "Reviewer",
+  99: "Other",
+};
+export const PositionToAssigneeRole: Record<string, number> =
+  Object.fromEntries(
+    Object.entries(AssigneeRoleToPosition).map(([role, pos]) => [pos, +role]),
+  );
+
+// document_diagrams.diagram_type / .format — xem ContentEnums.cs.
+export const DiagramType = {
+  Activity: 1,
+  Sequence: 2,
+  State: 3,
+  Architecture: 4,
+  DataModel: 5,
+  Flowchart: 6,
+  Other: 99,
+} as const;
+export const DiagramTypeLabel: Record<number, string> = {
+  1: "Hoạt động (Activity)",
+  2: "Trình tự (Sequence)",
+  3: "Trạng thái (State)",
+  4: "Kiến trúc (Architecture)",
+  5: "Mô hình dữ liệu (Data Model)",
+  6: "Lưu đồ (Flowchart)",
+  99: "Khác",
+};
+
+export const DiagramFormat = {
+  Mermaid: 1,
+  ExternalUrl: 2,
+  Image: 3,
+  PlantUml: 4,
+} as const;
+export const DiagramFormatLabel: Record<number, string> = {
+  1: "Mermaid (mã nguồn)",
+  2: "Link ngoài (URL)",
+  3: "Ảnh (URL)",
+  4: "PlantUML (mã nguồn)",
+};
+
+/** Format nào lưu bằng mã nguồn, format nào lưu bằng URL — quyết định ô nhập nào hiện ra. */
+export const isSourceCodeFormat = (format: number) =>
+  format === DiagramFormat.Mermaid || format === DiagramFormat.PlantUml;
 
 // Bảng con trong DocumentSnapshot (dùng để map sang Schema của các exporter cũ khi render).
 export interface AssigneeSnapshot {
@@ -202,6 +281,23 @@ export interface DocumentDetail {
   createdAt: string;
   updatedAt: string | null;
   content: DocumentContent;
+  // Cùng các liên kết như content.links, nhưng đã được backend nối sẵn với tài liệu thật.
+  resolvedLinks: ResolvedLink[];
+}
+
+// Liên kết đi ra đã nối với tài liệu trong hệ thống (DocumentService.ResolvedLink).
+//
+// content.links chỉ có targetDocKey vì nó là payload BẤT BIẾN ghi vào document_versions —
+// không được chứa id, thứ đổi theo môi trường và chết khi đích bị xoá. Danh sách này thì tính
+// lại ở mỗi lần đọc, nên dùng nó để dựng đường dẫn thay vì tải cả danh sách tài liệu về dò khoá.
+export interface ResolvedLink {
+  targetKind: number; // ReferenceKind: UserStory=1, Tdd=2, BusinessRule=3...
+  targetDocKey: string;
+  linkType: number;
+  // null = liên kết còn treo: trỏ tới khoá chưa tồn tại. Trạng thái hợp lệ, không phải lỗi.
+  targetDocumentId: string | null;
+  targetDocType: DocumentType | null;
+  targetTitle: string | null;
 }
 
 // Đồ thị liên kết tài liệu — xem GraphController/GraphService.IService ở backend.

@@ -7,22 +7,29 @@ import {
 } from "@/components/story-document-view";
 import { buttonVariants } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { projectKeys } from "@/lib/query-keys";
+import { PROJECT_STALE, projectKeys } from "@/lib/query-keys";
 import { useQueries } from "@tanstack/react-query";
 import { Columns2, Rows2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { adaptRule, adaptTdd } from "../adapt-document";
 import documentService from "../document-services";
-import type { DocumentDetail, DocumentListRow } from "../document-types";
+import type { DocumentDetail, ResolvedLink } from "../document-types";
 import { useDocument } from "../hooks/use-document";
-import { useDocuments } from "../hooks/use-documents";
 
 const REF = { UserStory: 1, Tdd: 2, BusinessRule: 3 };
 
+// Liên kết đã nối được với tài liệu thật — chỉ những cái này mới mở/hiển thị nội dung được.
+type LinkedDoc = { id: string; docKey: string };
+
+const linkedOfKind = (links: ResolvedLink[], kind: number): LinkedDoc[] =>
+  links
+    .filter((l) => l.targetKind === kind && l.targetDocumentId)
+    .map((l) => ({ id: l.targetDocumentId!, docKey: l.targetDocKey }));
+
 // Trang chi tiết US backend tái dùng ĐÚNG bố cục + component của view.page (StoryPreviewLayout,
-// TddPreviewPanel, BusinessRulesTable). Chỉ khác nguồn: TDD/Rule liên quan lấy từ content.links,
-// resolve docKey→id trong project rồi fetch + map sang schema (adaptTdd/adaptRule) để đưa vào
-// các component đó (chế độ `parsed`).
+// TddPreviewPanel, BusinessRulesTable). Chỉ khác nguồn: TDD/Rule liên quan lấy thẳng từ
+// doc.resolvedLinks (backend đã nối sẵn docKey→id) rồi fetch + map sang schema
+// (adaptTdd/adaptRule) để đưa vào các component đó (chế độ `parsed`).
 export function StorySplitView({
   projectId,
   doc,
@@ -30,23 +37,10 @@ export function StorySplitView({
 }: {
   projectId: string;
   doc: DocumentDetail;
-  storyHtml: string | null;
+  storyHtml: string;
 }) {
-  const { documents } = useDocuments(projectId, { pageSize: 200 });
-  const byKey = useMemo(() => {
-    const m = new Map<string, DocumentListRow>();
-    for (const d of documents) m.set(d.docKey, d);
-    return m;
-  }, [documents]);
-
-  const resolve = (kind: number) =>
-    doc.content.links
-      .filter((l) => l.targetKind === kind)
-      .map((l) => byKey.get(l.targetDocKey))
-      .filter((d): d is DocumentListRow => !!d);
-
-  const tddDocs = resolve(REF.Tdd);
-  const ruleDocs = resolve(REF.BusinessRule);
+  const tddDocs = linkedOfKind(doc.resolvedLinks, REF.Tdd);
+  const ruleDocs = linkedOfKind(doc.resolvedLinks, REF.BusinessRule);
 
   const [tddsOpen, setTddsOpen] = useState(true);
   const [rulesOpen, setRulesOpen] = useState(true);
@@ -56,7 +50,7 @@ export function StorySplitView({
   const showTdds = canTdds && tddsOpen;
   const showRules = canRules && rulesOpen;
 
-  const story = <StoryHtmlFrame html={storyHtml ?? ""} />;
+  const story = <StoryHtmlFrame html={storyHtml} />;
 
   return (
     <div className="flex h-full flex-col gap-2">
@@ -99,10 +93,10 @@ export function StorySplitView({
           showRules={showRules}
           story={story}
           tdds={tddDocs.map((t) => (
-            <BackendTddPanel key={t.id} projectId={projectId} row={t} />
+            <BackendTddPanel key={t.id} projectId={projectId} doc={t} />
           ))}
           rulesPanel={
-            <BackendRulesTable projectId={projectId} rows={ruleDocs} />
+            <BackendRulesTable projectId={projectId} docs={ruleDocs} />
           }
         />
       </div>
@@ -113,13 +107,13 @@ export function StorySplitView({
 // Fetch 1 TDD backend → map sang TddSchema → đưa vào TddPreviewPanel (chế độ parsed).
 function BackendTddPanel({
   projectId,
-  row,
+  doc,
 }: {
   projectId: string;
-  row: DocumentListRow;
+  doc: LinkedDoc;
 }) {
-  const { document, isLoading } = useDocument(row.id);
-  if (isLoading || !document) {
+  const { document } = useDocument(doc.id);
+  if (!document) {
     return (
       <div className="flex h-full items-center justify-center">
         <Spinner className="size-4" />
@@ -128,9 +122,9 @@ function BackendTddPanel({
   }
   return (
     <TddPreviewPanel
-      id={row.docKey}
+      id={doc.docKey}
       parsed={adaptTdd(document)}
-      href={`/projects/${projectId}/documents/${row.id}`}
+      href={`/projects/${projectId}/documents/${doc.id}`}
     />
   );
 }
@@ -138,15 +132,16 @@ function BackendTddPanel({
 // Fetch song song các Rule backend → map sang RuleSchema → đưa vào BusinessRulesTable.
 function BackendRulesTable({
   projectId,
-  rows,
+  docs,
 }: {
   projectId: string;
-  rows: DocumentListRow[];
+  docs: LinkedDoc[];
 }) {
   const results = useQueries({
-    queries: rows.map((r) => ({
-      queryKey: projectKeys.document(r.id),
-      queryFn: () => documentService.get(r.id),
+    queries: docs.map((d) => ({
+      queryKey: projectKeys.document(d.id),
+      queryFn: () => documentService.get(d.id),
+      staleTime: PROJECT_STALE,
     })),
   });
 
@@ -158,15 +153,15 @@ function BackendRulesTable({
     );
   }
 
-  const rules: RuleRef[] = rows.map((r, i) => {
-    const d = results[i].data;
-    return d
+  const rules: RuleRef[] = docs.map((d, i) => {
+    const detail = results[i].data;
+    return detail
       ? {
-          id: r.docKey,
-          parsed: adaptRule(d),
-          href: `/projects/${projectId}/documents/${r.id}`,
+          id: d.docKey,
+          parsed: adaptRule(detail),
+          href: `/projects/${projectId}/documents/${d.id}`,
         }
-      : { id: r.docKey };
+      : { id: d.docKey };
   });
 
   return <BusinessRulesTable rules={rules} />;

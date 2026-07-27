@@ -1,6 +1,6 @@
 import { useAuthStore } from "@/features/auth/store";
 import authConfig from "@/lib/auth/config";
-import { projectKeys } from "@/lib/query-keys";
+import { PROJECT_STALE, projectKeys } from "@/lib/query-keys";
 import { useQuery } from "@tanstack/react-query";
 import documentService from "../document-services";
 
@@ -17,6 +17,7 @@ export function useVersions(documentId: string | undefined) {
     queryKey: projectKeys.versions(documentId ?? ""),
     queryFn: () => documentService.getVersions(documentId!),
     enabled,
+    staleTime: PROJECT_STALE,
   });
   return {
     versions: query.data ?? [],
@@ -34,6 +35,7 @@ export function useVersionDetail(
     queryKey: projectKeys.version(documentId ?? "", versionNumber ?? 0),
     queryFn: () => documentService.getVersion(documentId!, versionNumber!),
     enabled,
+    staleTime: PROJECT_STALE,
   });
   return {
     version: query.data,
@@ -51,6 +53,7 @@ export function useVersionMarkdown(
     queryKey: projectKeys.versionMarkdown(documentId ?? "", versionNumber ?? 0),
     queryFn: () => documentService.getVersionMarkdown(documentId!, versionNumber!),
     enabled,
+    staleTime: PROJECT_STALE,
   });
   return {
     markdown: query.data,
@@ -69,6 +72,7 @@ export function useVersionDiff(
     queryKey: projectKeys.versionDiff(documentId ?? "", from ?? 0, to ?? 0),
     queryFn: () => documentService.getVersionDiff(documentId!, from!, to!),
     enabled,
+    staleTime: PROJECT_STALE,
   });
   return {
     diff: query.data,

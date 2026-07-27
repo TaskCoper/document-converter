@@ -10,14 +10,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useDir } from "@/hooks/use-dir";
@@ -96,7 +88,7 @@ const STEPS: StepDef[] = [
   {
     title: "Tiêu chí & Sơ đồ",
     description: "Tiêu chí chấp nhận và activity diagram",
-    fields: ["acceptanceCriteria", "activityDiagram"],
+    fields: ["acceptanceCriteria"],
   },
   {
     title: "Tham chiếu & Phạm vi",
@@ -428,28 +420,6 @@ export default function StoriesPage() {
                   control={control}
                   errors={errors}
                 />
-                <FieldSet>
-                  <FieldLegend>Sơ đồ hoạt động</FieldLegend>
-                  <FieldGroup>
-                    <Field data-invalid={!!errors.activityDiagram || undefined}>
-                      <FieldLabel htmlFor="activityDiagram">
-                        Activity Diagram URL
-                      </FieldLabel>
-                      <Input
-                        id="activityDiagram"
-                        type="url"
-                        placeholder="https://..."
-                        aria-invalid={!!errors.activityDiagram || undefined}
-                        {...register("activityDiagram")}
-                      />
-                      {errors.activityDiagram?.message && (
-                        <FieldError>
-                          {errors.activityDiagram.message}
-                        </FieldError>
-                      )}
-                    </Field>
-                  </FieldGroup>
-                </FieldSet>
               </>
             )}
 
@@ -898,8 +868,6 @@ function summarizeChanges(prev: Schema, next: Schema): string[] {
       `acceptanceCriteria (${countChange(prev.acceptanceCriteria, next.acceptanceCriteria)})`,
     );
 
-  if (prev.activityDiagram !== next.activityDiagram)
-    lines.push("activityDiagram");
 
   const refChanged: string[] = [];
   if (!eq(prev.references.tdds, next.references.tdds))

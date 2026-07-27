@@ -12,12 +12,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2 } from "lucide-react";
 import { useFieldArray } from "react-hook-form";
 import type { TddSectionProps } from "../section-types";
+import { EndpointExamplesField } from "./endpoint-examples-field";
 import { TddStringArrayField } from "./tdd-string-array-field";
 
 export function ExternalApiSection({
   register,
   control,
   errors,
+  backend,
 }: TddSectionProps) {
   const endpointsArr = useFieldArray({
     control,
@@ -93,6 +95,13 @@ export function ExternalApiSection({
                     {...register(`externalApi.endpoints.${idx}.note`)}
                   />
                 </Field>
+                {backend && (
+                  <EndpointExamplesField
+                    control={control}
+                    register={register}
+                    name={`externalApi.endpoints.${idx}.examples`}
+                  />
+                )}
               </div>
             ))}
             <Button

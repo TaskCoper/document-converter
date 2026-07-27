@@ -80,6 +80,152 @@ function DataTable({ headers, rows }: { headers: string[]; rows: string[][] }) {
   );
 }
 
+// ── API: một thẻ cho MỖI endpoint, ví dụ nằm bên trong endpoint của nó ────────────────
+//
+// Bố cục cũ là bảng phẳng + một danh sách ví dụ rời phía dưới, nên không đọc được ví dụ nào
+// thuộc endpoint nào; mỗi ví dụ lại chỉ hiện được một trong ba mẫu (request/response/error).
+// Bản Markdown do backend sinh ra vốn đã in đủ cả ba — chính màn hình này mới là chỗ thiếu.
+
+const METHOD_COLOR: Record<string, string> = {
+  GET: "bg-sky-100 text-sky-800 border-sky-300",
+  POST: "bg-emerald-100 text-emerald-800 border-emerald-300",
+  PUT: "bg-amber-100 text-amber-800 border-amber-300",
+  PATCH: "bg-violet-100 text-violet-800 border-violet-300",
+  DELETE: "bg-rose-100 text-rose-800 border-rose-300",
+  HEAD: "bg-gray-100 text-gray-700 border-gray-300",
+  OPTIONS: "bg-gray-100 text-gray-700 border-gray-300",
+};
+
+function MethodBadge({ method }: { method?: string }) {
+  if (!method) return null;
+  return (
+    <span
+      className={`shrink-0 rounded border px-1.5 py-0.5 font-mono text-[11px] font-semibold ${
+        METHOD_COLOR[method] ?? "bg-gray-100 text-gray-700 border-gray-300"
+      }`}
+    >
+      {method}
+    </span>
+  );
+}
+
+function SamplePane({
+  label,
+  status,
+  body,
+  tone,
+}: {
+  label: string;
+  status?: number | null;
+  body?: string;
+  tone?: "error";
+}) {
+  if (!body?.trim()) return null;
+  return (
+    <div className="min-w-0 flex-1">
+      <div className="mb-1 flex items-center gap-2">
+        <span
+          className={`text-[11px] font-semibold uppercase tracking-wide ${
+            tone === "error" ? "text-rose-700" : "text-gray-600"
+          }`}
+        >
+          {label}
+        </span>
+        {status != null && (
+          <span className="rounded border border-gray-300 bg-gray-50 px-1 font-mono text-[11px] text-gray-700">
+            {status}
+          </span>
+        )}
+      </div>
+      <pre className="overflow-x-auto whitespace-pre rounded border border-gray-200 bg-gray-50 p-2 font-mono text-xs">
+        {body.trim()}
+      </pre>
+    </div>
+  );
+}
+
+type ApiExample = NonNullable<
+  TddSchema["internalApi"]["endpoints"][number]["examples"]
+>[number];
+
+function ExampleBlock({ ex }: { ex: ApiExample }) {
+  const hasAny =
+    ex.requestSample?.trim() ||
+    ex.responseSample?.trim() ||
+    ex.errorSample?.trim();
+  if (!hasAny && !ex.title?.trim()) return null;
+  return (
+    <div className="border-t border-gray-200 px-3 py-2.5">
+      {ex.title?.trim() && (
+        <p className="mb-2 text-sm font-medium text-gray-800">{ex.title}</p>
+      )}
+      {/* Ba mẫu đặt cạnh nhau — trước đây chỉ một trong ba sống sót. */}
+      <div className="flex flex-col gap-3 md:flex-row">
+        <SamplePane label="Request" body={ex.requestSample} />
+        <SamplePane
+          label="Response"
+          status={ex.responseStatus}
+          body={ex.responseSample}
+        />
+        <SamplePane label="Error" body={ex.errorSample} tone="error" />
+      </div>
+    </div>
+  );
+}
+
+function EndpointCard({
+  method,
+  path,
+  name,
+  description,
+  examples,
+}: {
+  method?: string;
+  path: string;
+  name?: string;
+  description?: string;
+  examples?: ApiExample[];
+}) {
+  return (
+    <div className="mb-3 overflow-hidden rounded border border-gray-300">
+      <div className="flex flex-wrap items-center gap-2 bg-gray-50 px-3 py-2">
+        <MethodBadge method={method} />
+        <code className="min-w-0 break-all font-mono text-sm text-gray-900">
+          {path}
+        </code>
+        {name?.trim() && (
+          <span className="text-xs text-gray-500">— {name}</span>
+        )}
+      </div>
+      {description?.trim() && (
+        <p className="px-3 py-2 text-sm leading-relaxed text-gray-800">
+          {description}
+        </p>
+      )}
+      {(examples ?? []).map((ex, i) => (
+        <ExampleBlock key={i} ex={ex} />
+      ))}
+    </div>
+  );
+}
+
+// Nhãn G1/NG2 chỉ có trong DB (Markdown của TDD không chứa chúng). Tra theo NỘI DUNG chứ
+// không theo vị trí — giống hệt cách saveTdd giữ nhãn lúc lưu, nên hai chiều không lệch nhau.
+function withLabels(
+  items?: string[],
+  labelled?: { label?: string | null; content: string }[],
+): string[] {
+  if (!items) return [];
+  if (!labelled?.length) return items;
+  const byContent = new Map(
+    labelled.filter((l) => l.label).map((l) => [l.content.trim(), l.label]),
+  );
+  return items.map((s) => {
+    const label = byContent.get(s.trim());
+    return label ? `${label}. ${s}` : s;
+  });
+}
+
 function H2({ num, title }: { num: number; title: string }) {
   return (
     <h2 className="text-lg font-bold text-gray-900 mt-8 mb-3 pb-1 border-b border-gray-200">
@@ -100,6 +246,9 @@ function DiagramBlock({ data }: { data?: DiagramData }) {
   if (!data) return null;
   return (
     <>
+      {data.title?.trim() && (
+        <p className="mb-1 text-sm font-semibold text-gray-800">{data.title}</p>
+      )}
       <Prose text={data.description} />
       {data.mermaid?.trim() && (
         <div className="my-4 border border-gray-200 rounded overflow-hidden bg-muted/30">
@@ -152,7 +301,12 @@ export function TddDocumentView({ data }: { data: Partial<TddSchema> }) {
 
   const any = (items?: string[]) => items?.some((s) => s?.trim()) ?? false;
   const hasDiagram = (d?: DiagramData) =>
-    !!(d?.description?.trim() || d?.mermaid?.trim() || any(d?.notes));
+    !!(
+      d?.description?.trim() ||
+      d?.mermaid?.trim() ||
+      d?.title?.trim() ||
+      any(d?.notes)
+    );
 
   const hasInfo = !!(
     info?.docId ||
@@ -194,6 +348,13 @@ export function TddDocumentView({ data }: { data: Partial<TddSchema> }) {
   const hasChangeLog = !!data.changeLog?.some(
     (c) => c.version?.trim() || c.date?.trim() || c.change?.trim(),
   );
+  // Ba mục dưới chỉ có ở nhánh backend — Markdown của TDD không có chỗ chứa chúng.
+  const extraDiagrams = (data.extraDiagrams ?? []).filter(
+    (d) => d.sourceCode?.trim() || d.externalUrl?.trim() || d.title?.trim(),
+  );
+  const hasExtraDiagrams = extraDiagrams.length > 0;
+  const hasAssumptions = any(data.assumptions);
+  const hasOpenQuestions = any(data.openQuestions);
 
   // Pre-compute sequential section numbers (only for visible sections)
   let counter = 0;
@@ -206,9 +367,12 @@ export function TddDocumentView({ data }: { data: Partial<TddSchema> }) {
     activity: next(hasActivity),
     state: next(hasState),
     datamodel: next(hasDataModel),
+    extra: next(hasExtraDiagrams),
     internal: next(hasInternal),
     external: next(hasExternal),
     refs: next(hasRefs),
+    assumptions: next(hasAssumptions),
+    openQuestions: next(hasOpenQuestions),
     changelog: next(hasChangeLog),
   };
 
@@ -274,13 +438,15 @@ export function TddDocumentView({ data }: { data: Partial<TddSchema> }) {
           {any(ctx?.goals) && (
             <>
               <H3 num={`${n.ctx}.2`} title="Mục tiêu (Goals)" />
-              <BulletList items={ctx?.goals} />
+              <BulletList items={withLabels(ctx?.goals, data.goalLabels)} />
             </>
           )}
           {any(ctx?.nonGoals) && (
             <>
               <H3 num={`${n.ctx}.3`} title="Ngoài phạm vi (Non-goals)" />
-              <BulletList items={ctx?.nonGoals} />
+              <BulletList
+                items={withLabels(ctx?.nonGoals, data.nonGoalLabels)}
+              />
             </>
           )}
         </>
@@ -327,20 +493,61 @@ export function TddDocumentView({ data }: { data: Partial<TddSchema> }) {
       )}
 
       {/* Internal API */}
+      {/* Sơ đồ ngoài 5 loại cố định (Flowchart, Other…) — trước đây không hiện ở đâu cả. */}
+      {hasExtraDiagrams && (
+        <>
+          <H2 num={n.extra} title="Sơ đồ khác" />
+          {extraDiagrams.map((d, i) => (
+            <div key={i} className="mb-4">
+              {d.title?.trim() && (
+                <p className="mb-1 text-sm font-semibold text-gray-800">
+                  {d.title}
+                </p>
+              )}
+              <Prose text={d.description} />
+              {d.externalUrl?.trim() ? (
+                <a
+                  href={d.externalUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="break-all text-sm text-primary underline"
+                >
+                  {d.externalUrl}
+                </a>
+              ) : (
+                d.sourceCode?.trim() && (
+                  <pre className="overflow-x-auto whitespace-pre rounded border border-gray-200 bg-gray-50 p-3 font-mono text-xs">
+                    {d.sourceCode}
+                  </pre>
+                )
+              )}
+            </div>
+          ))}
+        </>
+      )}
+
       {hasInternal && (
         <>
           <H2 num={n.internal} title="API Contract (nội bộ)" />
           {internal?.endpoints?.some((e) => e.endpoint?.trim()) && (
             <>
               <H3 num={`${n.internal}.1`} title="Endpoints" />
-              <DataTable
-                headers={["Endpoint", "Method", "Mô tả"]}
-                rows={(internal.endpoints ?? [])
-                  .filter((e) => e.endpoint?.trim())
-                  .map((e) => [e.endpoint, e.method, e.description])}
-              />
+              {(internal.endpoints ?? [])
+                .filter((e) => e.endpoint?.trim())
+                .map((e, i) => (
+                  <EndpointCard
+                    key={i}
+                    method={e.method}
+                    path={e.endpoint}
+                    name={e.name}
+                    description={e.description}
+                    examples={e.examples}
+                  />
+                ))}
             </>
           )}
+          {/* Danh sách ví dụ rời chỉ còn ở nhánh GitHub: Markdown không gắn ví dụ với
+              endpoint nên không có cách nào xếp chúng vào thẻ tương ứng. */}
           {internal?.examples?.some(
             (e) => e.title?.trim() || e.content?.trim(),
           ) && (
@@ -386,12 +593,18 @@ export function TddDocumentView({ data }: { data: Partial<TddSchema> }) {
           {external?.endpoints?.some((e) => e.endpoint?.trim()) && (
             <>
               <H3 num={`${n.external}.1`} title="Endpoint sử dụng" />
-              <DataTable
-                headers={["Endpoint", "Mục đích", "Ghi chú"]}
-                rows={(external.endpoints ?? [])
-                  .filter((e) => e.endpoint?.trim())
-                  .map((e) => [e.endpoint, e.purpose, e.note ?? ""])}
-              />
+              {(external.endpoints ?? [])
+                .filter((e) => e.endpoint?.trim())
+                .map((e, i) => (
+                  <EndpointCard
+                    key={i}
+                    method={e.method}
+                    path={e.endpoint}
+                    name={e.name}
+                    description={[e.purpose, e.note].filter(Boolean).join(" · ")}
+                    examples={e.examples}
+                  />
+                ))}
             </>
           )}
           {external?.fields?.some((f) => f.field?.trim()) && (
@@ -454,6 +667,20 @@ export function TddDocumentView({ data }: { data: Partial<TddSchema> }) {
                 <li key={i}>{o}</li>
               ))}
           </ul>
+        </>
+      )}
+
+      {hasAssumptions && (
+        <>
+          <H2 num={n.assumptions} title="Giả định" />
+          <BulletList items={data.assumptions} />
+        </>
+      )}
+
+      {hasOpenQuestions && (
+        <>
+          <H2 num={n.openQuestions} title="Câu hỏi mở" />
+          <BulletList items={data.openQuestions} />
         </>
       )}
 

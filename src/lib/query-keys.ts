@@ -18,8 +18,17 @@ export const projectKeys = {
     [...projectKeys.all, "link-issues", projectId, staleDays] as const,
   errorCodes: (projectId: string) =>
     [...projectKeys.all, "error-codes", projectId] as const,
+  // Tiền tố chung của MỌI danh sách tài liệu trong project — dùng cái này để invalidate.
+  // Khoá đầy đủ còn có object tham số ở cuối, nên invalidate bằng documents(id) sẽ tạo khoá
+  // [..., id, {}] và chỉ khớp danh sách KHÔNG tham số, bỏ sót mọi danh sách đang lọc.
+  documentLists: (projectId: string) =>
+    [...projectKeys.all, "documents", projectId] as const,
   documents: (id: string, params?: object) =>
-    [...projectKeys.all, "documents", id, params ?? {}] as const,
+    [...projectKeys.documentLists(id), params ?? {}] as const,
+  // Danh sách cuộn vô hạn của thanh điều hướng — nằm dưới cùng tiền tố để invalidate một lần
+  // là trúng cả hai. "infinite" đứng trước object tham số nên không đụng khoá documents().
+  documentsInfinite: (projectId: string, params?: object) =>
+    [...projectKeys.documentLists(projectId), "infinite", params ?? {}] as const,
   document: (documentId: string) =>
     [...projectKeys.all, "document", documentId] as const,
   documentPreview: (documentId: string) =>
@@ -66,3 +75,8 @@ export const ghKeys = {
 };
 
 export const GH_STALE = 30_000;
+
+// Dữ liệu project/tài liệu từ backend: coi là còn tươi trong 30s để đi lại giữa chi tiết ↔
+// sửa ↔ lịch sử phiên bản không fetch lại toàn bộ ở mỗi lần mount. Mutation vẫn invalidate
+// tường minh nên thay đổi vẫn hiện ra ngay.
+export const PROJECT_STALE = 30_000;

@@ -5,6 +5,7 @@ import {
   FieldLegend,
   FieldSet,
 } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type {
   DiagramName,
@@ -20,6 +21,7 @@ export function DiagramSection({
   name,
   legend,
   description,
+  backend,
 }: TddSectionProps & {
   name: DiagramName;
   legend: string;
@@ -32,6 +34,16 @@ export function DiagramSection({
         <p className="text-xs text-muted-foreground -mt-1">{description}</p>
       )}
       <FieldGroup>
+        {backend && (
+          <Field>
+            <FieldLabel htmlFor={`${name}.title`}>Tiêu đề</FieldLabel>
+            <Input
+              id={`${name}.title`}
+              placeholder="VD: Trình tự tính giá có mã giảm"
+              {...register(`${name}.title`)}
+            />
+          </Field>
+        )}
         <Field data-invalid={!!errors[name]?.description || undefined}>
           <FieldLabel htmlFor={`${name}.description`}>Mô tả</FieldLabel>
           <Textarea

@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
 import {
   Field,
-  FieldError,
   FieldGroup,
   FieldLabel,
   FieldLegend,
@@ -13,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   adaptRule,
   adaptTdd,
-  adaptUserStory,
+  adaptUserStoryForm,
 } from "@/features/projects/adapt-document";
 import { NumberSelect } from "@/features/projects/components/number-select";
 import { RelatedDocumentsPanel } from "@/features/projects/components/related-documents-panel";
@@ -47,6 +46,10 @@ import { schema, type Schema } from "@/features/user-stories/validations";
 // Change Log (backend chưa có endpoint replace cho endpoints/errorCodes/changeLog).
 import { ContextGoalsSection } from "@/features/tdds/components/context-goals-section";
 import { DiagramSection } from "@/features/tdds/components/diagram-section";
+import { ExternalApiSection } from "@/features/tdds/components/external-api-section";
+import { InternalApiSection } from "@/features/tdds/components/internal-api-section";
+import { LinkMetaField } from "@/features/tdds/components/link-meta-field";
+import { TddStringArrayField } from "@/features/tdds/components/tdd-string-array-field";
 import { DocumentInfoSection } from "@/features/tdds/components/document-info-section";
 import { ReferencesSection as TddReferencesSection } from "@/features/tdds/components/references-section";
 import { TddPreviewPanel } from "@/features/tdds/components/tdd-preview-panel";
@@ -300,6 +303,11 @@ const TDD_STEPS: {
     ],
   },
   {
+    title: "API",
+    description: "Endpoint nội bộ/đối tác, ví dụ request-response và mã lỗi",
+    fields: ["internalApi", "externalApi"],
+  },
+  {
     title: "Tham chiếu",
     description: "User Story, Business Rule, Use Case liên quan",
     fields: ["references"],
@@ -397,7 +405,7 @@ function TddEditor({
           currentDocKey={doc.docKey}
           currentTitle={title}
           currentDocType={doc.docType}
-          outgoingLinks={doc.content.links}
+          outgoingLinks={doc.resolvedLinks}
         />
 
         <DocMetaFields
@@ -444,6 +452,7 @@ function TddEditor({
                   register={register}
                   control={control}
                   errors={errors}
+                  backend
                   name="architecture"
                   legend="Kiến trúc tổng quan (Architecture)"
                   description="Sơ đồ các thành phần và cách chúng ghép với nhau"
@@ -452,6 +461,7 @@ function TddEditor({
                   register={register}
                   control={control}
                   errors={errors}
+                  backend
                   name="sequenceDiagram"
                   legend="Sequence Diagram"
                   description="Luồng nhiều bên gọi qua lại theo thời gian"
@@ -460,6 +470,7 @@ function TddEditor({
                   register={register}
                   control={control}
                   errors={errors}
+                  backend
                   name="activityDiagram"
                   legend="Activity Diagram"
                   description="Logic nhiều nhánh điều kiện"
@@ -468,6 +479,7 @@ function TddEditor({
                   register={register}
                   control={control}
                   errors={errors}
+                  backend
                   name="stateDiagram"
                   legend="State Diagram"
                   description="Vòng đời trạng thái của thực thể chính"
@@ -476,6 +488,7 @@ function TddEditor({
                   register={register}
                   control={control}
                   errors={errors}
+                  backend
                   name="dataModel"
                   legend="Mô hình dữ liệu (Data Model / ERD)"
                   description="Bảng và quan hệ liên quan"
@@ -484,7 +497,43 @@ function TddEditor({
             )}
 
             {step === 2 && (
-              <TddReferencesSection register={register} control={control} />
+              <>
+                <InternalApiSection
+                  register={register}
+                  control={control}
+                  errors={errors}
+                  backend
+                />
+                <ExternalApiSection
+                  register={register}
+                  control={control}
+                  errors={errors}
+                  backend
+                />
+              </>
+            )}
+
+            {step === 3 && (
+              <>
+                <TddReferencesSection register={register} control={control} />
+                {/* Loại cạnh + ghi chú: chỉ có ở DB, Markdown của TDD không chứa chúng. */}
+                <LinkMetaField control={control} register={register} />
+                {/* Hai mục dưới chỉ có ở DB (document_list_items 90/91). */}
+                <TddStringArrayField
+                  control={control}
+                  register={register}
+                  name="assumptions"
+                  label="Giả định"
+                  placeholder="Điều đang mặc định là đúng"
+                />
+                <TddStringArrayField
+                  control={control}
+                  register={register}
+                  name="openQuestions"
+                  label="Câu hỏi mở"
+                  placeholder="Điểm còn phải chốt"
+                />
+              </>
             )}
           </div>
 
@@ -649,7 +698,7 @@ function RuleEditor({
           currentDocKey={doc.docKey}
           currentTitle={title}
           currentDocType={doc.docType}
-          outgoingLinks={doc.content.links}
+          outgoingLinks={doc.resolvedLinks}
         />
 
         <DocMetaFields
@@ -759,7 +808,7 @@ function UserStoryEditor({
     getValues,
   } = useForm<Schema>({
     resolver: standardSchemaResolver(schema),
-    defaultValues: adaptUserStory(doc),
+    defaultValues: adaptUserStoryForm(doc),
   });
 
   // Metadata mức tài liệu — gộp "Sửa thông tin" vào ngay đây.
@@ -816,7 +865,7 @@ function UserStoryEditor({
           currentDocKey={doc.docKey}
           currentTitle={title}
           currentDocType={doc.docType}
-          outgoingLinks={doc.content.links}
+          outgoingLinks={doc.resolvedLinks}
         />
 
         <form className="flex flex-col gap-8">
@@ -873,47 +922,43 @@ function UserStoryEditor({
               </FieldGroup>
             </FieldSet>
 
+            {/* backend: nguồn là DB chứ không phải Markdown, nên các section hiện thêm ô
+                nhập cho những field chỉ DB mới giữ được (tiêu đề luồng, loại liên kết, ghi
+                chú liên kết) và ẩn ô trạng thái trùng với khối phía trên. */}
             <MetadataSection
               register={register}
               control={control}
               errors={errors}
+              backend
             />
             <ConditionsSection
               register={register}
               control={control}
               errors={errors}
+              backend
             />
             <FlowSection
               register={register}
               control={control}
               errors={errors}
+              backend
             />
             <AcceptanceCriteriaSection
               register={register}
               control={control}
               errors={errors}
+              backend
             />
-            <FieldSet>
-              <FieldLegend>Sơ đồ hoạt động</FieldLegend>
-              <FieldGroup>
-                <Field data-invalid={!!errors.activityDiagram || undefined}>
-                  <FieldLabel htmlFor="activityDiagram">
-                    Activity Diagram URL
-                  </FieldLabel>
-                  <Input
-                    id="activityDiagram"
-                    type="url"
-                    placeholder="https://..."
-                    aria-invalid={!!errors.activityDiagram || undefined}
-                    {...register("activityDiagram")}
-                  />
-                  {errors.activityDiagram?.message && (
-                    <FieldError>{errors.activityDiagram.message}</FieldError>
-                  )}
-                </Field>
-              </FieldGroup>
-            </FieldSet>
-            <ReferencesSection control={control} projectId={projectId} />
+            {/* KHÔNG có trình sửa sơ đồ ở đây: sơ đồ thuộc về TDD. Bảng document_diagrams
+                dùng chung cho mọi loại tài liệu và dữ liệu mẫu có gắn sơ đồ vào cả User
+                Story, nên adaptUserStoryForm vẫn nạp `diagrams` và saveUserStory vẫn gửi lại
+                y nguyên — bỏ hẳn khỏi form thì lần lưu kế tiếp sẽ xoá sạch chúng. */}
+            <ReferencesSection
+              control={control}
+              register={register}
+              projectId={projectId}
+              backend
+            />
             <StringListSection
               legend="Yêu cầu phi chức năng"
               description="Danh sách các yêu cầu phi chức năng"
@@ -925,6 +970,22 @@ function UserStoryEditor({
               legend="Ngoài phạm vi"
               description="Các mục nằm ngoài phạm vi công việc"
               name="outOfScope"
+              control={control}
+              register={register}
+            />
+            {/* Hai mục dưới chỉ có ở DB (document_list_items 90/91) — Markdown của US không
+                có chỗ chứa, nên trang sửa cũ không hề đụng tới chúng. */}
+            <StringListSection
+              legend="Giả định"
+              description="Những điều đang mặc định là đúng khi viết story này"
+              name="assumptions"
+              control={control}
+              register={register}
+            />
+            <StringListSection
+              legend="Câu hỏi mở"
+              description="Những điểm còn phải chốt lại"
+              name="openQuestions"
               control={control}
               register={register}
             />
@@ -947,7 +1008,11 @@ function UserStoryEditor({
 
       <div className="hidden lg:flex lg:flex-col lg:gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto">
         <div className="border border-border p-4">
-          <PreviewPanel control={control} />
+          {/* Trạng thái lấy từ ô chọn ngay bên trái, không phải từ form US — xem statusLabel. */}
+          <PreviewPanel
+            control={control}
+            statusLabel={DocumentStatusLabel[status] ?? String(status)}
+          />
         </div>
       </div>
     </div>

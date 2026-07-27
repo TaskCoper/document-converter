@@ -85,10 +85,7 @@ export function toMarkdown(data: Schema): string {
     lines.push("");
   }
 
-  lines.push("## Activity Diagram");
-  lines.push("");
-  lines.push(data.activityDiagram);
-  lines.push("");
+  // Không có mục sơ đồ: sơ đồ chỉ thuộc TDD. Xem TddRenderer/tdd exporters.
 
   lines.push("## References");
   lines.push("");
@@ -306,10 +303,6 @@ export function fromMarkdown(md: string): Schema {
     }),
   );
 
-  // ── Activity Diagram ──
-  const activityDiagram =
-    (h2["Activity Diagram"] ?? []).map((l) => l.trim()).find(Boolean) ?? "";
-
   // ── References ──
   const refH3 = splitByHeading(h2["References"] ?? [], 3);
   const tdds = parseLinkList(refH3["TDDs"] ?? []);
@@ -334,7 +327,6 @@ export function fromMarkdown(md: string): Schema {
     conditions: { preconditions, trigger },
     flow: { mainFlow, alternativeFlow, exceptionFlow },
     acceptanceCriteria,
-    activityDiagram,
     references: { tdds, rules, dependencies },
     nonFunctional,
     outOfScope,
@@ -389,13 +381,13 @@ export function toSampleMarkdown(): string {
   lines.push("- **Context**: ");
   lines.push("<!-- Sprint: positive integer -->");
   lines.push("- **Sprint**: 1");
-  lines.push("<!-- Priority: Must | Should | Could -->");
+  lines.push("<!-- Priority: Must | Should | Could | Won't -->");
   lines.push("- **Priority**: Must");
   lines.push("<!-- Status: Documentation | Pending | InProgress | Done -->");
   lines.push("- **Status**: Documentation");
   lines.push("- **Creator**: ");
   lines.push(
-    "<!-- Assignee: list members with their role. Valid roles: Frontend | Backend -->",
+    "<!-- Assignee: list members with their role. Valid roles: Frontend | Backend | Fullstack | Mobile | QA | DevOps | Designer | Reviewer | Other -->",
   );
   lines.push("- **Assignee**:");
   lines.push("  - Frontend: ");
@@ -452,13 +444,6 @@ export function toSampleMarkdown(): string {
   lines.push("- **Given**: ");
   lines.push("- **When**: ");
   lines.push("- **Then**: ");
-  lines.push("");
-  lines.push("## Activity Diagram");
-  lines.push(
-    "<!-- A single URL pointing to the activity diagram (required, must start with https://) -->",
-  );
-  lines.push("");
-  lines.push("https://example.com/diagram");
   lines.push("");
   lines.push("## References");
   lines.push("");
@@ -555,7 +540,43 @@ const STYLE = `
 .waffle .s18 { background:#fce5cd; text-align:center; }
 `.trim();
 
-export function toHtml(data: Schema): string {
+/**
+ * Đầu vào của {@link toHtml} — bản NỚI LỎNG của {@link Schema}.
+ *
+ * toHtml chỉ in chuỗi ra bảng, không validate gì. Nguồn backend có những giá trị mà form
+ * GitHub không biểu diễn được: trạng thái "Bị chặn", vai trò QA/DevOps/Designer, story chưa
+ * gán sprint. Ép chúng về đúng enum của form không làm dữ liệu an toàn hơn — nó chỉ khiến
+ * bảng hiện một giá trị khác với thứ backend thực sự trả về.
+ *
+ * `Schema` gán được vào đây (union hẹp → string, number → number|null) nên mọi lời gọi phía
+ * GitHub giữ nguyên, không phải sửa gì.
+ */
+export type HtmlInput = Omit<Schema, "metadata"> & {
+  metadata: Omit<
+    Schema["metadata"],
+    "status" | "priority" | "sprint" | "assignee"
+  > & {
+    status: string;
+    priority: string;
+    /** null = chưa gán sprint. Khác hẳn "sprint 1". */
+    sprint: number | null;
+    assignee: { name: string; position: string }[];
+  };
+};
+
+export interface HtmlOptions {
+  /**
+   * Dựng URL cho một mục trong REFERENCES. Trả về null = liên kết treo (trỏ tới khoá chưa
+   * tồn tại) → in chữ thường, không bọc thẻ <a>.
+   *
+   * Bỏ trống thì dùng mặc định `/view/{path}` — đường dẫn của trình xem file GitHub. Nguồn
+   * backend PHẢI truyền hàm này vào, vì ở đó `path` là doc key (STORY-004) chứ không phải
+   * đường dẫn file, nên link mặc định sẽ dẫn tới một file không tồn tại.
+   */
+  linkHref?: (ref: { id: string; path: string }) => string | null;
+}
+
+export function toHtml(data: HtmlInput, opts?: HtmlOptions): string {
   const rows: string[] = [];
 
   rows.push(
@@ -572,7 +593,7 @@ export function toHtml(data: Schema): string {
   const meta = data.metadata;
   const assignees = meta.assignee.length
     ? meta.assignee
-    : [{ name: "", position: "FE" as const }];
+    : [{ name: "", position: "FE" }];
   const metadataRowCount = 6 + assignees.length;
 
   rows.push(
@@ -591,7 +612,8 @@ export function toHtml(data: Schema): string {
   rows.push(
     row([
       { content: "Sprint", cls: "s2", colspan: 2 },
-      { content: `S${meta.sprint}`, cls: "s2", colspan: 4 },
+      // Chưa gán sprint thì để trống — "S1" mặc định là bịa ra một sprint không có thật.
+      { content: meta.sprint ? `S${meta.sprint}` : "", cls: "s2", colspan: 4 },
     ]),
   );
   rows.push(
@@ -803,8 +825,13 @@ export function toHtml(data: Schema): string {
             rowspan: items.length,
           });
         }
-        const linkHtml = `<a href="/view/${escapeHtml(t.path)}" target="_top">${escapeHtml(t.id)}</a>`;
-        cells.push({ content: linkHtml, cls: "s16", colspan: 4 });
+        // Chưa escape ở đây — escapeHtml chạy một lần duy nhất lúc ghép thẻ <a> bên dưới.
+        const href = opts?.linkHref ? opts.linkHref(t) : `/view/${t.path}`;
+        // Bảng nằm trong iframe nên phải _top, nếu không trang sẽ mở lồng vào chính nó.
+        const linkHtml = href
+          ? `<a href="${escapeHtml(href)}" target="_top">${escapeHtml(t.id)}</a>`
+          : escapeHtml(t.id);
+        cells.push({ content: linkHtml, cls: href ? "s16" : "s2", colspan: 4 });
         rows.push(row(cells));
       });
     };

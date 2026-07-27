@@ -1,9 +1,12 @@
 import { z } from "zod";
 
+// MoSCoW đủ 4 mức. Thiếu "Won't" thì story ưu tiên Won't ở backend (StoryPriority.Wont = 4)
+// không chọn lại được và bị đẩy về null ngay lần lưu đầu.
 export const Priority = {
   Must: "Must",
   Should: "Should",
   Could: "Could",
+  Wont: "Won't",
 } as const;
 
 type Priority = (typeof Priority)[keyof typeof Priority];
@@ -12,11 +15,24 @@ export const PriorityLabel: Record<Priority, string> = {
   [Priority.Must]: "Must",
   [Priority.Should]: "Should",
   [Priority.Could]: "Could",
+  [Priority.Wont]: "Won't",
 };
 
+// Khớp trọn AssigneeRole của backend (Frontend=1 … Other=99). Trước đây chỉ có FE/BE, nên
+// mọi vai trò khác hiện ra là "FE" và bị ghi đè thành Frontend khi lưu.
+//
+// Nhãn ở PositionLabel chính là chữ ghi vào Markdown; thêm giá trị mới là mở rộng thuần —
+// tài liệu cũ chỉ có Frontend/Backend vẫn parse nguyên như trước.
 export const Position = {
   FE: "FE",
   BE: "BE",
+  Fullstack: "Fullstack",
+  Mobile: "Mobile",
+  QA: "QA",
+  DevOps: "DevOps",
+  Designer: "Designer",
+  Reviewer: "Reviewer",
+  Other: "Other",
 } as const;
 
 type Position = (typeof Position)[keyof typeof Position];
@@ -24,6 +40,13 @@ type Position = (typeof Position)[keyof typeof Position];
 export const PositionLabel: Record<Position, string> = {
   [Position.FE]: "Frontend",
   [Position.BE]: "Backend",
+  [Position.Fullstack]: "Fullstack",
+  [Position.Mobile]: "Mobile",
+  [Position.QA]: "QA",
+  [Position.DevOps]: "DevOps",
+  [Position.Designer]: "Designer",
+  [Position.Reviewer]: "Reviewer",
+  [Position.Other]: "Other",
 };
 
 export const Status = {
@@ -59,9 +82,23 @@ export const CriteriaConditionLabel: Record<CriteriaCondition, string> = {
   [CriteriaCondition.And]: "And",
 };
 
+// ── Field CHỈ có ở nhánh backend ────────────────────────────────────────────────────────
+// Nguồn GitHub là Markdown, nguồn backend là DB — DB giữ được nhiều thứ hơn Markdown (loại
+// liên kết, ghi chú liên kết, tiêu đề luồng, nhiều sơ đồ, giả định, câu hỏi mở, liên kết tài
+// khoản của người phụ trách).
+//
+// Tất cả để optional một cách CÓ CHỦ Ý: toMarkdown không ghi và fromMarkdown không đọc chúng,
+// nên định dạng Markdown — hợp đồng dùng chung giữa hai nhánh — không đổi một ký tự. Nhánh
+// GitHub cứ để trống và chạy y như cũ.
+
 const assigneeSchema = z.object({
   name: z.string().min(1, "Tên không được để trống"),
-  position: z.enum(Position, "Vị trí phải là FE hoặc BE"),
+  position: z.enum(
+    Position,
+    `Vị trí phải là một trong: ${Object.values(Position).join(", ")}`,
+  ),
+  /** Liên kết tài khoản. Mất nó thì màn hình "tài liệu của tôi" lặng lẽ rỗng đi. */
+  userId: z.string().nullish(),
 });
 
 const metadataSchema = z.object({
@@ -95,6 +132,8 @@ const otherFlowSchema = z.object({
   steps: z
     .array(z.string().min(1, "Bước không được để trống"))
     .min(1, "Phải có ít nhất một bước"),
+  /** Chỉ backend: document_flows.title, ví dụ "Khách đổi mã giảm giá khác". */
+  title: z.string().optional(),
 });
 
 const flowSchema = z.object({
@@ -103,6 +142,8 @@ const flowSchema = z.object({
     .min(1, "Luồng chính phải có ít nhất một bước"),
   alternativeFlow: z.array(otherFlowSchema),
   exceptionFlow: z.array(otherFlowSchema),
+  /** Chỉ backend: tiêu đề của luồng chính. Trước đây bị ghi cứng thành "Main Flow". */
+  mainFlowTitle: z.string().optional(),
 });
 
 const acItemSchema = z.object({
@@ -118,6 +159,14 @@ const acGroupSchema = z.object({
 const linkRefSchema = z.object({
   id: z.string().min(1, "ID không được để trống"),
   path: z.string().min(1, "Đường dẫn không được để trống"),
+  /**
+   * Chỉ backend: document_links.link_type (DocumentLinkType 1-7). Đây là NGỮ NGHĨA CẠNH mà
+   * phân tích ảnh hưởng dựa vào — ghi cứng thành References là mất khả năng trả lời "sửa
+   * BR-007 thì ảnh hưởng gì".
+   */
+  linkType: z.number().optional(),
+  /** Chỉ backend: document_links.note. */
+  note: z.string().optional(),
 });
 
 export const schema = z.object({
@@ -127,7 +176,6 @@ export const schema = z.object({
   acceptanceCriteria: z
     .array(acGroupSchema)
     .min(1, "Phải có ít nhất một tiêu chí chấp nhận"),
-  activityDiagram: z.url("Phải là URL hợp lệ"),
   references: z.object({
     tdds: z.array(linkRefSchema),
     rules: z.array(linkRefSchema),
@@ -139,6 +187,10 @@ export const schema = z.object({
   outOfScope: z.array(
     z.string().min(1, "Nội dung ngoài phạm vi không được để trống"),
   ),
+  /** Chỉ backend: document_list_items itemType = Assumption (90). */
+  assumptions: z.array(z.string()).optional(),
+  /** Chỉ backend: document_list_items itemType = OpenQuestion (91). */
+  openQuestions: z.array(z.string()).optional(),
 });
 
 export type Schema = z.infer<typeof schema>;
@@ -168,7 +220,6 @@ const fieldNameLabels: Record<string, string> = {
   criterias: "Điều kiện",
   type: "Loại",
   step: "Nội dung",
-  activityDiagram: "Sơ đồ hoạt động",
   references: "Tài liệu tham khảo",
   dependencies: "Phụ thuộc (Stories)",
   tdds: "TDDs",
@@ -176,6 +227,11 @@ const fieldNameLabels: Record<string, string> = {
   path: "Đường dẫn",
   nonFunctional: "Yêu cầu phi chức năng",
   outOfScope: "Ngoài phạm vi",
+  title: "Tiêu đề",
+  note: "Ghi chú",
+  linkType: "Loại liên kết",
+  assumptions: "Giả định",
+  openQuestions: "Câu hỏi mở",
 };
 
 export function pathToLabel(path: (string | number)[]): string {

@@ -392,7 +392,7 @@ export function adaptTdd(doc: DocumentDetail): TddSchema {
 // Mã tài liệu trong mục REFERENCES → đường dẫn mở được. Mặc định của exporter là
 // `/view/{path}` (trình xem file GitHub), ở nhánh backend thì `path` là doc key nên link đó
 // dẫn tới một file không tồn tại. resolvedLinks đã có sẵn id thật, dùng thẳng.
-function storyLinkHref(doc: DocumentDetail) {
+export function storyLinkHref(doc: DocumentDetail) {
   const idByKey = new Map(
     doc.resolvedLinks
       .filter((l) => l.targetDocumentId)

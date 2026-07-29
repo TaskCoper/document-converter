@@ -23,6 +23,7 @@ export function DocumentInfoSection({
   register,
   control,
   errors,
+  backend,
 }: TddSectionProps) {
   return (
     <FieldSet>
@@ -87,31 +88,36 @@ export function DocumentInfoSection({
           )}
         </Field>
 
-        <Field data-invalid={!!errors.documentInfo?.status || undefined}>
-          <FieldLabel htmlFor="documentInfo.status">Trạng thái</FieldLabel>
-          <Controller
-            control={control}
-            name="documentInfo.status"
-            render={({ field }) => (
-              <Select value={field.value} onValueChange={field.onChange}>
-                <SelectTrigger
-                  id="documentInfo.status"
-                  className="w-full"
-                  aria-invalid={!!errors.documentInfo?.status || undefined}
-                >
-                  <SelectValue placeholder="Chọn trạng thái" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.values(DocStatus).map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {DocStatusLabel[s]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </Field>
+        {/* Nhánh backend có ô "Trạng thái" riêng ở khối Thông tin tài liệu (dải DocumentStatus
+            20-23) và CHÍNH nó mới được gửi đi. Hiện thêm ô này chỉ tạo ra hai ô trạng thái mâu
+            thuẫn nhau trên cùng màn hình, ô dưới thì không có tác dụng gì. */}
+        {!backend && (
+          <Field data-invalid={!!errors.documentInfo?.status || undefined}>
+            <FieldLabel htmlFor="documentInfo.status">Trạng thái</FieldLabel>
+            <Controller
+              control={control}
+              name="documentInfo.status"
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger
+                    id="documentInfo.status"
+                    className="w-full"
+                    aria-invalid={!!errors.documentInfo?.status || undefined}
+                  >
+                    <SelectValue placeholder="Chọn trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.values(DocStatus).map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {DocStatusLabel[s]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </Field>
+        )}
 
         <Field data-invalid={!!errors.documentInfo?.version || undefined}>
           <FieldLabel htmlFor="documentInfo.version">Phiên bản</FieldLabel>

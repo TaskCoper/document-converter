@@ -26,12 +26,15 @@ export type RuleSectionProps = {
   register: UseFormRegister<RuleSchema>;
   control: Control<RuleSchema>;
   errors: FieldErrors<RuleSchema>;
+  /** Nguồn dữ liệu là backend (DB) chứ không phải Markdown trên GitHub. */
+  backend?: boolean;
 };
 
 export function RuleIdentitySection({
   register,
   control,
   errors,
+  backend,
 }: RuleSectionProps) {
   return (
     <FieldSet>
@@ -76,31 +79,36 @@ export function RuleIdentitySection({
           )}
         </Field>
 
-        <Field data-invalid={!!errors.status || undefined}>
-          <FieldLabel htmlFor="status">Trạng thái</FieldLabel>
-          <Controller
-            control={control}
-            name="status"
-            render={({ field }) => (
-              <Select value={field.value} onValueChange={field.onChange}>
-                <SelectTrigger
-                  id="status"
-                  className="w-full"
-                  aria-invalid={!!errors.status || undefined}
-                >
-                  <SelectValue placeholder="Chọn trạng thái" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.values(RuleStatus).map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {RuleStatusLabel[s]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </Field>
+        {/* Nhánh backend có ô "Trạng thái" riêng ở khối Thông tin tài liệu (dải DocumentStatus
+            30-32) và CHÍNH nó mới được gửi đi — saveRule chỉ dùng meta.status. Hiện thêm ô này
+            chỉ tạo ra hai ô trạng thái mâu thuẫn nhau, ô dưới thì không có tác dụng gì. */}
+        {!backend && (
+          <Field data-invalid={!!errors.status || undefined}>
+            <FieldLabel htmlFor="status">Trạng thái</FieldLabel>
+            <Controller
+              control={control}
+              name="status"
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger
+                    id="status"
+                    className="w-full"
+                    aria-invalid={!!errors.status || undefined}
+                  >
+                    <SelectValue placeholder="Chọn trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.values(RuleStatus).map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {RuleStatusLabel[s]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </Field>
+        )}
 
         <Field data-invalid={!!errors.version || undefined}>
           <FieldLabel htmlFor="version">Version</FieldLabel>

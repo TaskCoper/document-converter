@@ -1,10 +1,8 @@
 import { useAuthStore } from "@/features/auth/store";
 import authConfig from "@/lib/auth/config";
-import { projectKeys } from "@/lib/query-keys";
+import { PROJECT_STALE, projectKeys } from "@/lib/query-keys";
 import { useQuery } from "@tanstack/react-query";
 import documentService from "../document-services";
-import type { LinkSnapshot } from "../document-types";
-import { useDocuments } from "./use-documents";
 
 const hasAuthBackend = !!authConfig.baseURL;
 
@@ -21,6 +19,7 @@ export function useIncomingLinks(documentId: string | undefined) {
     queryKey: projectKeys.incomingLinks(documentId ?? ""),
     queryFn: () => documentService.getIncomingLinks(documentId!),
     enabled,
+    staleTime: PROJECT_STALE,
   });
   return {
     links: query.data ?? [],
@@ -36,6 +35,7 @@ export function useImpact(documentId: string | undefined, depth = 3) {
     queryKey: projectKeys.impact(documentId ?? "", depth),
     queryFn: () => documentService.getImpact(documentId!, depth),
     enabled,
+    staleTime: PROJECT_STALE,
   });
   return {
     report: query.data ?? null,
@@ -44,35 +44,7 @@ export function useImpact(documentId: string | undefined, depth = 3) {
   };
 }
 
-export interface ResolvedOutgoingLink extends LinkSnapshot {
-  target?: { id: string; title: string; docType: number };
-}
-
-// Links[] trong DocumentDetail.content chỉ có targetDocKey (chuỗi thô, không có id/title) —
-// đối chiếu với danh sách tài liệu của project để dựng link bấm được cho panel "Tài liệu liên
-// quan". Không phải API đồ thị (GraphController chỉ đọc incoming-links/impact, không có
-// endpoint trả outgoing links đã resolve), nên phải tự khớp phía client.
-export function useOutgoingLinks(
-  projectId: string | undefined,
-  links: LinkSnapshot[],
-) {
-  const enabled = !!projectId && links.length > 0;
-  const { documents, isLoading } = useDocuments(
-    enabled ? projectId : undefined,
-    { pageSize: 100 },
-  );
-
-  const byKey = new Map(documents.map((d) => [d.docKey.trim().toUpperCase(), d]));
-  const resolved: ResolvedOutgoingLink[] = links.map((l) => {
-    const doc = byKey.get(l.targetDocKey.trim().toUpperCase());
-    return {
-      ...l,
-      target: doc ? { id: doc.id, title: doc.title, docType: doc.docType } : undefined,
-    };
-  });
-
-  return {
-    outgoing: resolved,
-    isLoading: enabled && isLoading,
-  };
-}
+// Outgoing links KHÔNG còn hook riêng: GET /documents/{id} đã trả sẵn `resolvedLinks` (backend
+// nối docKey→id ngay trong truy vấn có sẵn). Trước đây phải tải cả danh sách tài liệu của
+// project về rồi tự đối chiếu khoá — một request PageSize=100/200 chỉ để dịch vài chuỗi, mà
+// còn sai âm thầm vì backend chặn PageSize ở 100.

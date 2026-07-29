@@ -5,7 +5,6 @@ import {
   GitBranch,
   Info,
   ListChecks,
-  Network,
   Settings2,
 } from "lucide-react";
 import type { Control } from "react-hook-form";
@@ -111,7 +110,20 @@ function PreviewLinkList({
   );
 }
 
-export function PreviewPanel({ control }: { control: Control<Schema> }) {
+export function PreviewPanel({
+  control,
+  statusLabel,
+}: {
+  control: Control<Schema>;
+  /**
+   * Nhãn trạng thái hiển thị thay cho `metadata.status` của form.
+   *
+   * Nhánh backend không lấy trạng thái từ form US mà từ ô chọn riêng ở khối "Thông tin tài
+   * liệu" (dải 10-13 theo DocumentStatus), nên `metadata.status` ở đó chỉ là giá trị giữ chỗ.
+   * Không truyền vào thì panel sẽ hiện một trạng thái khác hẳn ô chọn ngay bên cạnh.
+   */
+  statusLabel?: string;
+}) {
   const data = useWatch({ control }) as Partial<Schema>;
 
   const filled = (items?: string[]) => (items ?? []).some((s) => s?.trim());
@@ -141,7 +153,6 @@ export function PreviewPanel({ control }: { control: Control<Schema> }) {
     data.acceptanceCriteria.some(
       (ac) => ac.code?.trim() || ac.criterias?.some((c) => c.step?.trim()),
     );
-  const showDiagram = !!data.activityDiagram?.trim();
   const refTdds = data.references?.tdds ?? [];
   const refRules = data.references?.rules ?? [];
   const refDeps = data.references?.dependencies ?? [];
@@ -155,7 +166,6 @@ export function PreviewPanel({ control }: { control: Control<Schema> }) {
     showConditions ||
     showFlow ||
     showAC ||
-    showDiagram ||
     showRefs ||
     showNonFunc ||
     showOutOfScope;
@@ -185,9 +195,10 @@ export function PreviewPanel({ control }: { control: Control<Schema> }) {
           <PreviewRow
             label="Trạng thái"
             value={
-              data.metadata?.status
+              statusLabel ??
+              (data.metadata?.status
                 ? StatusLabel[data.metadata.status]
-                : undefined
+                : undefined)
             }
           />
           <PreviewRow label="Người tạo" value={data.metadata?.creator} />
@@ -276,23 +287,6 @@ export function PreviewPanel({ control }: { control: Control<Schema> }) {
                 </div>
               ))}
           </div>
-        </PreviewSection>
-      )}
-
-      {showDiagram && (
-        <PreviewSection title="Sơ đồ hoạt động" icon={Network}>
-          {data.activityDiagram ? (
-            <a
-              href={data.activityDiagram}
-              target="_blank"
-              rel="noreferrer"
-              className="text-primary underline break-all"
-            >
-              {data.activityDiagram}
-            </a>
-          ) : (
-            <span className="text-muted-foreground">Chưa có URL</span>
-          )}
         </PreviewSection>
       )}
 

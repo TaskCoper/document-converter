@@ -12,7 +12,9 @@ const useInvalidateVersions = (projectId: string, documentId: string) => {
   return () => {
     queryClient.invalidateQueries({ queryKey: projectKeys.document(documentId) });
     queryClient.invalidateQueries({ queryKey: projectKeys.versions(documentId) });
-    queryClient.invalidateQueries({ queryKey: projectKeys.documents(projectId) });
+    queryClient.invalidateQueries({
+      queryKey: projectKeys.documentLists(projectId),
+    });
   };
 };
 

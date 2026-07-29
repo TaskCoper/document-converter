@@ -15,7 +15,8 @@ export function StringListSection({
 }: {
   legend: string;
   description?: string;
-  name: "nonFunctional" | "outOfScope";
+  // "assumptions" | "openQuestions" chỉ có ở nhánh backend (document_list_items 90/91).
+  name: "nonFunctional" | "outOfScope" | "assumptions" | "openQuestions";
   control: Control<Schema>;
   register: UseFormRegister<Schema>;
 }) {

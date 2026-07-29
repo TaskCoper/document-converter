@@ -1,6 +1,6 @@
 import { useAuthStore } from "@/features/auth/store";
 import authConfig from "@/lib/auth/config";
-import { projectKeys } from "@/lib/query-keys";
+import { PROJECT_STALE, projectKeys } from "@/lib/query-keys";
 import { useQuery } from "@tanstack/react-query";
 import repositoryConfigService from "../repository-services";
 
@@ -16,6 +16,7 @@ export const useRepositories = (
     queryKey: projectKeys.repositories(projectId ?? ""),
     queryFn: () => repositoryConfigService.list(projectId!),
     enabled: enabled && !!projectId && hasToken && hasAuthBackend,
+    staleTime: PROJECT_STALE,
   });
 
   return {

@@ -1,7 +1,8 @@
+import { SplitHandle } from "@/components/split-handle";
+import { useSplitPane } from "@/hooks/use-split-pane";
 import { Button } from "@/components/ui/button";
 import {
   Field,
-  FieldError,
   FieldGroup,
   FieldLabel,
   FieldLegend,
@@ -13,7 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   adaptRule,
   adaptTdd,
-  adaptUserStory,
+  adaptUserStoryForm,
+  storyLinkHref,
 } from "@/features/projects/adapt-document";
 import { NumberSelect } from "@/features/projects/components/number-select";
 import { RelatedDocumentsPanel } from "@/features/projects/components/related-documents-panel";
@@ -39,7 +41,7 @@ import { AcceptanceCriteriaSection } from "@/features/user-stories/components/ac
 import { ConditionsSection } from "@/features/user-stories/components/conditions-section";
 import { FlowSection } from "@/features/user-stories/components/flow-section";
 import { MetadataSection } from "@/features/user-stories/components/metadata-section";
-import { PreviewPanel } from "@/features/user-stories/components/preview-panel";
+import { WafflePreviewPanel } from "@/features/user-stories/components/waffle-preview-panel";
 import { ReferencesSection } from "@/features/user-stories/components/references-section";
 import { StringListSection } from "@/features/user-stories/components/string-list-section";
 import { schema, type Schema } from "@/features/user-stories/validations";
@@ -47,9 +49,13 @@ import { schema, type Schema } from "@/features/user-stories/validations";
 // Change Log (backend chưa có endpoint replace cho endpoints/errorCodes/changeLog).
 import { ContextGoalsSection } from "@/features/tdds/components/context-goals-section";
 import { DiagramSection } from "@/features/tdds/components/diagram-section";
+import { ExternalApiSection } from "@/features/tdds/components/external-api-section";
+import { InternalApiSection } from "@/features/tdds/components/internal-api-section";
+import { LinkMetaField } from "@/features/tdds/components/link-meta-field";
+import { TddStringArrayField } from "@/features/tdds/components/tdd-string-array-field";
 import { DocumentInfoSection } from "@/features/tdds/components/document-info-section";
 import { ReferencesSection as TddReferencesSection } from "@/features/tdds/components/references-section";
-import { TddPreviewPanel } from "@/features/tdds/components/tdd-preview-panel";
+import { TddLivePreview } from "@/features/tdds/components/tdd-live-preview";
 import { tddSchema, type TddSchema } from "@/features/tdds/validations";
 // Tái dùng ĐÚNG các form-section của trang rule.page.
 import {
@@ -57,7 +63,7 @@ import {
   RuleIdentitySection,
   RuleLogicSection,
 } from "@/features/business-rules/components/rule-form-sections";
-import { RulePreviewPanel } from "@/features/business-rules/components/rule-preview-panel";
+import { RuleLivePreview } from "@/features/business-rules/components/rule-live-preview";
 import {
   ruleSchema,
   type RuleSchema,
@@ -71,7 +77,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { FieldPath } from "react-hook-form";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -300,6 +306,11 @@ const TDD_STEPS: {
     ],
   },
   {
+    title: "API",
+    description: "Endpoint nội bộ/đối tác, ví dụ request-response và mã lỗi",
+    fields: ["internalApi", "externalApi"],
+  },
+  {
     title: "Tham chiếu",
     description: "User Story, Business Rule, Use Case liên quan",
     fields: ["references"],
@@ -317,6 +328,12 @@ function TddEditor({
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // Bề ngang khung xem trước kéo được, và nhớ lại cho lần sau.
+  const { setContainer, style: paneStyle, handleProps } = useSplitPane({
+    storageKey: "tdd-preview-width",
+    initial: 512,
+  });
   const backTo = `/projects/${projectId}/documents/${documentId}`;
 
   const {
@@ -377,7 +394,11 @@ function TddEditor({
   };
 
   return (
-    <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-4 py-4 lg:grid-cols-[1fr_32rem]">
+    <div
+      ref={setContainer}
+      style={paneStyle}
+      className="mx-auto grid max-w-[110rem] grid-cols-1 gap-x-4 gap-y-8 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_auto_var(--pane-w)]"
+    >
       <div className="flex min-w-0 flex-col gap-6">
         <Link
           to={backTo}
@@ -397,7 +418,7 @@ function TddEditor({
           currentDocKey={doc.docKey}
           currentTitle={title}
           currentDocType={doc.docType}
-          outgoingLinks={doc.content.links}
+          outgoingLinks={doc.resolvedLinks}
         />
 
         <DocMetaFields
@@ -429,6 +450,7 @@ function TddEditor({
                   register={register}
                   control={control}
                   errors={errors}
+                  backend
                 />
                 <ContextGoalsSection
                   register={register}
@@ -444,6 +466,7 @@ function TddEditor({
                   register={register}
                   control={control}
                   errors={errors}
+                  backend
                   name="architecture"
                   legend="Kiến trúc tổng quan (Architecture)"
                   description="Sơ đồ các thành phần và cách chúng ghép với nhau"
@@ -452,6 +475,7 @@ function TddEditor({
                   register={register}
                   control={control}
                   errors={errors}
+                  backend
                   name="sequenceDiagram"
                   legend="Sequence Diagram"
                   description="Luồng nhiều bên gọi qua lại theo thời gian"
@@ -460,6 +484,7 @@ function TddEditor({
                   register={register}
                   control={control}
                   errors={errors}
+                  backend
                   name="activityDiagram"
                   legend="Activity Diagram"
                   description="Logic nhiều nhánh điều kiện"
@@ -468,6 +493,7 @@ function TddEditor({
                   register={register}
                   control={control}
                   errors={errors}
+                  backend
                   name="stateDiagram"
                   legend="State Diagram"
                   description="Vòng đời trạng thái của thực thể chính"
@@ -476,6 +502,7 @@ function TddEditor({
                   register={register}
                   control={control}
                   errors={errors}
+                  backend
                   name="dataModel"
                   legend="Mô hình dữ liệu (Data Model / ERD)"
                   description="Bảng và quan hệ liên quan"
@@ -484,7 +511,43 @@ function TddEditor({
             )}
 
             {step === 2 && (
-              <TddReferencesSection register={register} control={control} />
+              <>
+                <InternalApiSection
+                  register={register}
+                  control={control}
+                  errors={errors}
+                  backend
+                />
+                <ExternalApiSection
+                  register={register}
+                  control={control}
+                  errors={errors}
+                  backend
+                />
+              </>
+            )}
+
+            {step === 3 && (
+              <>
+                <TddReferencesSection register={register} control={control} />
+                {/* Loại cạnh + ghi chú: chỉ có ở DB, Markdown của TDD không chứa chúng. */}
+                <LinkMetaField control={control} register={register} />
+                {/* Hai mục dưới chỉ có ở DB (document_list_items 90/91). */}
+                <TddStringArrayField
+                  control={control}
+                  register={register}
+                  name="assumptions"
+                  label="Giả định"
+                  placeholder="Điều đang mặc định là đúng"
+                />
+                <TddStringArrayField
+                  control={control}
+                  register={register}
+                  name="openQuestions"
+                  label="Câu hỏi mở"
+                  placeholder="Điểm còn phải chốt"
+                />
+              </>
             )}
           </div>
 
@@ -519,9 +582,11 @@ function TddEditor({
         </form>
       </div>
 
+      <SplitHandle {...handleProps} />
+
       <div className="hidden lg:flex lg:flex-col lg:gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto">
-        <div className="border border-border p-4">
-          <TddPreviewPanel control={control} />
+        <div className="border border-border">
+          <TddLivePreview control={control} status={status} notes={notes} />
         </div>
       </div>
     </div>
@@ -569,6 +634,12 @@ function RuleEditor({
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // Bề ngang khung xem trước kéo được, và nhớ lại cho lần sau.
+  const { setContainer, style: paneStyle, handleProps } = useSplitPane({
+    storageKey: "rule-preview-width",
+    initial: 512,
+  });
   const backTo = `/projects/${projectId}/documents/${documentId}`;
 
   const {
@@ -629,7 +700,11 @@ function RuleEditor({
   };
 
   return (
-    <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-4 py-4 lg:grid-cols-[1fr_32rem]">
+    <div
+      ref={setContainer}
+      style={paneStyle}
+      className="mx-auto grid max-w-[110rem] grid-cols-1 gap-x-4 gap-y-8 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_auto_var(--pane-w)]"
+    >
       <div className="flex min-w-0 flex-col gap-6">
         <Link
           to={backTo}
@@ -649,7 +724,7 @@ function RuleEditor({
           currentDocKey={doc.docKey}
           currentTitle={title}
           currentDocType={doc.docType}
-          outgoingLinks={doc.content.links}
+          outgoingLinks={doc.resolvedLinks}
         />
 
         <DocMetaFields
@@ -680,6 +755,7 @@ function RuleEditor({
                 register={register}
                 control={control}
                 errors={errors}
+                backend
               />
             )}
             {step === 1 && (
@@ -729,9 +805,11 @@ function RuleEditor({
         </form>
       </div>
 
+      <SplitHandle {...handleProps} />
+
       <div className="hidden lg:flex lg:flex-col lg:gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto">
-        <div className="border border-border p-4">
-          <RulePreviewPanel control={control} />
+        <div className="border border-border">
+          <RuleLivePreview control={control} status={status} notes={notes} />
         </div>
       </div>
     </div>
@@ -750,6 +828,12 @@ function UserStoryEditor({
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // Bề ngang khung xem trước kéo được, và nhớ lại cho lần sau.
+  const { setContainer, style: paneStyle, handleProps } = useSplitPane({
+    storageKey: "story-preview-width",
+    initial: 704,
+  });
   const backTo = `/projects/${projectId}/documents/${documentId}`;
 
   const {
@@ -759,8 +843,11 @@ function UserStoryEditor({
     getValues,
   } = useForm<Schema>({
     resolver: standardSchemaResolver(schema),
-    defaultValues: adaptUserStory(doc),
+    defaultValues: adaptUserStoryForm(doc),
   });
+
+  // Mã tài liệu trong REFERENCES → đường dẫn mở được, dùng chung bộ nối của trang chi tiết.
+  const previewLinkHref = useMemo(() => storyLinkHref(doc), [doc]);
 
   // Metadata mức tài liệu — gộp "Sửa thông tin" vào ngay đây.
   const [title, setTitle] = useState(doc.content.title);
@@ -796,7 +883,11 @@ function UserStoryEditor({
   };
 
   return (
-    <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-4 py-4 lg:grid-cols-[1fr_32rem]">
+    <div
+      ref={setContainer}
+      style={paneStyle}
+      className="mx-auto grid max-w-[110rem] grid-cols-1 gap-x-4 gap-y-8 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_auto_var(--pane-w)]"
+    >
       <div className="flex min-w-0 flex-col gap-6">
         <div className="flex items-center justify-between gap-4">
           <Link
@@ -816,7 +907,7 @@ function UserStoryEditor({
           currentDocKey={doc.docKey}
           currentTitle={title}
           currentDocType={doc.docType}
-          outgoingLinks={doc.content.links}
+          outgoingLinks={doc.resolvedLinks}
         />
 
         <form className="flex flex-col gap-8">
@@ -873,47 +964,43 @@ function UserStoryEditor({
               </FieldGroup>
             </FieldSet>
 
+            {/* backend: nguồn là DB chứ không phải Markdown, nên các section hiện thêm ô
+                nhập cho những field chỉ DB mới giữ được (tiêu đề luồng, loại liên kết, ghi
+                chú liên kết) và ẩn ô trạng thái trùng với khối phía trên. */}
             <MetadataSection
               register={register}
               control={control}
               errors={errors}
+              backend
             />
             <ConditionsSection
               register={register}
               control={control}
               errors={errors}
+              backend
             />
             <FlowSection
               register={register}
               control={control}
               errors={errors}
+              backend
             />
             <AcceptanceCriteriaSection
               register={register}
               control={control}
               errors={errors}
+              backend
             />
-            <FieldSet>
-              <FieldLegend>Sơ đồ hoạt động</FieldLegend>
-              <FieldGroup>
-                <Field data-invalid={!!errors.activityDiagram || undefined}>
-                  <FieldLabel htmlFor="activityDiagram">
-                    Activity Diagram URL
-                  </FieldLabel>
-                  <Input
-                    id="activityDiagram"
-                    type="url"
-                    placeholder="https://..."
-                    aria-invalid={!!errors.activityDiagram || undefined}
-                    {...register("activityDiagram")}
-                  />
-                  {errors.activityDiagram?.message && (
-                    <FieldError>{errors.activityDiagram.message}</FieldError>
-                  )}
-                </Field>
-              </FieldGroup>
-            </FieldSet>
-            <ReferencesSection control={control} projectId={projectId} />
+            {/* KHÔNG có trình sửa sơ đồ ở đây: sơ đồ thuộc về TDD. Bảng document_diagrams
+                dùng chung cho mọi loại tài liệu và dữ liệu mẫu có gắn sơ đồ vào cả User
+                Story, nên adaptUserStoryForm vẫn nạp `diagrams` và saveUserStory vẫn gửi lại
+                y nguyên — bỏ hẳn khỏi form thì lần lưu kế tiếp sẽ xoá sạch chúng. */}
+            <ReferencesSection
+              control={control}
+              register={register}
+              projectId={projectId}
+              backend
+            />
             <StringListSection
               legend="Yêu cầu phi chức năng"
               description="Danh sách các yêu cầu phi chức năng"
@@ -925,6 +1012,22 @@ function UserStoryEditor({
               legend="Ngoài phạm vi"
               description="Các mục nằm ngoài phạm vi công việc"
               name="outOfScope"
+              control={control}
+              register={register}
+            />
+            {/* Hai mục dưới chỉ có ở DB (document_list_items 90/91) — Markdown của US không
+                có chỗ chứa, nên trang sửa cũ không hề đụng tới chúng. */}
+            <StringListSection
+              legend="Giả định"
+              description="Những điều đang mặc định là đúng khi viết story này"
+              name="assumptions"
+              control={control}
+              register={register}
+            />
+            <StringListSection
+              legend="Câu hỏi mở"
+              description="Những điểm còn phải chốt lại"
+              name="openQuestions"
               control={control}
               register={register}
             />
@@ -945,9 +1048,18 @@ function UserStoryEditor({
         </form>
       </div>
 
+      <SplitHandle {...handleProps} />
+
       <div className="hidden lg:flex lg:flex-col lg:gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto">
-        <div className="border border-border p-4">
-          <PreviewPanel control={control} />
+        <div className="min-h-0 flex-1 border border-border">
+          {/* Dùng CHÍNH bảng waffle của trang chi tiết, không phải một bộ render riêng — thứ
+              nhìn thấy lúc sửa phải là thứ sẽ thấy sau khi lưu. Trạng thái lấy từ ô chọn bên
+              trái, không phải từ form US. */}
+          <WafflePreviewPanel
+            control={control}
+            statusLabel={DocumentStatusLabel[status] ?? String(status)}
+            linkHref={previewLinkHref}
+          />
         </div>
       </div>
     </div>

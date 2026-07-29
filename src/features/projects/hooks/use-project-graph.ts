@@ -1,6 +1,6 @@
 import { useAuthStore } from "@/features/auth/store";
 import authConfig from "@/lib/auth/config";
-import { projectKeys } from "@/lib/query-keys";
+import { PROJECT_STALE, projectKeys } from "@/lib/query-keys";
 import { useQuery } from "@tanstack/react-query";
 import graphService from "../graph-services";
 
@@ -17,6 +17,7 @@ export function useProjectGraph(projectId: string | undefined) {
     queryKey: projectKeys.projectGraph(projectId ?? ""),
     queryFn: () => graphService.getProjectGraph(projectId!),
     enabled,
+    staleTime: PROJECT_STALE,
   });
   return {
     graph: query.data,
@@ -34,6 +35,7 @@ export function useLinkIssues(
     queryKey: projectKeys.linkIssues(projectId ?? "", staleDays),
     queryFn: () => graphService.getLinkIssues(projectId!, staleDays),
     enabled,
+    staleTime: PROJECT_STALE,
   });
   return {
     issues: query.data ?? [],
@@ -48,6 +50,7 @@ export function useErrorCodes(projectId: string | undefined) {
     queryKey: projectKeys.errorCodes(projectId ?? ""),
     queryFn: () => graphService.getErrorCodes(projectId!),
     enabled,
+    staleTime: PROJECT_STALE,
   });
   return {
     registry: query.data,

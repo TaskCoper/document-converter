@@ -23,6 +23,11 @@ mermaid.initialize({
   theme: "default",
   securityLevel: "loose",
   fontFamily: "inherit",
+  // Cú pháp sai thì mermaid tự vẽ một tấm SVG "Syntax error in text" kèm hình quả bom và
+  // ĐÍNH THẲNG vào document.body — nằm ngoài container của component, nên .catch() bên dưới
+  // dọn container cũng không xoá được nó; kết quả là quả bom lơ lửng cuối trang.
+  // MermaidDiagram đã có sẵn khối báo lỗi gọn gàng ngay tại chỗ, dùng cái đó là đủ.
+  suppressErrorRendering: true,
 });
 
 export function MermaidDiagram({ code }: { code: string }) {

@@ -28,7 +28,12 @@ import {
   StatusLabel,
 } from "../validations";
 
-export function MetadataSection({ register, control, errors }: SectionProps) {
+export function MetadataSection({
+  register,
+  control,
+  errors,
+  backend,
+}: SectionProps) {
   const { fields, append, remove } = useFieldArray({
     control,
     name: "metadata.assignee",
@@ -117,31 +122,36 @@ export function MetadataSection({ register, control, errors }: SectionProps) {
           />
         </Field>
 
-        <Field data-invalid={!!errors.metadata?.status || undefined}>
-          <FieldLabel htmlFor="metadata.status">Trạng thái</FieldLabel>
-          <Controller
-            control={control}
-            name="metadata.status"
-            render={({ field }) => (
-              <Select value={field.value} onValueChange={field.onChange}>
-                <SelectTrigger
-                  id="metadata.status"
-                  className="w-full"
-                  aria-invalid={!!errors.metadata?.status || undefined}
-                >
-                  <SelectValue placeholder="Chọn trạng thái" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.values(Status).map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {StatusLabel[s]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-        </Field>
+        {/* Nhánh backend có ô "Trạng thái" riêng ở khối Thông tin tài liệu (dải DocumentStatus
+            10-13) và CHÍNH nó mới được gửi đi. Hiện thêm ô này chỉ tạo ra hai ô trạng thái
+            mâu thuẫn nhau trên cùng màn hình, ô dưới thì không có tác dụng gì. */}
+        {!backend && (
+          <Field data-invalid={!!errors.metadata?.status || undefined}>
+            <FieldLabel htmlFor="metadata.status">Trạng thái</FieldLabel>
+            <Controller
+              control={control}
+              name="metadata.status"
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger
+                    id="metadata.status"
+                    className="w-full"
+                    aria-invalid={!!errors.metadata?.status || undefined}
+                  >
+                    <SelectValue placeholder="Chọn trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.values(Status).map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {StatusLabel[s]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </Field>
+        )}
 
         <Field data-invalid={!!errors.metadata?.creator || undefined}>
           <FieldLabel htmlFor="metadata.creator" className="gap-0.5">
@@ -168,6 +178,12 @@ export function MetadataSection({ register, control, errors }: SectionProps) {
           <FieldGroup>
             {fields.map((f, idx) => (
               <div key={f.id} className="flex gap-1 items-start">
+                {/* Liên kết tài khoản của người phụ trách — không sửa được ở đây nhưng phải
+                    đi theo form, nếu không mỗi lần lưu là một lần cắt liên kết. */}
+                <input
+                  type="hidden"
+                  {...register(`metadata.assignee.${idx}.userId`)}
+                />
                 <div className="flex-1 grid grid-cols-2 gap-2">
                   <Field
                     data-invalid={
@@ -237,7 +253,9 @@ export function MetadataSection({ register, control, errors }: SectionProps) {
               type="button"
               variant="default"
               size="sm"
-              onClick={() => append({ name: "", position: Position.FE })}
+              onClick={() =>
+                append({ name: "", position: Position.FE, userId: null })
+              }
             >
               <Plus />
               Thêm người phụ trách

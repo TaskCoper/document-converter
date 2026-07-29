@@ -20,12 +20,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2 } from "lucide-react";
 import { Controller, useFieldArray } from "react-hook-form";
 import type { TddSectionProps } from "../section-types";
+import { EndpointExamplesField } from "./endpoint-examples-field";
 import { HttpMethod, HttpMethodLabel } from "../validations";
 
 export function InternalApiSection({
   register,
   control,
   errors,
+  backend,
 }: TddSectionProps) {
   const endpointsArr = useFieldArray({
     control,
@@ -140,6 +142,31 @@ export function InternalApiSection({
                 )}
               </Field>
             ))}
+            {/* Chỉ backend: DB lưu tên endpoint và ví dụ THUỘC endpoint. Markdown thì không
+                gắn ví dụ với endpoint nào, nên nhánh GitHub vẫn dùng danh sách phẳng bên dưới. */}
+            {backend &&
+              endpointsArr.fields.map((f, idx) => (
+                <div
+                  key={`api-${f.id}`}
+                  className="flex flex-col gap-2 border border-border p-3"
+                >
+                  <Field>
+                    <FieldLabel htmlFor={`internalApi.endpoints.${idx}.name`}>
+                      Tên endpoint #{idx + 1}
+                    </FieldLabel>
+                    <Input
+                      id={`internalApi.endpoints.${idx}.name`}
+                      placeholder="VD: Danh sách gói combo"
+                      {...register(`internalApi.endpoints.${idx}.name`)}
+                    />
+                  </Field>
+                  <EndpointExamplesField
+                    control={control}
+                    register={register}
+                    name={`internalApi.endpoints.${idx}.examples`}
+                  />
+                </div>
+              ))}
             <Button
               type="button"
               variant="default"
@@ -158,9 +185,9 @@ export function InternalApiSection({
           </FieldGroup>
         </FieldSet>
 
-        <FieldSeparator />
+        {!backend && <FieldSeparator />}
 
-        <FieldSet>
+        <FieldSet className={backend ? "hidden" : undefined}>
           <FieldLegend variant="label">Ví dụ Request/Response</FieldLegend>
           <FieldGroup>
             {examplesArr.fields.map((f, idx) => (

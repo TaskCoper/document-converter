@@ -1,13 +1,19 @@
 import AsyncMultiSelectField from "@/components/async-multi-select-field";
 import { FieldGroup, FieldLegend, FieldSet } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { useAllRules } from "@/features/business-rules/hooks/use-all-rules";
-import { DocumentType } from "@/features/projects/document-types";
+import { NumberSelect } from "@/features/projects/components/number-select";
+import {
+  DocumentLinkType,
+  DocumentLinkTypeLabel,
+  DocumentType,
+} from "@/features/projects/document-types";
 import { useDocuments } from "@/features/projects/hooks/use-documents";
 import { useAllTdds } from "@/features/tdds/hooks/use-all-tdds";
 import { useAllStories } from "@/features/user-stories/hooks/use-all-stories";
 import { useEffect, useState } from "react";
-import type { Control } from "react-hook-form";
-import { useWatch } from "react-hook-form";
+import type { Control, UseFormRegister } from "react-hook-form";
+import { Controller, useWatch } from "react-hook-form";
 import type { Schema } from "../validations";
 
 // Shape tối thiểu mà mỗi picker cần — TddSitemapEntry/RuleSitemapEntry/StorySitemapEntry
@@ -27,23 +33,111 @@ function useDebouncedValue(value: string, delayMs = 300) {
   return debounced;
 }
 
-export function ReferencesSection({
+type RefName = "references.tdds" | "references.rules" | "references.dependencies";
+
+const LINK_TYPE_OPTIONS = Object.values(DocumentLinkType).map((t) => ({
+  value: t,
+  label: DocumentLinkTypeLabel[t],
+}));
+
+/**
+ * Loại liên kết + ghi chú cho từng tài liệu đã chọn — chỉ có ở nhánh backend.
+ *
+ * Markdown chỉ ghi được danh sách mã tài liệu, còn DB lưu thêm `link_type` (ngữ nghĩa cạnh mà
+ * phân tích ảnh hưởng dựa vào) và `note`. Không có hai ô này thì mọi cạnh bị lưu về
+ * "Tham chiếu" và ghi chú bị xoá mỗi lần lưu.
+ *
+ * Hàng được dựng từ useWatch chứ không phải useFieldArray: mảng do picker bên trên sở hữu
+ * (Controller ghi đè trọn mảng mỗi lần bật/tắt), thêm một field array nữa trên cùng tên sẽ
+ * đá nhau.
+ */
+function LinkDetailFields({
   control,
-  projectId,
+  register,
+  name,
 }: {
   control: Control<Schema>;
+  register: UseFormRegister<Schema>;
+  name: RefName;
+}) {
+  const items = useWatch({ control, name }) ?? [];
+  if (!items.length) return null;
+
+  return (
+    <div className="flex flex-col gap-2 border-l-2 border-border pl-3">
+      {items.map((item, idx) => (
+        <div
+          key={`${item?.id}-${idx}`}
+          className="grid grid-cols-[7rem_11rem_1fr] items-center gap-2"
+        >
+          <span className="font-mono text-xs text-muted-foreground truncate">
+            {item?.id}
+          </span>
+          <Controller
+            control={control}
+            name={`${name}.${idx}.linkType`}
+            render={({ field }) => (
+              <NumberSelect
+                value={field.value ?? DocumentLinkType.References}
+                onChange={field.onChange}
+                options={LINK_TYPE_OPTIONS}
+              />
+            )}
+          />
+          <Input
+            placeholder="Ghi chú (không bắt buộc)"
+            {...register(`${name}.${idx}.note`)}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function ReferencesSection({
+  control,
+  register,
+  projectId,
+  backend,
+}: {
+  control: Control<Schema>;
+  /** Chỉ cần khi backend — ô ghi chú của từng liên kết dùng nó. */
+  register?: UseFormRegister<Schema>;
   // Khi có projectId (trang sửa tài liệu trong Project mới), tìm tài liệu qua backend
   // search thay vì sitemap.md trên GitHub — 2 nguồn dữ liệu độc lập, sitemap không hề
   // chứa tài liệu của project.
   projectId?: string;
+  backend?: boolean;
 }) {
+  const details = backend && register;
   return (
     <FieldSet>
       <FieldLegend>Tham chiếu</FieldLegend>
       <FieldGroup>
         <TddsPicker control={control} projectId={projectId} />
+        {details && (
+          <LinkDetailFields
+            control={control}
+            register={register}
+            name="references.tdds"
+          />
+        )}
         <RulesPicker control={control} projectId={projectId} />
+        {details && (
+          <LinkDetailFields
+            control={control}
+            register={register}
+            name="references.rules"
+          />
+        )}
         <DependenciesPicker control={control} projectId={projectId} />
+        {details && (
+          <LinkDetailFields
+            control={control}
+            register={register}
+            name="references.dependencies"
+          />
+        )}
       </FieldGroup>
     </FieldSet>
   );

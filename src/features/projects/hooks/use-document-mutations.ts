@@ -29,7 +29,9 @@ const useInvalidateDocument = (projectId: string, documentId: string) => {
     queryClient.invalidateQueries({
       queryKey: projectKeys.documentPreview(documentId),
     });
-    queryClient.invalidateQueries({ queryKey: projectKeys.documents(projectId) });
+    queryClient.invalidateQueries({
+      queryKey: projectKeys.documentLists(projectId),
+    });
     queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
   };
 };

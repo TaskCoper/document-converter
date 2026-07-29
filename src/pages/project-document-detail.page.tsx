@@ -13,12 +13,14 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
   DocumentStatusLabel,
-  DocumentType,
   DocumentTypeLabel,
   LifecycleStateLabel,
 } from "@/features/projects/document-types";
 import { errorDetail } from "@/features/projects/error";
-import { useDocument } from "@/features/projects/hooks/use-document";
+import {
+  useDocument,
+  useDocumentPreview,
+} from "@/features/projects/hooks/use-document";
 import { useDeleteDocument } from "@/features/projects/hooks/use-document-mutations";
 import { useMyProjectRole } from "@/features/projects/hooks/use-my-role";
 import {
@@ -26,7 +28,7 @@ import {
   canEditDocuments,
   canReleaseDocuments,
 } from "@/features/projects/permissions";
-import { adaptRule, adaptTdd, renderBackendDocHtml } from "@/features/projects/adapt-document";
+import { buildDocumentView } from "@/features/projects/adapt-document";
 import { ReleaseDocumentDialog } from "@/features/projects/components/release-document-dialog";
 import { StorySplitView } from "@/features/projects/components/story-split-view";
 import { RuleDocumentView } from "@/features/business-rules/components/rule-document-view";
@@ -38,15 +40,14 @@ import {
   RocketIcon,
   Trash2Icon,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 export default function ProjectDocumentDetailPage() {
   const { projectId = "", documentId = "" } = useParams();
   const navigate = useNavigate();
 
-  const { document, isLoading, isError, previewMarkdown, isPreviewLoading } =
-    useDocument(documentId);
+  const { document, isLoading, isError } = useDocument(documentId);
   const myRole = useMyProjectRole(projectId);
   const deleteDocument = useDeleteDocument();
 
@@ -54,6 +55,14 @@ export default function ProjectDocumentDetailPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [releaseOpen, setReleaseOpen] = useState(false);
   const [releaseSuccess, setReleaseSuccess] = useState<string | null>(null);
+
+  // Nội dung hiển thị đến thẳng từ response GET /documents/{id}. Chỉ khi adapter thất bại
+  // (kind "raw") mới cần tới Markdown của /preview — nên query đó gần như không bao giờ chạy.
+  const view = useMemo(() => buildDocumentView(document), [document]);
+  const { previewMarkdown, isPreviewLoading } = useDocumentPreview(
+    documentId,
+    view.kind === "raw",
+  );
 
   if (isLoading) {
     return (
@@ -85,26 +94,6 @@ export default function ProjectDocumentDetailPage() {
   const canEdit = !!myRole && canEditDocuments(myRole);
   const canDelete = !!myRole && canDeleteDocuments(myRole);
   const canRelease = !!myRole && canReleaseDocuments(myRole);
-  // Dùng lại bộ render "waffle" cũ (toHtml) qua adapter structured cho User Story; TDD/Rule
-  // dùng thẳng component React (TddDocumentView/RuleDocumentView, không qua iframe) để cùng
-  // một ngôn ngữ trình bày — chỉ rơi về Markdown thô từ /preview nếu adapter lỗi.
-  const html = renderBackendDocHtml(document);
-  let tddParsed: ReturnType<typeof adaptTdd> | null = null;
-  if (document.docType === DocumentType.Tdd) {
-    try {
-      tddParsed = adaptTdd(document);
-    } catch {
-      tddParsed = null;
-    }
-  }
-  let ruleParsed: ReturnType<typeof adaptRule> | null = null;
-  if (document.docType === DocumentType.BusinessRule) {
-    try {
-      ruleParsed = adaptRule(document);
-    } catch {
-      ruleParsed = null;
-    }
-  }
 
   const confirmDelete = () => {
     setDeleteError(null);
@@ -119,8 +108,6 @@ export default function ProjectDocumentDetailPage() {
       },
     });
   };
-
-  const isStory = document.docType === DocumentType.UserStory;
 
   const header = (
     <>
@@ -154,7 +141,9 @@ export default function ProjectDocumentDetailPage() {
               </span>
             )}
           </div>
-          <h1 className="mt-1 text-xl font-semibold">{document.content.title}</h1>
+          <h1 className="mt-1 text-xl font-semibold">
+            {document.content.title}
+          </h1>
           <p className="mt-0.5 text-[10px] text-muted-foreground">
             Phiên bản v{document.currentVersionNumber}
             {document.content.ownerName && ` · ${document.content.ownerName}`}
@@ -168,7 +157,9 @@ export default function ProjectDocumentDetailPage() {
               variant="outline"
               size="sm"
               render={
-                <Link to={`/projects/${projectId}/documents/${document.id}/edit`} />
+                <Link
+                  to={`/projects/${projectId}/documents/${document.id}/edit`}
+                />
               }
             >
               <FileEditIcon className="size-3.5" />
@@ -263,14 +254,16 @@ export default function ProjectDocumentDetailPage() {
         onOpenChange={setReleaseOpen}
         onReleased={(version) => {
           setReleaseOpen(false);
-          setReleaseSuccess(`Đã phát hành phiên bản v${version.versionNumber}.`);
+          setReleaseSuccess(
+            `Đã phát hành phiên bản v${version.versionNumber}.`,
+          );
         }}
       />
     </>
   );
 
   // US: chiếm trọn màn hình (header cố định trên, preview split-pane lấp đầy phần còn lại).
-  if (isStory) {
+  if (view.kind === "story") {
     return (
       <div className="flex h-full flex-col overflow-hidden">
         <div className="shrink-0 border-b border-border px-6 pb-3 pt-4">
@@ -280,7 +273,7 @@ export default function ProjectDocumentDetailPage() {
           <StorySplitView
             projectId={projectId}
             doc={document}
-            storyHtml={html}
+            storyHtml={view.html}
           />
         </div>
         {dialogs}
@@ -288,27 +281,39 @@ export default function ProjectDocumentDetailPage() {
     );
   }
 
+  // Ghi chú là field mức tài liệu (documents.notes_md), không thuộc schema của loại nào —
+  // nên render một chỗ ở đây thay vì nhét vào cả ba view. Trước đây nó không hiện ở đâu cả.
+  const notes = document.content.notesMd?.trim();
+  const notesBlock = notes ? (
+    <div className="mt-8 border-t border-border pt-4">
+      <h3 className="mb-2 text-xs font-semibold text-primary">Ghi chú</h3>
+      <pre className="whitespace-pre-wrap wrap-break-word text-sm leading-relaxed text-foreground">
+        {notes}
+      </pre>
+    </div>
+  ) : null;
+
   // TDD/Rule: bố cục canh giữa như cũ.
   return (
     <div className="mx-auto max-w-5xl p-6">
       {header}
       <div className="mt-6">
-        {tddParsed ? (
-          <TddDocumentView data={tddParsed} />
-        ) : ruleParsed ? (
-          <RuleDocumentView data={ruleParsed} />
+        {view.kind === "tdd" ? (
+          <>
+            <TddDocumentView data={view.data} />
+            {notesBlock}
+          </>
+        ) : view.kind === "rule" ? (
+          <>
+            <RuleDocumentView data={view.data} />
+            {notesBlock}
+          </>
         ) : (
           <>
             <h2 className="mb-2 text-sm font-semibold text-primary">
               Xem trước
             </h2>
-            {html ? (
-              <iframe
-                title="Xem trước tài liệu"
-                srcDoc={html}
-                className="h-[70vh] w-full border border-border/40"
-              />
-            ) : isPreviewLoading ? (
+            {isPreviewLoading ? (
               <div className="flex justify-center py-10">
                 <Spinner />
               </div>

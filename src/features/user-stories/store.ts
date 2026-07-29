@@ -200,7 +200,6 @@ export const sampleData: Schema = {
       ],
     },
   ],
-  activityDiagram: "https://lucid.app/lucidchart/example-activity-diagram",
   references: {
     tdds: [],
     rules: [],
@@ -247,7 +246,6 @@ export const initialData: Schema = {
   acceptanceCriteria: [
     { code: "", criterias: [{ type: CriteriaCondition.Given, step: "" }] },
   ],
-  activityDiagram: "",
   references: {
     tdds: [],
     rules: [],

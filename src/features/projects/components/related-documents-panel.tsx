@@ -1,9 +1,11 @@
 import { Spinner } from "@/components/ui/spinner";
-import { DocumentLinkTypeLabel, type LinkSnapshot } from "@/features/projects/document-types";
+import {
+  DocumentLinkTypeLabel,
+  type ResolvedLink,
+} from "@/features/projects/document-types";
 import {
   useImpact,
   useIncomingLinks,
-  useOutgoingLinks,
 } from "@/features/projects/hooks/use-document-graph";
 import type { GraphSatellite } from "./related-documents-graph";
 import { RelatedDocumentsGraph } from "./related-documents-graph";
@@ -16,13 +18,12 @@ function linkTypeLabel(linkType: number): string {
 }
 
 // Gọi 2 API đồ thị (GraphController, chỉ đọc) để trả lời "sửa tài liệu này thì cái gì liên
-// quan": incoming-links = ai đang trỏ tới nó, impact = sửa nó thì cái gì cần xem lại. Ngoài ra
-// dựng thêm mục "outgoing" từ links[] có sẵn trong content của chính tài liệu đang sửa (đối
-// chiếu docKey với danh sách tài liệu project) — vì backend không có endpoint trả outgoing
-// links đã resolve, và đây thường là mục có dữ liệu nhất (tài liệu mới tạo thường CHƯA có gì
-// trỏ vào/phụ thuộc nó, nhưng đã tự khai tham chiếu ra tài liệu khác). Hiển thị dạng đồ thị
-// hub-and-spoke: tài liệu đang sửa ở giữa, các tài liệu liên quan là vệ tinh nối bằng đường có
-// mũi tên — xem RelatedDocumentsGraph.
+// quan": incoming-links = ai đang trỏ tới nó, impact = sửa nó thì cái gì cần xem lại. Mục
+// "outgoing" thì không cần gọi gì thêm — GET /documents/{id} đã trả kèm resolvedLinks, và đây
+// thường là mục có dữ liệu nhất (tài liệu mới tạo thường CHƯA có gì trỏ vào/phụ thuộc nó,
+// nhưng đã tự khai tham chiếu ra tài liệu khác). Hiển thị dạng đồ thị hub-and-spoke: tài liệu
+// đang sửa ở giữa, các tài liệu liên quan là vệ tinh nối bằng đường có mũi tên — xem
+// RelatedDocumentsGraph.
 export function RelatedDocumentsPanel({
   projectId,
   documentId,
@@ -36,27 +37,24 @@ export function RelatedDocumentsPanel({
   currentDocKey: string;
   currentTitle?: string;
   currentDocType?: number;
-  outgoingLinks?: LinkSnapshot[];
+  outgoingLinks?: ResolvedLink[];
 }) {
   const { links: incomingLinks, isLoading: incomingLoading } =
     useIncomingLinks(documentId);
   const { impacted, isLoading: impactLoading } = useImpact(documentId);
-  const { outgoing, isLoading: outgoingLoading } = useOutgoingLinks(
-    projectId,
-    outgoingLinks,
-  );
 
-  const isLoading = incomingLoading || impactLoading || outgoingLoading;
+  const isLoading = incomingLoading || impactLoading;
 
   const satellites: GraphSatellite[] = [
-    ...outgoing.map((l, i) => ({
+    ...outgoingLinks.map((l, i) => ({
       key: `out-${l.targetDocKey}-${l.linkType}-${i}`,
       kind: "outgoing" as const,
       docKey: l.targetDocKey,
-      title: l.target?.title,
-      docType: l.target?.docType,
-      href: l.target
-        ? `/projects/${projectId}/documents/${l.target.id}`
+      title: l.targetTitle ?? undefined,
+      docType: l.targetDocType ?? undefined,
+      // Không có id = liên kết còn treo (trỏ tới khoá chưa tồn tại) → hiện nhưng không bấm được.
+      href: l.targetDocumentId
+        ? `/projects/${projectId}/documents/${l.targetDocumentId}`
         : undefined,
       edgeLabel: linkTypeLabel(l.linkType),
     })),

@@ -1,6 +1,6 @@
 import { useAuthStore } from "@/features/auth/store";
 import authConfig from "@/lib/auth/config";
-import { projectKeys } from "@/lib/query-keys";
+import { PROJECT_STALE, projectKeys } from "@/lib/query-keys";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import documentService, {
   type DocumentListParams,
@@ -18,6 +18,7 @@ export const useDocuments = (
     queryKey: projectKeys.documents(projectId ?? "", params),
     queryFn: () => documentService.list(projectId!, params),
     enabled: !!projectId && hasToken && hasAuthBackend,
+    staleTime: PROJECT_STALE,
     // Giữ danh sách cũ khi đổi filter/trang để bảng không nhấp nháy.
     placeholderData: keepPreviousData,
   });

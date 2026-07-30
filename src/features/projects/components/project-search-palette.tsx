@@ -23,6 +23,8 @@ const TYPE_CHIPS: { label: string; value: DocumentType | undefined }[] = [
   { label: "User Story", value: DocumentType.UserStory },
   { label: "TDD", value: DocumentType.Tdd },
   { label: "Business Rule", value: DocumentType.BusinessRule },
+  { label: "Unit Test", value: DocumentType.UnitTest },
+  { label: "System Test", value: DocumentType.SystemTest },
 ];
 
 // Đoạn trích trả về từ backend bọc từ khớp trong **...** (xem SearchService.Highlight).
@@ -102,7 +104,7 @@ export function ProjectSearchPalette({ projectId, open, onOpenChange }: Props) {
                 openHit(hits[0]);
               }
             }}
-            placeholder="Tìm User Story / TDD / Business Rule trong dự án…"
+            placeholder="Tìm Story / TDD / Rule / Test trong dự án…"
             className="h-11 flex-1 border-0 bg-transparent px-0 text-sm focus-visible:ring-0"
           />
           {isLoading && <Spinner className="size-3.5 shrink-0" />}

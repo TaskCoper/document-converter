@@ -4,6 +4,7 @@ import authApi, {
 } from "@/lib/auth/api";
 import type {
   DocumentDetail,
+  DocumentGovernance,
   DocumentListRow,
   DocumentSort,
   DocumentType,
@@ -12,6 +13,10 @@ import type {
   LifecycleState,
   SearchMode,
   SearchResponse,
+  SystemTestType,
+  TestPriority,
+  TestSuite,
+  UnitTestType,
   VersionDetail,
   VersionDiff,
   VersionListRow,
@@ -25,6 +30,12 @@ export interface DocumentListParams {
   anchorDocumentId?: string;
   pageIndex?: number;
   pageSize?: number;
+  unitTestType?: UnitTestType;
+  systemTestType?: SystemTestType;
+  testSuite?: TestSuite;
+  testPriority?: TestPriority;
+  module?: string;
+  storyKey?: string;
 }
 
 export interface SearchParams {
@@ -62,6 +73,18 @@ export interface ReleaseDocumentBody {
   changeSummary?: string | null;
 }
 
+export interface UpdateGovernanceBody {
+  version: string;
+  authorId?: string | null;
+  authorName?: string | null;
+  reviewerId?: string | null;
+  reviewerName?: string | null;
+  approverId?: string | null;
+  approverName?: string | null;
+  ownerId?: string | null;
+  ownerName?: string | null;
+}
+
 // Các field đơn trị theo loại — backend chỉ dùng nhóm khớp doc_type, gửi dư cũng không sao.
 export interface UpdateDetailBody {
   // UserStory
@@ -82,6 +105,24 @@ export interface UpdateDetailBody {
   notes?: string | null;
   ownerName?: string | null;
   source?: string | null;
+  // UnitTest
+  module?: string | null;
+  unitUnderTest?: string | null;
+  unitTestType?: UnitTestType | null;
+  mockSetup?: string | null;
+  input?: string | null;
+  expectedOutput?: string | null;
+  // SystemTest
+  storyKey?: string | null;
+  systemTestType?: number | null;
+  precondition?: string | null;
+  testData?: string | null;
+  expectedResult?: string | null;
+  // Dùng chung
+  testSuite?: TestSuite | null;
+  testPriority?: TestPriority | null;
+  rationale?: string | null;
+  testOwnerName?: string | null;
 }
 
 class DocumentService {
@@ -96,6 +137,12 @@ class DocumentService {
           AnchorDocumentId: params.anchorDocumentId,
           PageIndex: params.pageIndex ?? 1,
           PageSize: params.pageSize ?? 50,
+          UnitTestType: params.unitTestType,
+          SystemTestType: params.systemTestType,
+          TestSuite: params.testSuite,
+          TestPriority: params.testPriority,
+          Module: params.module || undefined,
+          StoryKey: params.storyKey || undefined,
         },
       },
     );
@@ -105,6 +152,41 @@ class DocumentService {
   get = async (documentId: string) => {
     const { data } = await authApi.get<BaseResponse<DocumentDetail>>(
       `/documents/${documentId}`,
+    );
+    return data.value;
+  };
+
+  getGovernance = async (documentId: string) => {
+    const { data } = await authApi.get<BaseResponse<DocumentGovernance>>(
+      `/documents/${documentId}/governance`,
+    );
+    return data.value;
+  };
+
+  updateGovernance = async (
+    documentId: string,
+    body: UpdateGovernanceBody,
+  ) => {
+    const { data } = await authApi.put<BaseResponse<DocumentGovernance>>(
+      `/documents/${documentId}/governance`,
+      body,
+    );
+    return data.value;
+  };
+
+  transitionGovernance = async (
+    documentId: string,
+    action:
+      | "submit-review"
+      | "request-changes"
+      | "approve"
+      | "deprecate"
+      | "start-revision",
+    note?: string | null,
+  ) => {
+    const { data } = await authApi.post<BaseResponse<DocumentGovernance>>(
+      `/documents/${documentId}/governance/${action}`,
+      { note: note ?? null },
     );
     return data.value;
   };
@@ -283,6 +365,7 @@ class DocumentService {
       targetDocKey: string;
       linkType: number;
       note?: string | null;
+      targetSection?: string | null;
     }[],
   ) => {
     await authApi.put<BaseResponse<DocumentDetail>>(

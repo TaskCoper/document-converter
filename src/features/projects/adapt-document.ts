@@ -411,6 +411,7 @@ export type DocumentView =
   | { kind: "story"; html: string }
   | { kind: "tdd"; data: TddSchema }
   | { kind: "rule"; data: RuleSchema }
+  | { kind: "test" }
   | { kind: "raw" };
 
 export function buildDocumentView(
@@ -430,6 +431,9 @@ export function buildDocumentView(
         return { kind: "tdd", data: adaptTdd(doc) };
       case DocumentType.BusinessRule:
         return { kind: "rule", data: adaptRule(doc) };
+      case DocumentType.UnitTest:
+      case DocumentType.SystemTest:
+        return { kind: "test" };
       default:
         return { kind: "raw" };
     }

@@ -15,6 +15,8 @@ const TYPE_BORDER: Record<DocumentType, string> = {
   [DocumentType.UserStory]: "border-t-primary",
   [DocumentType.Tdd]: "border-t-blue-500",
   [DocumentType.BusinessRule]: "border-t-amber-500",
+  [DocumentType.UnitTest]: "border-t-emerald-500",
+  [DocumentType.SystemTest]: "border-t-rose-500",
 };
 
 // Đủ lấp chừng một màn hình tab, cuộn tới đâu nạp tới đó.

@@ -31,6 +31,8 @@ export const projectKeys = {
     [...projectKeys.documentLists(projectId), "infinite", params ?? {}] as const,
   document: (documentId: string) =>
     [...projectKeys.all, "document", documentId] as const,
+  documentGovernance: (documentId: string) =>
+    [...projectKeys.all, "document", documentId, "governance"] as const,
   documentPreview: (documentId: string) =>
     [...projectKeys.all, "document", documentId, "preview"] as const,
   search: (projectId: string, params?: object) =>

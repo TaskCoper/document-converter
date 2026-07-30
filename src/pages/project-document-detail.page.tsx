@@ -14,6 +14,8 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   DocumentStatusLabel,
   DocumentTypeLabel,
+  GovernanceStatus,
+  GovernanceStatusLabel,
   LifecycleStateLabel,
 } from "@/features/projects/document-types";
 import { errorDetail } from "@/features/projects/error";
@@ -29,8 +31,11 @@ import {
   canReleaseDocuments,
 } from "@/features/projects/permissions";
 import { buildDocumentView } from "@/features/projects/adapt-document";
+import { DocumentGovernancePanel } from "@/features/projects/components/document-governance-panel";
+import { useDocumentGovernance } from "@/features/projects/hooks/use-document-governance";
 import { ReleaseDocumentDialog } from "@/features/projects/components/release-document-dialog";
 import { StorySplitView } from "@/features/projects/components/story-split-view";
+import { TestDocumentView } from "@/features/projects/components/test-document";
 import { RuleDocumentView } from "@/features/business-rules/components/rule-document-view";
 import { TddDocumentView } from "@/features/tdds/components/tdd-document-view";
 import {
@@ -48,6 +53,7 @@ export default function ProjectDocumentDetailPage() {
   const navigate = useNavigate();
 
   const { document, isLoading, isError } = useDocument(documentId);
+  const { data: governance } = useDocumentGovernance(documentId);
   const myRole = useMyProjectRole(projectId);
   const deleteDocument = useDeleteDocument();
 
@@ -120,8 +126,10 @@ export default function ProjectDocumentDetailPage() {
       </Link>
 
       {/* Header */}
-      <div className="mt-3 flex items-start justify-between gap-4">
+      <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-xs text-muted-foreground">
               {document.docKey}
@@ -135,6 +143,14 @@ export default function ProjectDocumentDetailPage() {
             <Badge variant="outline" className="text-[10px]">
               {LifecycleStateLabel[document.lifecycleState]}
             </Badge>
+            {governance && (
+              <Badge
+                variant="outline"
+                className="border-orange-300 bg-orange-50 text-[10px] text-orange-800"
+              >
+                {GovernanceStatusLabel[governance.status]}
+              </Badge>
+            )}
             {document.hasUnpublishedChanges && (
               <span className="text-[10px] text-primary">
                 • có thay đổi chưa phát hành
@@ -145,17 +161,18 @@ export default function ProjectDocumentDetailPage() {
             {document.content.title}
           </h1>
           <p className="mt-0.5 text-[10px] text-muted-foreground">
-            Phiên bản v{document.currentVersionNumber}
+            Phiên bản {governance?.version ?? `v${document.currentVersionNumber}`}
             {document.content.ownerName && ` · ${document.content.ownerName}`}
           </p>
         </div>
 
-        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+        <div className="flex w-full flex-wrap justify-start gap-2 sm:w-auto sm:shrink-0 sm:justify-end">
           {canEdit && (
-            // Cả 3 loại tài liệu đều dùng trình soạn thảo section đầy đủ (đã gộp metadata).
+            // Mọi loại tài liệu đều dùng trình soạn thảo section đầy đủ (đã gộp metadata).
             <Button
               variant="outline"
               size="sm"
+              nativeButton={false}
               render={
                 <Link
                   to={`/projects/${projectId}/documents/${document.id}/edit`}
@@ -169,6 +186,7 @@ export default function ProjectDocumentDetailPage() {
           <Button
             variant="outline"
             size="sm"
+            nativeButton={false}
             render={
               <Link
                 to={`/projects/${projectId}/documents/${document.id}/versions`}
@@ -189,7 +207,10 @@ export default function ProjectDocumentDetailPage() {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={!document.hasUnpublishedChanges}
+                disabled={
+                  !document.hasUnpublishedChanges ||
+                  governance?.status !== GovernanceStatus.Approved
+                }
                 onClick={() => setReleaseOpen(true)}
               >
                 <RocketIcon className="size-3.5" />
@@ -209,14 +230,21 @@ export default function ProjectDocumentDetailPage() {
             </Button>
           )}
         </div>
-      </div>
+          </div>
 
-      {deleteError && (
-        <p className="mt-3 text-xs text-destructive">{deleteError}</p>
-      )}
-      {releaseSuccess && (
-        <p className="mt-3 text-xs text-primary">{releaseSuccess}</p>
-      )}
+          {deleteError && (
+            <p className="mt-3 text-xs text-destructive">{deleteError}</p>
+          )}
+          {releaseSuccess && (
+            <p className="mt-3 text-xs text-primary">{releaseSuccess}</p>
+          )}
+        </div>
+        <DocumentGovernancePanel
+          documentId={document.id}
+          canEdit={canEdit}
+          canApprove={canRelease}
+        />
+      </div>
     </>
   );
 
@@ -306,6 +334,11 @@ export default function ProjectDocumentDetailPage() {
         ) : view.kind === "rule" ? (
           <>
             <RuleDocumentView data={view.data} />
+            {notesBlock}
+          </>
+        ) : view.kind === "test" ? (
+          <>
+            <TestDocumentView doc={document} />
             {notesBlock}
           </>
         ) : (

@@ -30,12 +30,16 @@ const TYPE_TABS: { label: string; value: DocumentType | undefined }[] = [
   { label: "User Story", value: DocumentType.UserStory },
   { label: "TDD", value: DocumentType.Tdd },
   { label: "Business Rule", value: DocumentType.BusinessRule },
+  { label: "Unit Test", value: DocumentType.UnitTest },
+  { label: "System Test", value: DocumentType.SystemTest },
 ];
 
 const TYPE_BADGE: Record<DocumentType, "default" | "secondary" | "outline"> = {
   [DocumentType.UserStory]: "default",
   [DocumentType.Tdd]: "secondary",
   [DocumentType.BusinessRule]: "outline",
+  [DocumentType.UnitTest]: "secondary",
+  [DocumentType.SystemTest]: "outline",
 };
 
 const formatDate = (iso: string | null) => {
@@ -75,7 +79,7 @@ export default function ProjectDocumentsPage() {
         <div>
           <h1 className="text-lg font-semibold text-primary">Tài liệu</h1>
           <p className="text-xs text-muted-foreground">
-            User Story, TDD và Business Rule của dự án — lấy từ backend.
+            User Story, TDD, Business Rule và test case của dự án — lấy từ backend.
           </p>
         </div>
         <div className="flex items-center gap-2">

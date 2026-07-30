@@ -19,6 +19,7 @@ import {
 } from "@/features/projects/adapt-document";
 import { NumberSelect } from "@/features/projects/components/number-select";
 import { RelatedDocumentsPanel } from "@/features/projects/components/related-documents-panel";
+import { TestDocumentEditor } from "@/features/projects/components/test-document";
 import {
   DocumentStatusLabel,
   DocumentType,
@@ -139,6 +140,13 @@ export default function ProjectDocumentEditPage() {
         doc={document}
       />
     );
+  }
+
+  if (
+    document.docType === DocumentType.UnitTest ||
+    document.docType === DocumentType.SystemTest
+  ) {
+    return <TestDocumentEditor projectId={projectId} doc={document} />;
   }
 
   return (

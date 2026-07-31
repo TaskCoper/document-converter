@@ -18,17 +18,20 @@ import {
   storyLinkHref,
 } from "@/features/projects/adapt-document";
 import { NumberSelect } from "@/features/projects/components/number-select";
+import {
+  DocumentGovernanceMetadataEditor,
+} from "@/features/projects/components/document-governance-metadata-editor";
 import { RelatedDocumentsPanel } from "@/features/projects/components/related-documents-panel";
 import { TestDocumentEditor } from "@/features/projects/components/test-document";
 import {
-  DocumentStatusLabel,
   DocumentType,
-  LIFECYCLE_OPTIONS,
-  LifecycleStateLabel,
-  STATUS_OPTIONS_BY_TYPE,
+  STORY_WORK_STATE_OPTIONS,
+  StoryWorkState,
+  StoryWorkStateLabel,
 } from "@/features/projects/document-types";
 import { errorDetail } from "@/features/projects/error";
 import { useDocument } from "@/features/projects/hooks/use-document";
+import { useGovernanceMetadataEditor } from "@/features/projects/hooks/use-governance-metadata-editor";
 import { useMyProjectRole } from "@/features/projects/hooks/use-my-role";
 import { canEditDocuments } from "@/features/projects/permissions";
 import {
@@ -45,7 +48,10 @@ import { MetadataSection } from "@/features/user-stories/components/metadata-sec
 import { WafflePreviewPanel } from "@/features/user-stories/components/waffle-preview-panel";
 import { ReferencesSection } from "@/features/user-stories/components/references-section";
 import { StringListSection } from "@/features/user-stories/components/string-list-section";
-import { schema, type Schema } from "@/features/user-stories/validations";
+import {
+  backendSchema,
+  type Schema,
+} from "@/features/user-stories/validations";
 // Tái dùng ĐÚNG các form-section của trang tdd.page — chỉ bỏ 2 bước API nội bộ/bên ngoài và
 // Change Log (backend chưa có endpoint replace cho endpoints/errorCodes/changeLog).
 import { ContextGoalsSection } from "@/features/tdds/components/context-goals-section";
@@ -78,7 +84,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FieldPath } from "react-hook-form";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -158,26 +164,16 @@ export default function ProjectDocumentEditPage() {
   );
 }
 
-// Khối "Thông tin tài liệu" (title/status/lifecycle/notes) dùng chung cho TDD & Rule — các
+// Khối "Thông tin tài liệu" (title/notes) dùng chung cho TDD & Rule — các
 // field này thuộc metadata mức tài liệu (updateMetadata), không nằm trong TddSchema/RuleSchema.
 function DocMetaFields({
-  docType,
   title,
   onTitle,
-  status,
-  onStatus,
-  lifecycle,
-  onLifecycle,
   notes,
   onNotes,
 }: {
-  docType: typeof DocumentType.Tdd | typeof DocumentType.BusinessRule;
   title: string;
   onTitle: (v: string) => void;
-  status: number;
-  onStatus: (v: number) => void;
-  lifecycle: number;
-  onLifecycle: (v: number) => void;
   notes: string;
   onNotes: (v: string) => void;
 }) {
@@ -193,32 +189,6 @@ function DocMetaFields({
             onChange={(e) => onTitle(e.target.value)}
           />
         </Field>
-        <div className="grid grid-cols-2 gap-4">
-          <Field>
-            <FieldLabel htmlFor="doc-status">Trạng thái</FieldLabel>
-            <NumberSelect
-              id="doc-status"
-              value={status}
-              onChange={onStatus}
-              options={STATUS_OPTIONS_BY_TYPE[docType].map((v) => ({
-                value: v,
-                label: DocumentStatusLabel[v] ?? String(v),
-              }))}
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="doc-life">Vòng đời</FieldLabel>
-            <NumberSelect
-              id="doc-life"
-              value={lifecycle}
-              onChange={onLifecycle}
-              options={LIFECYCLE_OPTIONS.map((v) => ({
-                value: v,
-                label: LifecycleStateLabel[v],
-              }))}
-            />
-          </Field>
-        </div>
         <Field>
           <FieldLabel htmlFor="doc-notes">Ghi chú</FieldLabel>
           <Textarea
@@ -242,50 +212,76 @@ function EditorStepper({
   current: number;
   onSelect: (i: number) => void;
 }) {
+  const didMount = useRef(false);
+  const stepButtons = useRef<Array<HTMLButtonElement | null>>([]);
+
+  useEffect(() => {
+    if (!didMount.current) {
+      didMount.current = true;
+      return;
+    }
+    stepButtons.current[current]?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+    });
+  }, [current]);
+
   return (
-    <ol className="flex items-center gap-2">
-      {steps.map((s, i) => {
-        const isActive = i === current;
-        const isDone = i < current;
-        return (
-          <li key={s.title} className="flex-1">
-            <button
-              type="button"
-              onClick={() => onSelect(i)}
-              className={
-                "cursor-pointer w-full flex flex-col items-start gap-1 border-t-2 pt-2 text-left transition-colors " +
-                (isActive
-                  ? "border-primary"
-                  : isDone
-                    ? "border-primary/60"
-                    : "border-border hover:border-foreground/30")
-              }
+    <div className="min-w-0 overflow-x-auto pb-1">
+      <ol
+        aria-label="Các bước chỉnh sửa"
+        className="flex min-w-max items-stretch gap-2 sm:min-w-0"
+      >
+        {steps.map((s, i) => {
+          const isActive = i === current;
+          const isDone = i < current;
+          return (
+            <li
+              key={s.title}
+              className="w-36 shrink-0 sm:w-auto sm:min-w-36 sm:flex-1"
             >
-              <span
+              <button
+                ref={(element) => {
+                  stepButtons.current[i] = element;
+                }}
+                type="button"
+                aria-current={isActive ? "step" : undefined}
+                onClick={() => onSelect(i)}
                 className={
-                  "text-[10px] uppercase tracking-wide " +
+                  "flex w-full cursor-pointer flex-col items-start gap-1 border-t-2 pt-2 text-left transition-colors " +
                   (isActive
-                    ? "text-primary"
+                    ? "border-primary"
                     : isDone
-                      ? "text-primary/70"
-                      : "text-muted-foreground")
+                      ? "border-primary/60"
+                      : "border-border hover:border-foreground/30")
                 }
               >
-                Bước {i + 1}
-              </span>
-              <span
-                className={
-                  "text-xs font-medium " +
-                  (!isActive && !isDone ? "text-muted-foreground" : "")
-                }
-              >
-                {s.title}
-              </span>
-            </button>
-          </li>
-        );
-      })}
-    </ol>
+                <span
+                  className={
+                    "text-[10px] uppercase tracking-wide " +
+                    (isActive
+                      ? "text-primary"
+                      : isDone
+                        ? "text-primary/70"
+                        : "text-muted-foreground")
+                  }
+                >
+                  Bước {i + 1}
+                </span>
+                <span
+                  className={
+                    "text-xs font-medium " +
+                    (!isActive && !isDone ? "text-muted-foreground" : "")
+                  }
+                >
+                  {s.title}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }
 
@@ -336,6 +332,10 @@ function TddEditor({
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const governanceMetadata = useGovernanceMetadataEditor(
+    documentId,
+    projectId,
+  );
 
   // Bề ngang khung xem trước kéo được, và nhớ lại cho lần sau.
   const { setContainer, style: paneStyle, handleProps } = useSplitPane({
@@ -356,8 +356,6 @@ function TddEditor({
   });
 
   const [title, setTitle] = useState(doc.content.title);
-  const [status, setStatus] = useState<number>(doc.status);
-  const [lifecycle, setLifecycle] = useState<number>(doc.lifecycleState);
   const [notes, setNotes] = useState(doc.content.notesMd ?? "");
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -388,10 +386,10 @@ function TddEditor({
     try {
       await saveTdd(doc, getValues(), {
         title: title.trim(),
-        status,
-        lifecycleState: lifecycle,
+        storyWorkState: null,
         notesMd: notes.trim() || null,
       });
+      await governanceMetadata.save();
       queryClient.invalidateQueries({ queryKey: projectKeys.all });
       navigate(backTo);
     } catch (err) {
@@ -405,7 +403,7 @@ function TddEditor({
     <div
       ref={setContainer}
       style={paneStyle}
-      className="mx-auto grid max-w-[110rem] grid-cols-1 gap-x-4 gap-y-8 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_auto_var(--pane-w)]"
+      className="mx-auto grid max-w-[110rem] grid-cols-1 gap-x-2 gap-y-8 px-4 py-4 xl:grid-cols-[minmax(0,1fr)_auto_var(--pane-w)]"
     >
       <div className="flex min-w-0 flex-col gap-6">
         <Link
@@ -430,16 +428,13 @@ function TddEditor({
         />
 
         <DocMetaFields
-          docType={DocumentType.Tdd}
           title={title}
           onTitle={setTitle}
-          status={status}
-          onStatus={setStatus}
-          lifecycle={lifecycle}
-          onLifecycle={setLifecycle}
           notes={notes}
           onNotes={setNotes}
         />
+
+        <DocumentGovernanceMetadataEditor editor={governanceMetadata} />
 
         <EditorStepper steps={TDD_STEPS} current={step} onSelect={setStep} />
 
@@ -592,9 +587,9 @@ function TddEditor({
 
       <SplitHandle {...handleProps} />
 
-      <div className="hidden lg:flex lg:flex-col lg:gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto">
-        <div className="border border-border">
-          <TddLivePreview control={control} status={status} notes={notes} />
+      <div className="hidden xl:flex xl:flex-col xl:gap-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto">
+        <div className="bg-background">
+          <TddLivePreview control={control} notes={notes} />
         </div>
       </div>
     </div>
@@ -642,6 +637,10 @@ function RuleEditor({
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const governanceMetadata = useGovernanceMetadataEditor(
+    documentId,
+    projectId,
+  );
 
   // Bề ngang khung xem trước kéo được, và nhớ lại cho lần sau.
   const { setContainer, style: paneStyle, handleProps } = useSplitPane({
@@ -662,8 +661,6 @@ function RuleEditor({
   });
 
   const [title, setTitle] = useState(doc.content.title);
-  const [status, setStatus] = useState<number>(doc.status);
-  const [lifecycle, setLifecycle] = useState<number>(doc.lifecycleState);
   const [notes, setNotes] = useState(doc.content.notesMd ?? "");
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -694,10 +691,10 @@ function RuleEditor({
     try {
       await saveRule(doc, getValues(), {
         title: title.trim(),
-        status,
-        lifecycleState: lifecycle,
+        storyWorkState: null,
         notesMd: notes.trim() || null,
       });
+      await governanceMetadata.save();
       queryClient.invalidateQueries({ queryKey: projectKeys.all });
       navigate(backTo);
     } catch (err) {
@@ -711,7 +708,7 @@ function RuleEditor({
     <div
       ref={setContainer}
       style={paneStyle}
-      className="mx-auto grid max-w-[110rem] grid-cols-1 gap-x-4 gap-y-8 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_auto_var(--pane-w)]"
+      className="mx-auto grid max-w-[110rem] grid-cols-1 gap-x-2 gap-y-8 px-4 py-4 xl:grid-cols-[minmax(0,1fr)_auto_var(--pane-w)]"
     >
       <div className="flex min-w-0 flex-col gap-6">
         <Link
@@ -736,16 +733,13 @@ function RuleEditor({
         />
 
         <DocMetaFields
-          docType={DocumentType.BusinessRule}
           title={title}
           onTitle={setTitle}
-          status={status}
-          onStatus={setStatus}
-          lifecycle={lifecycle}
-          onLifecycle={setLifecycle}
           notes={notes}
           onNotes={setNotes}
         />
+
+        <DocumentGovernanceMetadataEditor editor={governanceMetadata} />
 
         <EditorStepper steps={RULE_STEPS} current={step} onSelect={setStep} />
 
@@ -815,16 +809,50 @@ function RuleEditor({
 
       <SplitHandle {...handleProps} />
 
-      <div className="hidden lg:flex lg:flex-col lg:gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto">
-        <div className="border border-border">
-          <RuleLivePreview control={control} status={status} notes={notes} />
+      <div className="hidden xl:flex xl:flex-col xl:gap-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto">
+        <div className="bg-background">
+          <RuleLivePreview control={control} notes={notes} />
         </div>
       </div>
     </div>
   );
 }
 
-// ── User Story (giữ nguyên) ─────────────────────────────────────────────────────────
+// ── User Story ──────────────────────────────────────────────────────────────────────
+const USER_STORY_STEPS: {
+  title: string;
+  description: string;
+  fields: FieldPath<Schema>[];
+}[] = [
+  {
+    title: "Thông tin Story",
+    description: "Nội dung, sprint, độ ưu tiên và người phụ trách",
+    fields: ["metadata"],
+  },
+  {
+    title: "Điều kiện & Luồng",
+    description: "Điều kiện tiên quyết, kích hoạt và các luồng xử lý",
+    fields: ["conditions", "flow"],
+  },
+  {
+    title: "Tiêu chí chấp nhận",
+    description: "Các kịch bản Given, When, Then và And",
+    fields: ["acceptanceCriteria"],
+  },
+  {
+    title: "Tham chiếu & Phạm vi",
+    description:
+      "Tài liệu liên quan, yêu cầu phi chức năng, phạm vi và các điểm cần chốt",
+    fields: [
+      "references",
+      "nonFunctional",
+      "outOfScope",
+      "assumptions",
+      "openQuestions",
+    ],
+  },
+];
+
 function UserStoryEditor({
   projectId,
   documentId,
@@ -836,6 +864,10 @@ function UserStoryEditor({
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const governanceMetadata = useGovernanceMetadataEditor(
+    documentId,
+    projectId,
+  );
 
   // Bề ngang khung xem trước kéo được, và nhớ lại cho lần sau.
   const { setContainer, style: paneStyle, handleProps } = useSplitPane({
@@ -848,9 +880,11 @@ function UserStoryEditor({
     register,
     control,
     formState: { errors },
+    trigger,
     getValues,
+    setValue,
   } = useForm<Schema>({
-    resolver: standardSchemaResolver(schema),
+    resolver: standardSchemaResolver(backendSchema),
     defaultValues: adaptUserStoryForm(doc),
   });
 
@@ -859,16 +893,33 @@ function UserStoryEditor({
 
   // Metadata mức tài liệu — gộp "Sửa thông tin" vào ngay đây.
   const [title, setTitle] = useState(doc.content.title);
-  const [status, setStatus] = useState<number>(doc.status);
-  const [lifecycle, setLifecycle] = useState<number>(doc.lifecycleState);
+  const [status, setStatus] = useState<StoryWorkState>(
+    doc.storyWorkState ?? StoryWorkState.Todo,
+  );
   const [notes, setNotes] = useState(doc.content.notesMd ?? "");
 
+  const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const isFirst = step === 0;
+  const isLast = step === USER_STORY_STEPS.length - 1;
+  const current = USER_STORY_STEPS[step];
+
+  const goNext = async () => {
+    const ok = await trigger(current.fields);
+    if (ok) setStep((value) => value + 1);
+  };
+  const goBack = () => setStep((value) => Math.max(0, value - 1));
 
   const onSave = async () => {
     if (!title.trim()) {
       setSaveError("Vui lòng nhập tiêu đề tài liệu.");
+      return;
+    }
+    const valid = await trigger();
+    if (!valid) {
+      setSaveError("Còn trường chưa hợp lệ — kiểm tra lại các bước.");
       return;
     }
     setSaving(true);
@@ -876,10 +927,10 @@ function UserStoryEditor({
     try {
       await saveUserStory(doc, getValues(), {
         title: title.trim(),
-        status,
-        lifecycleState: lifecycle,
+        storyWorkState: status,
         notesMd: notes.trim() || null,
       });
+      await governanceMetadata.save();
       // Refresh chi tiết + preview + danh sách.
       queryClient.invalidateQueries({ queryKey: projectKeys.all });
       navigate(backTo);
@@ -894,7 +945,7 @@ function UserStoryEditor({
     <div
       ref={setContainer}
       style={paneStyle}
-      className="mx-auto grid max-w-[110rem] grid-cols-1 gap-x-4 gap-y-8 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_auto_var(--pane-w)]"
+      className="mx-auto grid max-w-[110rem] grid-cols-1 gap-x-2 gap-y-8 px-4 py-4 xl:grid-cols-[minmax(0,1fr)_auto_var(--pane-w)]"
     >
       <div className="flex min-w-0 flex-col gap-6">
         <div className="flex items-center justify-between gap-4">
@@ -918,127 +969,152 @@ function UserStoryEditor({
           outgoingLinks={doc.resolvedLinks}
         />
 
+        {/* Thông tin tài liệu (gộp từ "Sửa thông tin") */}
+        <FieldSet>
+          <FieldLegend>Thông tin tài liệu</FieldLegend>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="doc-title">Tiêu đề</FieldLabel>
+              <Input
+                id="doc-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </Field>
+            <div className="grid gap-4">
+              <Field>
+                <FieldLabel htmlFor="doc-status">
+                  Tiến độ User Story
+                </FieldLabel>
+                <NumberSelect
+                  id="doc-status"
+                  value={status}
+                  onChange={(value) =>
+                    setStatus(value as StoryWorkState)
+                  }
+                  options={STORY_WORK_STATE_OPTIONS.map((v) => ({
+                    value: v,
+                    label: StoryWorkStateLabel[v],
+                  }))}
+                />
+              </Field>
+            </div>
+            <Field>
+              <FieldLabel htmlFor="doc-notes">Ghi chú</FieldLabel>
+              <Textarea
+                id="doc-notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+              />
+            </Field>
+          </FieldGroup>
+        </FieldSet>
+
+        <DocumentGovernanceMetadataEditor editor={governanceMetadata} />
+
+        <EditorStepper
+          steps={USER_STORY_STEPS}
+          current={step}
+          onSelect={setStep}
+        />
+
+        <div className="-space-y-0.5">
+          <h3 className="text-sm font-semibold text-primary">
+            Bước {step + 1}. {current.title}
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            {current.description}
+          </p>
+        </div>
+
         <form className="flex flex-col gap-8">
           <div className="flex flex-col gap-8">
-            {/* Thông tin tài liệu (gộp từ "Sửa thông tin") */}
-            <FieldSet>
-              <FieldLegend>Thông tin tài liệu</FieldLegend>
-              <FieldGroup>
-                <Field>
-                  <FieldLabel htmlFor="doc-title">Tiêu đề</FieldLabel>
-                  <Input
-                    id="doc-title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                  />
-                </Field>
-                <div className="grid grid-cols-2 gap-4">
-                  <Field>
-                    <FieldLabel htmlFor="doc-status">Trạng thái</FieldLabel>
-                    <NumberSelect
-                      id="doc-status"
-                      value={status}
-                      onChange={setStatus}
-                      options={STATUS_OPTIONS_BY_TYPE[
-                        DocumentType.UserStory
-                      ].map((v) => ({
-                        value: v,
-                        label: DocumentStatusLabel[v] ?? String(v),
-                      }))}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="doc-life">Vòng đời</FieldLabel>
-                    <NumberSelect
-                      id="doc-life"
-                      value={lifecycle}
-                      onChange={setLifecycle}
-                      options={LIFECYCLE_OPTIONS.map((v) => ({
-                        value: v,
-                        label: LifecycleStateLabel[v],
-                      }))}
-                    />
-                  </Field>
-                </div>
-                <Field>
-                  <FieldLabel htmlFor="doc-notes">Ghi chú</FieldLabel>
-                  <Textarea
-                    id="doc-notes"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={2}
-                  />
-                </Field>
-              </FieldGroup>
-            </FieldSet>
-
             {/* backend: nguồn là DB chứ không phải Markdown, nên các section hiện thêm ô
                 nhập cho những field chỉ DB mới giữ được (tiêu đề luồng, loại liên kết, ghi
                 chú liên kết) và ẩn ô trạng thái trùng với khối phía trên. */}
-            <MetadataSection
-              register={register}
-              control={control}
-              errors={errors}
-              backend
-            />
-            <ConditionsSection
-              register={register}
-              control={control}
-              errors={errors}
-              backend
-            />
-            <FlowSection
-              register={register}
-              control={control}
-              errors={errors}
-              backend
-            />
-            <AcceptanceCriteriaSection
-              register={register}
-              control={control}
-              errors={errors}
-              backend
-            />
-            {/* KHÔNG có trình sửa sơ đồ ở đây: sơ đồ thuộc về TDD. Bảng document_diagrams
-                dùng chung cho mọi loại tài liệu và dữ liệu mẫu có gắn sơ đồ vào cả User
-                Story, nên adaptUserStoryForm vẫn nạp `diagrams` và saveUserStory vẫn gửi lại
-                y nguyên — bỏ hẳn khỏi form thì lần lưu kế tiếp sẽ xoá sạch chúng. */}
-            <ReferencesSection
-              control={control}
-              register={register}
-              projectId={projectId}
-              backend
-            />
-            <StringListSection
-              legend="Yêu cầu phi chức năng"
-              description="Danh sách các yêu cầu phi chức năng"
-              name="nonFunctional"
-              control={control}
-              register={register}
-            />
-            <StringListSection
-              legend="Ngoài phạm vi"
-              description="Các mục nằm ngoài phạm vi công việc"
-              name="outOfScope"
-              control={control}
-              register={register}
-            />
-            {/* Hai mục dưới chỉ có ở DB (document_list_items 90/91) — Markdown của US không
-                có chỗ chứa, nên trang sửa cũ không hề đụng tới chúng. */}
-            <StringListSection
-              legend="Giả định"
-              description="Những điều đang mặc định là đúng khi viết story này"
-              name="assumptions"
-              control={control}
-              register={register}
-            />
-            <StringListSection
-              legend="Câu hỏi mở"
-              description="Những điểm còn phải chốt lại"
-              name="openQuestions"
-              control={control}
-              register={register}
-            />
+            {step === 0 && (
+              <MetadataSection
+                register={register}
+                control={control}
+                errors={errors}
+                setValue={setValue}
+                projectId={projectId}
+                backend
+              />
+            )}
+
+            {step === 1 && (
+              <>
+                <ConditionsSection
+                  register={register}
+                  control={control}
+                  errors={errors}
+                  backend
+                />
+                <FlowSection
+                  register={register}
+                  control={control}
+                  errors={errors}
+                  backend
+                />
+              </>
+            )}
+
+            {step === 2 && (
+              <AcceptanceCriteriaSection
+                register={register}
+                control={control}
+                errors={errors}
+                backend
+              />
+            )}
+
+            {step === 3 && (
+              <>
+                {/* KHÔNG có trình sửa sơ đồ ở đây: sơ đồ thuộc về TDD. Bảng
+                    document_diagrams dùng chung cho mọi loại tài liệu và dữ liệu mẫu có
+                    gắn sơ đồ vào cả User Story, nên adaptUserStoryForm vẫn nạp `diagrams`
+                    và saveUserStory vẫn gửi lại y nguyên — bỏ hẳn khỏi form thì lần lưu kế
+                    tiếp sẽ xoá sạch chúng. */}
+                <ReferencesSection
+                  control={control}
+                  register={register}
+                  projectId={projectId}
+                  backend
+                />
+                <StringListSection
+                  legend="Yêu cầu phi chức năng"
+                  description="Danh sách các yêu cầu phi chức năng"
+                  name="nonFunctional"
+                  control={control}
+                  register={register}
+                />
+                <StringListSection
+                  legend="Ngoài phạm vi"
+                  description="Các mục nằm ngoài phạm vi công việc"
+                  name="outOfScope"
+                  control={control}
+                  register={register}
+                />
+                {/* Hai mục dưới chỉ có ở DB (document_list_items 90/91) — Markdown của US
+                    không có chỗ chứa, nên trang sửa cũ không hề đụng tới chúng. */}
+                <StringListSection
+                  legend="Giả định"
+                  description="Những điều đang mặc định là đúng khi viết story này"
+                  name="assumptions"
+                  control={control}
+                  register={register}
+                />
+                <StringListSection
+                  legend="Câu hỏi mở"
+                  description="Những điểm còn phải chốt lại"
+                  name="openQuestions"
+                  control={control}
+                  register={register}
+                />
+              </>
+            )}
           </div>
 
           <div className="flex items-center gap-2 border-t border-border pt-2">
@@ -1046,10 +1122,26 @@ function UserStoryEditor({
               Huỷ
             </Button>
             <div className="flex-1" />
-            <Button type="button" onClick={onSave} disabled={saving}>
-              {saving ? <Spinner /> : <CheckIcon />}
-              Lưu
+            <Button
+              type="button"
+              variant="outline"
+              onClick={goBack}
+              disabled={isFirst}
+            >
+              <ChevronLeftIcon />
+              Quay lại
             </Button>
+            {isLast ? (
+              <Button type="button" onClick={onSave} disabled={saving}>
+                {saving ? <Spinner /> : <CheckIcon />}
+                Lưu
+              </Button>
+            ) : (
+              <Button type="button" onClick={goNext}>
+                Tiếp theo
+                <ChevronRightIcon />
+              </Button>
+            )}
           </div>
 
           {saveError && <p className="text-xs text-destructive">{saveError}</p>}
@@ -1058,14 +1150,14 @@ function UserStoryEditor({
 
       <SplitHandle {...handleProps} />
 
-      <div className="hidden lg:flex lg:flex-col lg:gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto">
-        <div className="min-h-0 flex-1 border border-border">
+      <div className="hidden xl:flex xl:flex-col xl:gap-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto">
+        <div className="min-h-0 flex-1 bg-background">
           {/* Dùng CHÍNH bảng waffle của trang chi tiết, không phải một bộ render riêng — thứ
               nhìn thấy lúc sửa phải là thứ sẽ thấy sau khi lưu. Trạng thái lấy từ ô chọn bên
               trái, không phải từ form US. */}
           <WafflePreviewPanel
             control={control}
-            statusLabel={DocumentStatusLabel[status] ?? String(status)}
+            statusLabel={StoryWorkStateLabel[status]}
             linkHref={previewLinkHref}
           />
         </div>

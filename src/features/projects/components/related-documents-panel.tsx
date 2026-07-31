@@ -80,7 +80,7 @@ export function RelatedDocumentsPanel({
   ];
 
   return (
-    <div className="flex flex-col gap-4 border border-border bg-background p-4">
+    <section className="flex flex-col gap-3 bg-muted/20 p-3">
       <div className="flex items-center gap-2">
         <h3 className="text-xs font-semibold text-primary">
           Tài liệu liên quan
@@ -105,6 +105,6 @@ export function RelatedDocumentsPanel({
           satellites={satellites}
         />
       )}
-    </div>
+    </section>
   );
 }

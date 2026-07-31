@@ -1,20 +1,21 @@
 import {
   BusinessRulesTable,
-  StoryHtmlFrame,
   StoryPreviewLayout,
   TddPreviewPanel,
   type RuleRef,
 } from "@/components/story-document-view";
-import { buttonVariants } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { StoryDocumentTable } from "@/features/user-stories/components/story-document-table";
+import type { StoryDocumentData } from "@/features/user-stories/document-view-model";
 import { PROJECT_STALE, projectKeys } from "@/lib/query-keys";
 import { useQueries } from "@tanstack/react-query";
 import { Columns2, FlaskConical, MonitorCheck, Rows2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { adaptRule, adaptTdd } from "../adapt-document";
+import { adaptRule, adaptTdd, storyLinkHref } from "../adapt-document";
 import documentService from "../document-services";
 import {
+  ApprovalStateLabel,
   DocumentLinkType,
   DocumentType,
   type DocumentDetail,
@@ -47,13 +48,6 @@ const TEST_SUITE_LABELS: Record<number, string> = {
   1: "SMOKE",
   2: "REGRESSION",
   3: "FULL",
-};
-
-const TEST_STATUS_LABELS: Record<number, string> = {
-  40: "Draft",
-  41: "Approved",
-  50: "Draft",
-  51: "Approved",
 };
 
 // Liên kết đã nối được với tài liệu thật — chỉ những cái này mới mở/hiển thị nội dung được.
@@ -93,11 +87,11 @@ const incomingTestsOfType = (
 export function StorySplitView({
   projectId,
   doc,
-  storyHtml,
+  storyData,
 }: {
   projectId: string;
   doc: DocumentDetail;
-  storyHtml: string;
+  storyData: StoryDocumentData;
 }) {
   const tddDocs = linkedOfKind(doc.resolvedLinks, REF.Tdd);
   const ruleDocs = linkedOfKind(doc.resolvedLinks, REF.BusinessRule);
@@ -126,11 +120,18 @@ export function StorySplitView({
   const showUnitTests = activeTestView === "unit";
   const showSystemTests = activeTestView === "system";
 
-  const story = <StoryHtmlFrame html={storyHtml} />;
+  const linkHref = useMemo(() => storyLinkHref(doc), [doc]);
+  const story = (
+    <StoryDocumentTable data={storyData} linkHref={linkHref} />
+  );
 
   return (
     <div className="flex h-full flex-col gap-2">
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
+      <div
+        role="group"
+        aria-label="Tài liệu liên quan"
+        className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border"
+      >
         {canTdds && (
           <button
             type="button"
@@ -143,16 +144,11 @@ export function StorySplitView({
               }
               setTddsOpen((value) => !value);
             }}
-            className={buttonVariants({
-              variant:
-                activeTestView === null && tddsOpen ? "default" : "outline",
-              size: "sm",
-            })}
+            className={viewTabClass(activeTestView === null && tddsOpen)}
           >
             <Columns2 className="size-3.5" />
-            {activeTestView === null && tddsOpen
-              ? "Ẩn TDDs"
-              : `Xem TDDs (${tddDocs.length})`}
+            TDDs
+            <TabCount>{tddDocs.length}</TabCount>
           </button>
         )}
         {canRules && (
@@ -167,16 +163,11 @@ export function StorySplitView({
               }
               setRulesOpen((value) => !value);
             }}
-            className={buttonVariants({
-              variant:
-                activeTestView === null && rulesOpen ? "default" : "outline",
-              size: "sm",
-            })}
+            className={viewTabClass(activeTestView === null && rulesOpen)}
           >
             <Rows2 className="size-3.5" />
-            {activeTestView === null && rulesOpen
-              ? "Ẩn Rules"
-              : `Xem Rules (${ruleDocs.length})`}
+            Rules
+            <TabCount>{ruleDocs.length}</TabCount>
           </button>
         )}
         {testsLoading ? (
@@ -191,38 +182,26 @@ export function StorySplitView({
               disabled={unitTestDocs.length === 0}
               aria-pressed={showUnitTests}
               onClick={() =>
-                setActiveTestView((current) =>
-                  current === "unit" ? null : "unit",
-                )
+                setActiveTestView(showUnitTests ? null : "unit")
               }
-              className={buttonVariants({
-                variant: showUnitTests ? "default" : "outline",
-                size: "sm",
-              })}
+              className={viewTabClass(showUnitTests)}
             >
               <FlaskConical className="size-3.5" />
-              {showUnitTests
-                ? "Ẩn Unit Tests"
-                : `Xem Unit Tests (${unitTestDocs.length})`}
+              Unit Tests
+              <TabCount>{unitTestDocs.length}</TabCount>
             </button>
             <button
               type="button"
               disabled={systemTestDocs.length === 0}
               aria-pressed={showSystemTests}
               onClick={() =>
-                setActiveTestView((current) =>
-                  current === "system" ? null : "system",
-                )
+                setActiveTestView(showSystemTests ? null : "system")
               }
-              className={buttonVariants({
-                variant: showSystemTests ? "default" : "outline",
-                size: "sm",
-              })}
+              className={viewTabClass(showSystemTests)}
             >
               <MonitorCheck className="size-3.5" />
-              {showSystemTests
-                ? "Ẩn System Tests"
-                : `Xem System Tests (${systemTestDocs.length})`}
+              System Tests
+              <TabCount>{systemTestDocs.length}</TabCount>
             </button>
           </>
         )}
@@ -262,6 +241,24 @@ export function StorySplitView({
         )}
       </div>
     </div>
+  );
+}
+
+function viewTabClass(active: boolean) {
+  return [
+    "inline-flex h-9 items-center gap-2 border-b-2 px-3 text-xs font-medium transition-colors",
+    "disabled:pointer-events-none disabled:opacity-40",
+    active
+      ? "border-primary bg-primary/10 text-primary"
+      : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+  ].join(" ");
+}
+
+function TabCount({ children }: { children: number }) {
+  return (
+    <span className="rounded-full bg-foreground/5 px-1.5 py-0.5 font-mono text-[9px]">
+      {children}
+    </span>
   );
 }
 
@@ -381,7 +378,9 @@ function UnitTestsTable({
             </TestTableCell>
             <TestTableCell>{document.content.testOwnerName}</TestTableCell>
             <TestTableCell>
-              {labelOf(TEST_STATUS_LABELS, document.status)}
+              {document.isArchived
+                ? "Lưu trữ"
+                : ApprovalStateLabel[document.approvalState]}
             </TestTableCell>
           </tr>
         ))}
@@ -466,7 +465,9 @@ function SystemTestsTable({
             </TestTableCell>
             <TestTableCell>{document.content.testOwnerName}</TestTableCell>
             <TestTableCell>
-              {labelOf(TEST_STATUS_LABELS, document.status)}
+              {document.isArchived
+                ? "Lưu trữ"
+                : ApprovalStateLabel[document.approvalState]}
             </TestTableCell>
           </tr>
         ))}

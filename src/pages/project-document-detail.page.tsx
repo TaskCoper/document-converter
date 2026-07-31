@@ -12,11 +12,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
-  DocumentStatusLabel,
+  ApprovalState,
   DocumentTypeLabel,
-  GovernanceStatus,
-  GovernanceStatusLabel,
-  LifecycleStateLabel,
+  StoryWorkStateLabel,
 } from "@/features/projects/document-types";
 import { errorDetail } from "@/features/projects/error";
 import {
@@ -100,6 +98,11 @@ export default function ProjectDocumentDetailPage() {
   const canEdit = !!myRole && canEditDocuments(myRole);
   const canDelete = !!myRole && canDeleteDocuments(myRole);
   const canRelease = !!myRole && canReleaseDocuments(myRole);
+  const canEditCurrentContent =
+    canEdit &&
+    governance !== undefined &&
+    governance.status !== ApprovalState.Approved &&
+    !governance.isArchived;
 
   const confirmDelete = () => {
     setDeleteError(null);
@@ -125,11 +128,8 @@ export default function ProjectDocumentDetailPage() {
         Danh sách tài liệu
       </Link>
 
-      {/* Header */}
-      <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="mt-3 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="min-w-0">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-xs text-muted-foreground">
               {document.docKey}
@@ -137,18 +137,9 @@ export default function ProjectDocumentDetailPage() {
             <Badge variant="default" className="text-[10px]">
               {DocumentTypeLabel[document.docType]}
             </Badge>
-            <Badge variant="secondary" className="text-[10px]">
-              {DocumentStatusLabel[document.status] ?? document.status}
-            </Badge>
-            <Badge variant="outline" className="text-[10px]">
-              {LifecycleStateLabel[document.lifecycleState]}
-            </Badge>
-            {governance && (
-              <Badge
-                variant="outline"
-                className="border-orange-300 bg-orange-50 text-[10px] text-orange-800"
-              >
-                {GovernanceStatusLabel[governance.status]}
+            {document.storyWorkState && (
+              <Badge variant="secondary" className="text-[10px]">
+                {StoryWorkStateLabel[document.storyWorkState]}
               </Badge>
             )}
             {document.hasUnpublishedChanges && (
@@ -162,12 +153,11 @@ export default function ProjectDocumentDetailPage() {
           </h1>
           <p className="mt-0.5 text-[10px] text-muted-foreground">
             Phiên bản {governance?.version ?? `v${document.currentVersionNumber}`}
-            {document.content.ownerName && ` · ${document.content.ownerName}`}
           </p>
         </div>
 
-        <div className="flex w-full flex-wrap justify-start gap-2 sm:w-auto sm:shrink-0 sm:justify-end">
-          {canEdit && (
+        <div className="flex w-full flex-wrap justify-start gap-2 xl:w-auto xl:shrink-0 xl:justify-end">
+          {canEditCurrentContent && (
             // Mọi loại tài liệu đều dùng trình soạn thảo section đầy đủ (đã gộp metadata).
             <Button
               variant="outline"
@@ -209,7 +199,8 @@ export default function ProjectDocumentDetailPage() {
                 size="sm"
                 disabled={
                   !document.hasUnpublishedChanges ||
-                  governance?.status !== GovernanceStatus.Approved
+                  document.isArchived ||
+                  governance?.status !== ApprovalState.Approved
                 }
                 onClick={() => setReleaseOpen(true)}
               >
@@ -230,21 +221,14 @@ export default function ProjectDocumentDetailPage() {
             </Button>
           )}
         </div>
-          </div>
-
-          {deleteError && (
-            <p className="mt-3 text-xs text-destructive">{deleteError}</p>
-          )}
-          {releaseSuccess && (
-            <p className="mt-3 text-xs text-primary">{releaseSuccess}</p>
-          )}
-        </div>
-        <DocumentGovernancePanel
-          documentId={document.id}
-          canEdit={canEdit}
-          canApprove={canRelease}
-        />
       </div>
+
+      {deleteError && (
+        <p className="mt-3 text-xs text-destructive">{deleteError}</p>
+      )}
+      {releaseSuccess && (
+        <p className="mt-3 text-xs text-primary">{releaseSuccess}</p>
+      )}
     </>
   );
 
@@ -294,14 +278,26 @@ export default function ProjectDocumentDetailPage() {
   if (view.kind === "story") {
     return (
       <div className="flex h-full flex-col overflow-hidden">
-        <div className="shrink-0 border-b border-border px-6 pb-3 pt-4">
+        <div className="shrink-0 border-b border-border px-4 py-3">
           {header}
+          <div className="mt-3">
+            <DocumentGovernancePanel
+              documentId={document.id}
+              canEdit={canEdit}
+              canApprove={canRelease}
+              onRevisionStarted={() =>
+                navigate(
+                  `/projects/${projectId}/documents/${document.id}/edit`,
+                )
+              }
+            />
+          </div>
         </div>
-        <div className="min-h-0 flex-1 p-4">
+        <div className="min-h-0 flex-1 p-3">
           <StorySplitView
             projectId={projectId}
             doc={document}
-            storyHtml={view.html}
+            storyData={view.data}
           />
         </div>
         {dialogs}
@@ -321,11 +317,20 @@ export default function ProjectDocumentDetailPage() {
     </div>
   ) : null;
 
-  // TDD/Rule: bố cục canh giữa như cũ.
   return (
-    <div className="mx-auto max-w-5xl p-6">
+    <div className="mx-auto max-w-[1440px] p-6">
       {header}
-      <div className="mt-6">
+      <div className="mt-5">
+        <DocumentGovernancePanel
+          documentId={document.id}
+          canEdit={canEdit}
+          canApprove={canRelease}
+          onRevisionStarted={() =>
+            navigate(`/projects/${projectId}/documents/${document.id}/edit`)
+          }
+        />
+      </div>
+      <div className="mt-6 min-w-0">
         {view.kind === "tdd" ? (
           <>
             <TddDocumentView data={view.data} />

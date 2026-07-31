@@ -27,35 +27,33 @@ export const DocumentSort = {
 } as const;
 export type DocumentSort = (typeof DocumentSort)[keyof typeof DocumentSort];
 
-export const LifecycleState = {
-  Draft: 1,
-  InReview: 2,
-  Released: 3,
-  Archived: 4,
-} as const;
-export type LifecycleState = (typeof LifecycleState)[keyof typeof LifecycleState];
-
-export const LifecycleStateLabel: Record<LifecycleState, string> = {
-  [LifecycleState.Draft]: "Nháp",
-  [LifecycleState.InReview]: "Đang duyệt",
-  [LifecycleState.Released]: "Đã phát hành",
-  [LifecycleState.Archived]: "Lưu trữ",
-};
-
-export const GovernanceStatus = {
+export const ApprovalState = {
   Draft: 1,
   InReview: 2,
   Approved: 3,
-  Deprecated: 4,
 } as const;
-export type GovernanceStatus =
-  (typeof GovernanceStatus)[keyof typeof GovernanceStatus];
+export type ApprovalState = (typeof ApprovalState)[keyof typeof ApprovalState];
 
-export const GovernanceStatusLabel: Record<GovernanceStatus, string> = {
-  [GovernanceStatus.Draft]: "Draft",
-  [GovernanceStatus.InReview]: "In Review",
-  [GovernanceStatus.Approved]: "Approved",
-  [GovernanceStatus.Deprecated]: "Deprecated",
+export const ApprovalStateLabel: Record<ApprovalState, string> = {
+  [ApprovalState.Draft]: "Nháp",
+  [ApprovalState.InReview]: "Đang duyệt",
+  [ApprovalState.Approved]: "Đã duyệt",
+};
+
+export const StoryWorkState = {
+  Todo: 1,
+  InProgress: 2,
+  Blocked: 3,
+  Done: 4,
+} as const;
+export type StoryWorkState =
+  (typeof StoryWorkState)[keyof typeof StoryWorkState];
+
+export const StoryWorkStateLabel: Record<StoryWorkState, string> = {
+  [StoryWorkState.Todo]: "Cần làm",
+  [StoryWorkState.InProgress]: "Đang làm",
+  [StoryWorkState.Blocked]: "Bị chặn",
+  [StoryWorkState.Done]: "Xong",
 };
 
 export interface GovernanceParticipant {
@@ -69,15 +67,18 @@ export interface DocumentGovernance {
   title: string;
   version: string;
   lastUpdated: string;
-  status: GovernanceStatus;
+  status: ApprovalState;
+  isArchived: boolean;
+  archivedAt: string | null;
+  approvalId: string | null;
   author: GovernanceParticipant;
   reviewer: GovernanceParticipant;
   approver: GovernanceParticipant;
   owner: GovernanceParticipant;
-  allowedTransitions: GovernanceStatus[];
+  allowedTransitions: ApprovalState[];
 }
 
-// Trạng thái nghiệp vụ theo từng loại (dải 10 giá trị mỗi loại).
+// Chỉ còn dùng để hiển thị payload/version Markdown cũ.
 export const DocumentStatusLabel: Record<number, string> = {
   10: "Cần làm",
   11: "Đang làm",
@@ -111,14 +112,12 @@ export const StoryPriorityLabel: Record<StoryPriority, string> = {
   [StoryPriority.Wont]: "Won't",
 };
 
-// Các trạng thái nghiệp vụ hợp lệ theo từng loại (DB có CHECK ràng buộc dải).
-export const STATUS_OPTIONS_BY_TYPE: Record<DocumentType, number[]> = {
-  [DocumentType.UserStory]: [10, 11, 12, 13],
-  [DocumentType.Tdd]: [20, 21, 22, 23],
-  [DocumentType.BusinessRule]: [30, 31, 32],
-  [DocumentType.UnitTest]: [40, 41],
-  [DocumentType.SystemTest]: [50, 51],
-};
+export const STORY_WORK_STATE_OPTIONS: StoryWorkState[] = [
+  StoryWorkState.Todo,
+  StoryWorkState.InProgress,
+  StoryWorkState.Blocked,
+  StoryWorkState.Done,
+];
 
 export const UnitTestType = {
   Happy: 1,
@@ -209,13 +208,6 @@ export const ReferenceKind = {
 } as const;
 export type ReferenceKind =
   (typeof ReferenceKind)[keyof typeof ReferenceKind];
-
-export const LIFECYCLE_OPTIONS: LifecycleState[] = [
-  LifecycleState.Draft,
-  LifecycleState.InReview,
-  LifecycleState.Released,
-  LifecycleState.Archived,
-];
 
 export const PRIORITY_OPTIONS: StoryPriority[] = [
   StoryPriority.Must,
@@ -426,8 +418,10 @@ export interface DocumentDetail {
   projectId: string;
   docKey: string;
   docType: DocumentType;
-  lifecycleState: LifecycleState;
-  status: number;
+  approvalState: ApprovalState;
+  storyWorkState: StoryWorkState | null;
+  isArchived: boolean;
+  archivedAt: string | null;
   ownerId: string | null;
   currentVersionNumber: number;
   hasUnpublishedChanges: boolean;
@@ -485,7 +479,8 @@ export interface IncomingLink {
   sourceDocKey: string;
   sourceDocType: DocumentType;
   sourceTitle: string;
-  sourceLifecycleState: LifecycleState;
+  sourceApprovalState: ApprovalState;
+  sourceIsArchived: boolean;
   linkType: DocumentLinkType;
   note: string | null;
 }
@@ -495,7 +490,8 @@ export interface ImpactedDocument {
   docKey: string;
   docType: DocumentType;
   title: string;
-  lifecycleState: LifecycleState;
+  approvalState: ApprovalState;
+  isArchived: boolean;
   // 1 = trỏ thẳng tới tài liệu gốc, càng lớn càng gián tiếp.
   depth: number;
   viaLinkType: DocumentLinkType;
@@ -519,7 +515,8 @@ export interface GraphNode {
   docKey: string;
   docType: DocumentType;
   title: string;
-  lifecycleState: LifecycleState;
+  approvalState: ApprovalState;
+  isArchived: boolean;
   incomingCount: number;
   outgoingCount: number;
 }
@@ -610,7 +607,8 @@ export interface SearchHit {
   docType: DocumentType;
   title: string;
   summary: string | null;
-  lifecycleState: LifecycleState;
+  approvalState: ApprovalState;
+  isArchived: boolean;
   score: number;
   matchedSection: string | null;
   // Đoạn trích quanh từ khoá, từ khớp được bọc trong **...**.
@@ -634,8 +632,10 @@ export interface DocumentListRow {
   docType: DocumentType;
   title: string;
   summary: string | null;
-  lifecycleState: LifecycleState;
-  status: number;
+  approvalState: ApprovalState;
+  storyWorkState: StoryWorkState | null;
+  isArchived: boolean;
+  archivedAt: string | null;
   sprint: number | null;
   priority: StoryPriority | null;
   category: string | null;
@@ -645,6 +645,23 @@ export interface DocumentListRow {
   ownerName: string | null;
   createdAt: string;
   updatedAt: string | null;
+}
+
+// Một tài liệu đang chờ người dùng hiện tại phản biện hoặc phê duyệt.
+export interface ReviewQueueRow {
+  id: string;
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  docKey: string;
+  docType: DocumentType;
+  title: string;
+  summary: string | null;
+  version: string;
+  submittedAt: string | null;
+  updatedAt: string | null;
+  isReviewer: boolean;
+  isApprover: boolean;
 }
 
 // Lịch sử version & Release — xem ReleaseController/ReleaseService ở backend. "status" giữ

@@ -25,12 +25,8 @@ import { Link, useNavigate } from "react-router-dom";
 import documentService from "../document-services";
 import {
   DocumentLinkType,
-  DocumentStatusLabel,
   DocumentType,
-  LifecycleStateLabel,
-  LIFECYCLE_OPTIONS,
   ReferenceKind,
-  STATUS_OPTIONS_BY_TYPE,
   SYSTEM_TEST_TYPE_OPTIONS,
   TEST_PRIORITY_OPTIONS,
   TEST_SUITE_OPTIONS,
@@ -45,6 +41,10 @@ import {
   type DocumentDetail,
 } from "../document-types";
 import { NumberSelect } from "./number-select";
+import {
+  DocumentGovernanceMetadataEditor,
+} from "./document-governance-metadata-editor";
+import { useGovernanceMetadataEditor } from "../hooks/use-governance-metadata-editor";
 
 const SYSTEM_TEST_STEP = 20;
 
@@ -73,10 +73,9 @@ export function TestDocumentEditor({
   const c = doc.content;
   const isUnit = doc.docType === DocumentType.UnitTest;
   const backTo = `/projects/${projectId}/documents/${doc.id}`;
+  const governanceMetadata = useGovernanceMetadataEditor(doc.id, projectId);
 
   const [title, setTitle] = useState(c.title);
-  const [status, setStatus] = useState(doc.status);
-  const [lifecycle, setLifecycle] = useState<number>(doc.lifecycleState);
   const [notes, setNotes] = useState(c.notesMd ?? "");
   const [testSuite, setTestSuite] = useState(
     c.testSuite ?? TestSuite.Regression,
@@ -123,8 +122,6 @@ export function TestDocumentEditor({
 
   const previewDocument: DocumentDetail = {
     ...doc,
-    status,
-    lifecycleState: lifecycle as DocumentDetail["lifecycleState"],
     content: {
       ...c,
       title,
@@ -217,8 +214,7 @@ export function TestDocumentEditor({
     try {
       await documentService.updateMetadata(doc.id, {
         title: title.trim(),
-        status,
-        lifecycleState: lifecycle as DocumentDetail["lifecycleState"],
+        storyWorkState: null,
         ownerId: doc.ownerId,
         sprint: c.sprint,
         priority: c.priority,
@@ -280,6 +276,7 @@ export function TestDocumentEditor({
           })),
       );
 
+      await governanceMetadata.save();
       await queryClient.invalidateQueries({ queryKey: projectKeys.all });
       navigate(backTo);
     } catch (error) {
@@ -319,28 +316,6 @@ export function TestDocumentEditor({
               onChange={(event) => setTitle(event.target.value)}
             />
           </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <SelectField
-              id="test-status"
-              label="Trạng thái"
-              value={status}
-              onChange={setStatus}
-              options={STATUS_OPTIONS_BY_TYPE[doc.docType].map((value) => ({
-                value,
-                label: DocumentStatusLabel[value] ?? String(value),
-              }))}
-            />
-            <SelectField
-              id="test-lifecycle"
-              label="Vòng đời"
-              value={lifecycle}
-              onChange={setLifecycle}
-              options={LIFECYCLE_OPTIONS.map((value) => ({
-                value,
-                label: LifecycleStateLabel[value],
-              }))}
-            />
-          </div>
           <Field>
             <FieldLabel htmlFor="test-notes">Ghi chú</FieldLabel>
             <Textarea
@@ -352,6 +327,8 @@ export function TestDocumentEditor({
           </Field>
         </FieldGroup>
       </FieldSet>
+
+      <DocumentGovernanceMetadataEditor editor={governanceMetadata} />
 
       <FieldSet>
         <FieldLegend>{isUnit ? "Đơn vị kiểm thử" : "Kịch bản hệ thống"}</FieldLegend>

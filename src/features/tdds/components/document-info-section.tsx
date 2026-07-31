@@ -88,9 +88,8 @@ export function DocumentInfoSection({
           )}
         </Field>
 
-        {/* Nhánh backend có ô "Trạng thái" riêng ở khối Thông tin tài liệu (dải DocumentStatus
-            20-23) và CHÍNH nó mới được gửi đi. Hiện thêm ô này chỉ tạo ra hai ô trạng thái mâu
-            thuẫn nhau trên cùng màn hình, ô dưới thì không có tác dụng gì. */}
+        {/* Với tài liệu trong DB, trạng thái phê duyệt được quản lý ở workflow riêng.
+            Không cho sửa giá trị tương thích Markdown tại form nội dung. */}
         {!backend && (
           <Field data-invalid={!!errors.documentInfo?.status || undefined}>
             <FieldLabel htmlFor="documentInfo.status">Trạng thái</FieldLabel>

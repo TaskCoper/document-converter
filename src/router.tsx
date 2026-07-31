@@ -6,10 +6,7 @@ import GuestLayout from "@/layouts/guest.layout";
 import { Suspense, lazy } from "react";
 import { Navigate, createBrowserRouter } from "react-router-dom";
 
-const BrowsePage = lazy(() => import("@/pages/browse.page"));
-const FilesPage = lazy(() => import("@/pages/files.page"));
 const ForgotPasswordPage = lazy(() => import("@/pages/forgot-password.page"));
-const HistoryPage = lazy(() => import("@/pages/history.page"));
 const NotFoundPage = lazy(() => import("@/pages/not-found.page"));
 const ProfilePage = lazy(() => import("@/pages/profile.page"));
 const ProjectsPage = lazy(() => import("@/pages/projects.page"));
@@ -29,14 +26,11 @@ const ProjectDocumentVersionsPage = lazy(
   () => import("@/pages/project-document-versions.page"),
 );
 const ProjectGraphPage = lazy(() => import("@/pages/project-graph.page"));
+const ReviewQueuePage = lazy(() => import("@/pages/review-queue.page"));
 const RegisterPage = lazy(() => import("@/pages/register.page"));
 const ResetPasswordPage = lazy(() => import("@/pages/reset-password.page"));
-const RulePage = lazy(() => import("@/pages/rule.page"));
 const SignInPage = lazy(() => import("@/pages/sign-in.page"));
 const VerifyEmailPage = lazy(() => import("@/pages/verify-email.page"));
-const StoriesPage = lazy(() => import("@/pages/stories.page"));
-const TddPage = lazy(() => import("@/pages/tdd.page"));
-const ViewPage = lazy(() => import("@/pages/view.page"));
 
 function LazyRoute({ children }: { children: React.ReactNode }) {
   return (
@@ -123,70 +117,6 @@ export const router = createBrowserRouter([
             element: <Navigate to="/projects" replace />,
           },
           {
-            path: "browse/*",
-            element: (
-              <LazyRoute>
-                <BrowsePage />
-              </LazyRoute>
-            ),
-          },
-          {
-            path: "file/*",
-            element: (
-              <LazyRoute>
-                <FilesPage />
-              </LazyRoute>
-            ),
-          },
-          {
-            path: "view/*",
-            element: (
-              <LazyRoute>
-                <ViewPage />
-              </LazyRoute>
-            ),
-          },
-          {
-            path: "history",
-            element: (
-              <LazyRoute>
-                <HistoryPage />
-              </LazyRoute>
-            ),
-          },
-          {
-            path: "stories",
-            element: (
-              <LazyRoute>
-                <StoriesPage key="create" />
-              </LazyRoute>
-            ),
-          },
-          {
-            path: "edit/*",
-            element: (
-              <LazyRoute>
-                <StoriesPage key="edit" />
-              </LazyRoute>
-            ),
-          },
-          {
-            path: "tdd",
-            element: (
-              <LazyRoute>
-                <TddPage key="tdd-create" />
-              </LazyRoute>
-            ),
-          },
-          {
-            path: "edit-tdd/*",
-            element: (
-              <LazyRoute>
-                <TddPage key="tdd-edit" />
-              </LazyRoute>
-            ),
-          },
-          {
             path: "profile",
             element: (
               <LazyRoute>
@@ -203,6 +133,14 @@ export const router = createBrowserRouter([
             ),
           },
           {
+            path: "reviews",
+            element: (
+              <LazyRoute>
+                <ReviewQueuePage />
+              </LazyRoute>
+            ),
+          },
+          {
             path: "projects/:projectId",
             element: (
               <LazyRoute>
@@ -215,6 +153,14 @@ export const router = createBrowserRouter([
             element: (
               <LazyRoute>
                 <ProjectDocumentsPage />
+              </LazyRoute>
+            ),
+          },
+          {
+            path: "projects/:projectId/reviews",
+            element: (
+              <LazyRoute>
+                <ReviewQueuePage />
               </LazyRoute>
             ),
           },
@@ -247,22 +193,6 @@ export const router = createBrowserRouter([
             element: (
               <LazyRoute>
                 <ProjectDocumentVersionsPage />
-              </LazyRoute>
-            ),
-          },
-          {
-            path: "rules",
-            element: (
-              <LazyRoute>
-                <RulePage key="rule-create" />
-              </LazyRoute>
-            ),
-          },
-          {
-            path: "edit-rule/*",
-            element: (
-              <LazyRoute>
-                <RulePage key="rule-edit" />
               </LazyRoute>
             ),
           },

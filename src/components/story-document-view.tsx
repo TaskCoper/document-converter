@@ -12,6 +12,7 @@ import {
   type RuleSchema,
 } from "@/features/business-rules/validations";
 import { useFile } from "@/hooks/use-file";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { messageFor } from "@/lib/github";
 import { cn } from "@/lib/utils";
 import { ExternalLink, FileText } from "lucide-react";
@@ -103,6 +104,36 @@ export function StoryPreviewLayout({
   showTdds: boolean;
   showRules: boolean;
 }) {
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+
+  if (!isDesktop && (showTdds || showRules)) {
+    return (
+      <div className="h-full overflow-y-auto bg-background">
+        <section aria-label="User Story" className="h-[75svh] min-h-96 border-b border-border">
+          {story}
+        </section>
+        {showTdds &&
+          tdds.map((panel, index) => (
+            <section
+              key={index}
+              aria-label={`TDD liên quan ${index + 1}`}
+              className="h-[75svh] min-h-96 border-b border-border"
+            >
+              {panel}
+            </section>
+          ))}
+        {showRules && (
+          <section
+            aria-label="Business Rule liên quan"
+            className="h-[75svh] min-h-96"
+          >
+            {rulesPanel}
+          </section>
+        )}
+      </div>
+    );
+  }
+
   const tddPanels =
     tdds.length === 1 ? (
       tdds[0]
@@ -110,8 +141,16 @@ export function StoryPreviewLayout({
       <ResizablePanelGroup orientation="horizontal" className="h-full">
         {tdds.map((p, i) => (
           <Fragment key={i}>
-            {i > 0 && <ResizableHandle withHandle />}
-            <ResizablePanel defaultSize={100 / tdds.length} minSize={15}>
+            {i > 0 && (
+              <ResizableHandle
+                withHandle
+                aria-label="Kéo để đổi chiều rộng giữa các TDD"
+              />
+            )}
+            <ResizablePanel
+              defaultSize={`${100 / tdds.length}%`}
+              minSize="15%"
+            >
               {p}
             </ResizablePanel>
           </Fragment>
@@ -122,19 +161,25 @@ export function StoryPreviewLayout({
   if (showTdds && showRules) {
     return (
       <ResizablePanelGroup orientation="horizontal" className="h-full">
-        <ResizablePanel defaultSize={70} minSize={20}>
+        <ResizablePanel defaultSize="70%" minSize="20%">
           <ResizablePanelGroup orientation="vertical" className="h-full">
-            <ResizablePanel defaultSize={80} minSize={15}>
+            <ResizablePanel defaultSize="80%" minSize="15%">
               {story}
             </ResizablePanel>
-            <ResizableHandle withHandle />
-            <ResizablePanel defaultSize={20} minSize={15}>
+            <ResizableHandle
+              withHandle
+              aria-label="Kéo để đổi chiều cao Story và Rules"
+            />
+            <ResizablePanel defaultSize="20%" minSize="15%">
               {rulesPanel}
             </ResizablePanel>
           </ResizablePanelGroup>
         </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={30} minSize={20}>
+        <ResizableHandle
+          withHandle
+          aria-label="Kéo để đổi chiều rộng Story và TDD"
+        />
+        <ResizablePanel defaultSize="30%" minSize="20%">
           {tddPanels}
         </ResizablePanel>
       </ResizablePanelGroup>
@@ -143,11 +188,14 @@ export function StoryPreviewLayout({
   if (showTdds) {
     return (
       <ResizablePanelGroup orientation="horizontal" className="h-full">
-        <ResizablePanel defaultSize={70} minSize={20}>
+        <ResizablePanel defaultSize="70%" minSize="20%">
           {story}
         </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={30} minSize={20}>
+        <ResizableHandle
+          withHandle
+          aria-label="Kéo để đổi chiều rộng Story và TDD"
+        />
+        <ResizablePanel defaultSize="30%" minSize="20%">
           {tddPanels}
         </ResizablePanel>
       </ResizablePanelGroup>
@@ -156,11 +204,14 @@ export function StoryPreviewLayout({
   if (showRules) {
     return (
       <ResizablePanelGroup orientation="vertical" className="h-full">
-        <ResizablePanel defaultSize={80} minSize={15}>
+        <ResizablePanel defaultSize="80%" minSize="15%">
           {story}
         </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={20} minSize={15}>
+        <ResizableHandle
+          withHandle
+          aria-label="Kéo để đổi chiều cao Story và Rules"
+        />
+        <ResizablePanel defaultSize="20%" minSize="15%">
           {rulesPanel}
         </ResizablePanel>
       </ResizablePanelGroup>
@@ -246,7 +297,7 @@ export function BusinessRulesTable({ rules }: { rules: RuleRef[] }) {
                 <th
                   key={c.key}
                   style={c.minWidth ? { minWidth: c.minWidth } : undefined}
-                  className="sticky top-0 z-10 whitespace-nowrap border-b border-r border-[#d9d5cc] bg-[#e8a13a] px-2 py-1.5 text-center text-xs font-bold text-white"
+                  className="sticky top-0 z-10 whitespace-nowrap border-b border-r border-border bg-primary px-2 py-1.5 text-center text-xs font-bold text-primary-foreground"
                 >
                   {c.label}
                 </th>
@@ -276,11 +327,11 @@ function BusinessRuleRow({ rule, zebra }: { rule: RuleRef; zebra: boolean }) {
     }
   }
 
-  const cellBg = zebra ? "bg-[#f3f1ea]" : "bg-white";
+  const cellBg = zebra ? "bg-muted/40" : "bg-background";
   const cellBase =
-    "border-b border-r border-[#d9d5cc] px-2 py-1.5 align-top text-xs text-[#111827]";
+    "border-b border-r border-border px-2 py-1.5 align-top text-xs text-foreground";
   const idCell =
-    "border-b border-r border-[#d9d5cc] bg-[#fbe7cc] px-2 py-1.5 align-top font-mono text-[10px] font-semibold text-[#92400e] whitespace-nowrap";
+    "whitespace-nowrap border-b border-r border-border bg-primary/10 px-2 py-1.5 align-top font-mono text-[10px] font-semibold text-primary";
   const linkHref = rule.href ?? (rule.path ? `/view/${rule.path}` : "#");
   const gitHubMode = !rule.parsed;
 

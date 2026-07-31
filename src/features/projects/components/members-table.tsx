@@ -17,7 +17,7 @@ import {
   useChangeMemberRole,
   useRemoveMember,
 } from "../hooks/use-member-mutations";
-import type { MemberInfo, ProjectRole } from "../types";
+import { ProjectRole, type MemberInfo } from "../types";
 import { RoleBadge } from "./role-badge";
 import { RoleSelect } from "./role-select";
 
@@ -47,9 +47,13 @@ export function MembersTable({
   const [pendingRemove, setPendingRemove] = useState<MemberInfo | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
+  const ownerCount = members.filter(
+    (member) => member.role === ProjectRole.Owner,
+  ).length;
 
   const onChangeRole = (member: MemberInfo, role: ProjectRole) => {
     if (role === member.role) return;
+    if (member.role === ProjectRole.Owner && ownerCount === 1) return;
     setActionError(null);
     setBusyUserId(member.userId);
     changeRole.mutate(
@@ -64,6 +68,10 @@ export function MembersTable({
 
   const confirmRemove = () => {
     if (!pendingRemove) return;
+    if (pendingRemove.role === ProjectRole.Owner && ownerCount === 1) {
+      setPendingRemove(null);
+      return;
+    }
     const target = pendingRemove;
     setActionError(null);
     setBusyUserId(target.userId);
@@ -110,6 +118,11 @@ export function MembersTable({
             {members.map((member, index) => {
               const isSelf = member.userId === currentUserId;
               const isBusy = busyUserId === member.userId;
+              const isLastOwner =
+                member.role === ProjectRole.Owner && ownerCount === 1;
+              const lastOwnerReason = isLastOwner
+                ? "Dự án phải còn ít nhất một chủ sở hữu."
+                : undefined;
               return (
                 <tr key={member.userId} className="hover:bg-primary/5">
                   <td className="border border-border/40 px-2 py-1.5 text-[10px] text-muted-foreground">
@@ -136,7 +149,8 @@ export function MembersTable({
                         <RoleSelect
                           value={member.role}
                           onChange={(role) => onChangeRole(member, role)}
-                          disabled={isBusy}
+                          disabled={isBusy || isLastOwner}
+                          disabledReason={lastOwnerReason}
                         />
                         {isBusy && <Spinner className="size-3" />}
                       </div>
@@ -153,9 +167,14 @@ export function MembersTable({
                         variant="ghost"
                         size="icon"
                         className="size-7 text-destructive hover:text-destructive"
-                        disabled={isBusy}
+                        disabled={isBusy || isLastOwner}
                         onClick={() => setPendingRemove(member)}
-                        title="Xoá khỏi dự án"
+                        title={lastOwnerReason ?? "Xoá khỏi dự án"}
+                        aria-label={
+                          lastOwnerReason
+                            ? `Không thể xoá ${member.fullName || member.email}: ${lastOwnerReason}`
+                            : `Xoá ${member.fullName || member.email} khỏi dự án`
+                        }
                       >
                         <Trash2Icon className="size-3.5" />
                       </Button>

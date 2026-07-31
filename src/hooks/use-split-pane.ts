@@ -2,18 +2,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
 
-/** Chừa lại cho cột trái — kéo hết cỡ mà form còn 200px thì không sửa được gì nữa. */
+/** Chừa lại cho cột trái — form phải còn đủ rộng để nhập liệu. */
 const MIN_LEFT = 420;
 
-/** Khớp với bề ngang thật của SplitHandle (vạch 1px, dày lên 4px khi rê chuột). */
-const HANDLE_WIDTH = 4;
+/** Khớp với bề ngang thật của SplitHandle. */
+const HANDLE_WIDTH = 12;
 
 /**
  * Kéo để đổi bề ngang panel bên phải của bố cục "form | xem trước".
  *
  * Trả về `style` mang biến CSS thay vì `gridTemplateColumns` dựng sẵn: bố cục chỉ chia hai cột
- * từ breakpoint lg trở lên, dưới đó là một cột xếp dọc. Đặt gridTemplateColumns thẳng bằng
- * inline style sẽ đè luôn cả phần responsive đó, nên biến CSS + lớp `lg:` của Tailwind mới giữ
+ * từ breakpoint xl trở lên, dưới đó là một cột xếp dọc. Đặt gridTemplateColumns thẳng bằng
+ * inline style sẽ đè luôn cả phần responsive đó, nên biến CSS + lớp `xl:` của Tailwind mới giữ
  * được hành vi trên màn hình hẹp.
  *
  * Bề ngang lưu vào localStorage theo `storageKey`: người dùng chỉnh một lần là dùng mãi, không
@@ -66,6 +66,7 @@ export function useSplitPane({
   );
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!e.isPrimary || e.button !== 0) return;
     e.preventDefault();
     dragging.current = true;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -74,16 +75,34 @@ export function useSplitPane({
     document.body.style.userSelect = "none";
   };
 
+  const stopDragging = () => {
+    dragging.current = false;
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+  };
+
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (dragging.current) resize(e.clientX);
+    if (!dragging.current) return;
+
+    // Pointer capture có thể bị mất mà không nhận được pointerup (đổi tab, browser/tool
+    // kết thúc gesture, HMR...). Khi đó lần hover kế tiếp có buttons=0; tuyệt đối không được
+    // hiểu hover là kéo và tự thay đổi bề ngang preview.
+    if ((e.buttons & 1) === 0) {
+      stopDragging();
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+      return;
+    }
+
+    resize(e.clientX);
   };
 
   const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragging.current) return;
-    dragging.current = false;
-    e.currentTarget.releasePointerCapture(e.pointerId);
-    document.body.style.cursor = "";
-    document.body.style.userSelect = "";
+    stopDragging();
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
   };
 
   // Bàn phím: thanh chia là một control thật sự, không chỉ để chuột dùng.
@@ -92,6 +111,7 @@ export function useSplitPane({
     if (e.key === "ArrowLeft") setWidth((w) => clamp(w + step, min, max));
     else if (e.key === "ArrowRight") setWidth((w) => clamp(w - step, min, max));
     else if (e.key === "Home") setWidth(initial);
+    else if (e.key === "End") setWidth(min);
     else return;
     e.preventDefault();
   };
@@ -108,6 +128,7 @@ export function useSplitPane({
       onPointerMove,
       onPointerUp: endDrag,
       onPointerCancel: endDrag,
+      onLostPointerCapture: stopDragging,
       onKeyDown,
       // Bấm đúp để trả về bề ngang mặc định — nhanh hơn kéo mò.
       onDoubleClick: () => setWidth(initial),
@@ -115,6 +136,9 @@ export function useSplitPane({
       "aria-orientation": "vertical" as const,
       "aria-label": "Kéo để đổi bề ngang khung xem trước",
       "aria-valuenow": Math.round(width),
+      "aria-valuemin": min,
+      "aria-valuemax": max,
+      "aria-valuetext": `Khung xem trước rộng ${Math.round(width)} pixel`,
       tabIndex: 0,
     },
   };

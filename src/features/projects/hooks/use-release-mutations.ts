@@ -4,7 +4,7 @@ import documentService, {
   type ReleaseDocumentBody,
 } from "../document-services";
 
-// Release/restore đổi lifecycleState/currentVersionNumber/hasUnpublishedChanges trên chính
+// Release/restore đổi currentVersionNumber/hasUnpublishedChanges trên chính
 // tài liệu, và luôn kéo theo danh sách version — invalidate cả hai, cộng dòng trong danh sách
 // tài liệu của project (cũng hiện những field này).
 const useInvalidateVersions = (projectId: string, documentId: string) => {

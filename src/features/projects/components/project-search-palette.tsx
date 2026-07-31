@@ -7,9 +7,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import {
+  ApprovalStateLabel,
   DocumentType,
   DocumentTypeLabel,
-  LifecycleStateLabel,
   type SearchHit,
 } from "@/features/projects/document-types";
 import { useProjectSearch } from "@/features/projects/hooks/use-project-search";
@@ -161,7 +161,9 @@ export function ProjectSearchPalette({ projectId, open, onOpenChange }: Props) {
                         {hit.title}
                       </span>
                       <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
-                        {LifecycleStateLabel[hit.lifecycleState]}
+                        {hit.isArchived
+                          ? "Lưu trữ"
+                          : ApprovalStateLabel[hit.approvalState]}
                       </span>
                     </div>
                     {hit.highlight && (
@@ -177,7 +179,7 @@ export function ProjectSearchPalette({ projectId, open, onOpenChange }: Props) {
 
           {result && !result.usedSemantic && result.semanticSkippedReason && (
             <p className="border-t border-border px-3 py-1.5 text-[10px] text-muted-foreground">
-              Tìm kiếm ngữ nghĩa chưa sẵn sàng: {result.semanticSkippedReason}
+              Thông tin tìm kiếm ngữ nghĩa: {result.semanticSkippedReason}
             </p>
           )}
         </div>

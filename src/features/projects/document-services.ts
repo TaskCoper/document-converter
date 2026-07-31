@@ -10,9 +10,10 @@ import type {
   DocumentType,
   ImpactReport,
   IncomingLink,
-  LifecycleState,
+  ReviewQueueRow,
   SearchMode,
   SearchResponse,
+  StoryWorkState,
   SystemTestType,
   TestPriority,
   TestSuite,
@@ -25,6 +26,7 @@ import type {
 export interface DocumentListParams {
   docType?: DocumentType;
   keyword?: string;
+  sprint?: number;
   sort?: DocumentSort;
   // Trả về trang CHỨA tài liệu này thay vì trang 1; ghi đè pageIndex khi có giá trị.
   anchorDocumentId?: string;
@@ -45,10 +47,16 @@ export interface SearchParams {
   limit?: number;
 }
 
+export interface ReviewQueueParams {
+  projectId?: string;
+  pageIndex?: number;
+  pageSize?: number;
+}
+
 export interface CreateDocumentBody {
   docType: DocumentType;
   title: string;
-  status?: number;
+  storyWorkState?: StoryWorkState | null;
   keyPrefix?: string;
   sprint?: number | null;
   priority?: number | null;
@@ -58,8 +66,7 @@ export interface CreateDocumentBody {
 
 export interface UpdateMetadataBody {
   title: string;
-  status: number;
-  lifecycleState: LifecycleState;
+  storyWorkState: StoryWorkState | null;
   ownerId?: string | null;
   sprint?: number | null;
   priority?: number | null;
@@ -75,14 +82,10 @@ export interface ReleaseDocumentBody {
 
 export interface UpdateGovernanceBody {
   version: string;
-  authorId?: string | null;
-  authorName?: string | null;
-  reviewerId?: string | null;
-  reviewerName?: string | null;
-  approverId?: string | null;
-  approverName?: string | null;
-  ownerId?: string | null;
-  ownerName?: string | null;
+  authorId: string | null;
+  reviewerId: string | null;
+  approverId: string | null;
+  ownerId: string | null;
 }
 
 // Các field đơn trị theo loại — backend chỉ dùng nhóm khớp doc_type, gửi dư cũng không sao.
@@ -133,6 +136,7 @@ class DocumentService {
         params: {
           DocType: params.docType,
           Keyword: params.keyword || undefined,
+          Sprint: params.sprint,
           Sort: params.sort,
           AnchorDocumentId: params.anchorDocumentId,
           PageIndex: params.pageIndex ?? 1,
@@ -143,6 +147,20 @@ class DocumentService {
           TestPriority: params.testPriority,
           Module: params.module || undefined,
           StoryKey: params.storyKey || undefined,
+        },
+      },
+    );
+    return data.value;
+  };
+
+  listReviewQueue = async (params: ReviewQueueParams = {}) => {
+    const { data } = await authApi.get<BasePaginationResponse<ReviewQueueRow>>(
+      "/documents/review-queue",
+      {
+        params: {
+          ProjectId: params.projectId,
+          PageIndex: params.pageIndex ?? 1,
+          PageSize: params.pageSize ?? 20,
         },
       },
     );
@@ -180,13 +198,27 @@ class DocumentService {
       | "submit-review"
       | "request-changes"
       | "approve"
-      | "deprecate"
       | "start-revision",
     note?: string | null,
   ) => {
     const { data } = await authApi.post<BaseResponse<DocumentGovernance>>(
       `/documents/${documentId}/governance/${action}`,
       { note: note ?? null },
+    );
+    return data.value;
+  };
+
+  archive = async (documentId: string, reason?: string | null) => {
+    const { data } = await authApi.post<BaseResponse<DocumentDetail>>(
+      `/documents/${documentId}/archive`,
+      { note: reason ?? null },
+    );
+    return data.value;
+  };
+
+  unarchive = async (documentId: string) => {
+    const { data } = await authApi.post<BaseResponse<DocumentDetail>>(
+      `/documents/${documentId}/unarchive`,
     );
     return data.value;
   };
@@ -350,7 +382,7 @@ class DocumentService {
 
   replaceAssignees = async (
     documentId: string,
-    assignees: { role: number; displayName: string; userId?: string | null }[],
+    assignees: { role: number; userId: string }[],
   ) => {
     await authApi.put<BaseResponse<DocumentDetail>>(
       `/documents/${documentId}/assignees`,

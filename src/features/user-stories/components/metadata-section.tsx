@@ -8,6 +8,7 @@ import {
   FieldSet,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Select,
   SelectContent,
@@ -16,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useMembers } from "@/features/projects/hooks/use-members";
 import { Plus, Trash2 } from "lucide-react";
 import { Controller, useFieldArray } from "react-hook-form";
 import type { SectionProps } from "../section-types";
@@ -33,11 +35,18 @@ export function MetadataSection({
   control,
   errors,
   backend,
+  projectId,
+  setValue,
 }: SectionProps) {
   const { fields, append, remove } = useFieldArray({
     control,
     name: "metadata.assignee",
   });
+  const {
+    members,
+    isLoading: membersLoading,
+    isError: membersError,
+  } = useMembers(backend ? projectId : undefined);
 
   return (
     <FieldSet>
@@ -176,37 +185,158 @@ export function MetadataSection({
         <FieldSet>
           <FieldLegend variant="label">Người phụ trách</FieldLegend>
           <FieldGroup>
+            {backend && membersLoading && (
+              <p
+                className="flex items-center gap-1.5 text-xs text-muted-foreground"
+                role="status"
+              >
+                <Spinner className="size-3" />
+                Đang tải thành viên dự án…
+              </p>
+            )}
+            {backend && membersError && (
+              <FieldError role="alert">
+                Không tải được thành viên dự án. Vui lòng thử tải lại trang.
+              </FieldError>
+            )}
+            {backend &&
+              !membersLoading &&
+              !membersError &&
+              members.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Dự án chưa có thành viên để giao việc.
+                </p>
+              )}
             {fields.map((f, idx) => (
               <div key={f.id} className="flex gap-1 items-start">
-                {/* Liên kết tài khoản của người phụ trách — không sửa được ở đây nhưng phải
-                    đi theo form, nếu không mỗi lần lưu là một lần cắt liên kết. */}
-                <input
-                  type="hidden"
-                  {...register(`metadata.assignee.${idx}.userId`)}
-                />
-                <div className="flex-1 grid grid-cols-2 gap-2">
-                  <Field
-                    data-invalid={
-                      !!errors.metadata?.assignee?.[idx]?.name || undefined
-                    }
-                  >
-                    <FieldLabel htmlFor={`metadata.assignee.${idx}.name`}>
-                      Tên
-                    </FieldLabel>
-                    <Input
-                      id={`metadata.assignee.${idx}.name`}
-                      placeholder="Tên"
-                      aria-invalid={
-                        !!errors.metadata?.assignee?.[idx]?.name || undefined
+                <div className="flex-1 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {backend ? (
+                    <Field
+                      data-invalid={
+                        !!errors.metadata?.assignee?.[idx]?.userId || undefined
                       }
-                      {...register(`metadata.assignee.${idx}.name`)}
-                    />
-                    {errors.metadata?.assignee?.[idx]?.name?.message && (
-                      <FieldError>
-                        {errors.metadata.assignee[idx]?.name?.message}
-                      </FieldError>
-                    )}
-                  </Field>
+                    >
+                      <FieldLabel
+                        htmlFor={`metadata.assignee.${idx}.userId`}
+                      >
+                        Thành viên
+                      </FieldLabel>
+                      {/* Tên chỉ dùng cho preview/export cũ và luôn được suy ra từ member
+                          đã chọn; request backend chỉ gửi userId + role. */}
+                      <input
+                        type="hidden"
+                        {...register(`metadata.assignee.${idx}.name`)}
+                      />
+                      <Controller
+                        control={control}
+                        name={`metadata.assignee.${idx}.userId`}
+                        render={({ field }) => {
+                          const selectedMember = members.find(
+                            (item) => item.userId === field.value,
+                          );
+
+                          return (
+                            <>
+                              <Select
+                                value={field.value ?? ""}
+                                onValueChange={(userId) => {
+                                  field.onChange(userId);
+                                  const member = members.find(
+                                    (item) => item.userId === userId,
+                                  );
+                                  if (member) {
+                                    setValue?.(
+                                      `metadata.assignee.${idx}.name`,
+                                      member.fullName || member.email,
+                                      {
+                                        shouldDirty: true,
+                                        shouldValidate: true,
+                                      },
+                                    );
+                                  }
+                                }}
+                                disabled={
+                                  membersLoading ||
+                                  membersError ||
+                                  members.length === 0
+                                }
+                              >
+                                <SelectTrigger
+                                  id={`metadata.assignee.${idx}.userId`}
+                                  className="w-full"
+                                  aria-invalid={
+                                    !!errors.metadata?.assignee?.[idx]
+                                      ?.userId || undefined
+                                  }
+                                >
+                                  <SelectValue placeholder="Chọn thành viên">
+                                    {selectedMember
+                                      ? selectedMember.fullName ||
+                                        selectedMember.email
+                                      : undefined}
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {members.map((member) => (
+                                    <SelectItem
+                                      key={member.userId}
+                                      value={member.userId}
+                                    >
+                                      {member.fullName || member.email}
+                                      <span className="text-muted-foreground">
+                                        · {member.email}
+                                      </span>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {!field.value && f.name && (
+                                <p className="text-[11px] text-amber-700">
+                                  Dữ liệu cũ: {f.name}. Hãy chọn lại một thành
+                                  viên dự án.
+                                </p>
+                              )}
+                            </>
+                          );
+                        }}
+                      />
+                      {errors.metadata?.assignee?.[idx]?.userId?.message && (
+                        <FieldError>
+                          {errors.metadata.assignee[idx]?.userId?.message}
+                        </FieldError>
+                      )}
+                    </Field>
+                  ) : (
+                    <>
+                      <input
+                        type="hidden"
+                        {...register(`metadata.assignee.${idx}.userId`)}
+                      />
+                      <Field
+                        data-invalid={
+                          !!errors.metadata?.assignee?.[idx]?.name || undefined
+                        }
+                      >
+                        <FieldLabel htmlFor={`metadata.assignee.${idx}.name`}>
+                          Tên
+                        </FieldLabel>
+                        <Input
+                          id={`metadata.assignee.${idx}.name`}
+                          placeholder="Tên"
+                          aria-invalid={
+                            !!errors.metadata?.assignee?.[idx]?.name ||
+                            undefined
+                          }
+                          {...register(`metadata.assignee.${idx}.name`)}
+                        />
+                        {errors.metadata?.assignee?.[idx]?.name?.message && (
+                          <FieldError>
+                            {errors.metadata.assignee[idx]?.name?.message}
+                          </FieldError>
+                        )}
+                      </Field>
+                    </>
+                  )}
                   <Field>
                     <FieldLabel htmlFor={`metadata.assignee.${idx}.position`}>
                       Vị trí
@@ -255,6 +385,10 @@ export function MetadataSection({
               size="sm"
               onClick={() =>
                 append({ name: "", position: Position.FE, userId: null })
+              }
+              disabled={
+                backend &&
+                (membersLoading || membersError || members.length === 0)
               }
             >
               <Plus />

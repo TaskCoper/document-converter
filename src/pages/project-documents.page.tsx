@@ -4,10 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { CreateDocumentDialog } from "@/features/projects/components/create-document-dialog";
 import {
-  DocumentStatusLabel,
+  ApprovalStateLabel,
   DocumentType,
   DocumentTypeLabel,
-  LifecycleStateLabel,
+  StoryWorkStateLabel,
   StoryPriorityLabel,
   type DocumentListRow,
 } from "@/features/projects/document-types";
@@ -60,13 +60,15 @@ export default function ProjectDocumentsPage() {
   const [docType, setDocType] = useState<DocumentType | undefined>(undefined);
   const [keywordInput, setKeywordInput] = useState("");
   const [keyword, setKeyword] = useState("");
+  const [sprintInput, setSprintInput] = useState("");
+  const [sprint, setSprint] = useState<number | undefined>(undefined);
   const [createOpen, setCreateOpen] = useState(false);
 
   const { documents, totalCount, isLoading, isFetching, isError } =
-    useDocuments(projectId, { docType, keyword });
+    useDocuments(projectId, { docType, keyword, sprint });
 
   return (
-    <div className="mx-auto max-w-6xl p-6">
+    <div className="mx-auto max-w-6xl p-4 sm:p-6">
       <Link
         to={`/projects`}
         className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
@@ -75,19 +77,20 @@ export default function ProjectDocumentsPage() {
         Về dự án
       </Link>
 
-      <div className="mt-3 flex items-start justify-between gap-4">
-        <div>
+      <div className="mt-3 flex flex-col items-start justify-between gap-3 sm:flex-row sm:gap-4">
+        <div className="min-w-0">
           <h1 className="text-lg font-semibold text-primary">Tài liệu</h1>
           <p className="text-xs text-muted-foreground">
             User Story, TDD, Business Rule và test case của dự án — lấy từ backend.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
           {isFetching && <Spinner className="size-4" />}
           {myRole && (
             <Button
               variant="outline"
               size="sm"
+              nativeButton={false}
               render={<Link to={`/projects/${projectId}/graph`} />}
             >
               <NetworkIcon className="size-3.5" />
@@ -98,6 +101,7 @@ export default function ProjectDocumentsPage() {
             <Button
               variant="outline"
               size="sm"
+              nativeButton={false}
               render={<Link to={`/projects/${projectId}`} />}
             >
               <SettingsIcon className="size-3.5" />
@@ -130,19 +134,57 @@ export default function ProjectDocumentsPage() {
           ))}
         </div>
 
-        <div className="relative">
-          <SearchIcon className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={keywordInput}
-            onChange={(e) => setKeywordInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") setKeyword(keywordInput.trim());
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <form
+            className="flex shrink-0 items-center gap-1"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setSprint(sprintInput ? Number(sprintInput) : undefined);
             }}
-            placeholder="Tìm tiêu đề / mã, Enter để tìm"
-            spellCheck={false}
-            autoComplete="off"
-            className="h-8 w-64 pl-7 text-xs"
-          />
+          >
+            <Input
+              id="sprint-filter"
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              aria-label="Lọc theo sprint"
+              value={sprintInput}
+              onChange={(e) => {
+                const nextValue = e.target.value;
+                if (nextValue === "" || /^[1-9]\d*$/.test(nextValue)) {
+                  setSprintInput(nextValue);
+                }
+              }}
+              placeholder="Sprint"
+              className="h-8 w-24 text-xs"
+            />
+            <Button
+              type="submit"
+              size="sm"
+              variant={sprint == null ? "outline" : "default"}
+              className="h-8 px-2.5 text-xs"
+            >
+              Lọc
+            </Button>
+          </form>
+          <div className="relative min-w-0 flex-1 sm:flex-none">
+            <SearchIcon className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={keywordInput}
+              onChange={(e) => setKeywordInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  setKeyword(e.currentTarget.value.trim());
+                }
+              }}
+              placeholder="Tìm tiêu đề / mã, Enter để tìm"
+              spellCheck={false}
+              autoComplete="off"
+              className="h-8 w-full pl-7 text-xs sm:w-64"
+            />
+          </div>
         </div>
       </div>
 
@@ -159,14 +201,15 @@ export default function ProjectDocumentsPage() {
           <div className="flex flex-col items-center gap-3 border border-dashed border-border py-12 text-center">
             <FileTextIcon className="size-8 text-muted-foreground" />
             <p className="text-xs text-muted-foreground">
-              {keyword || docType
+              {keyword || docType || sprint
                 ? "Không có tài liệu khớp bộ lọc."
                 : "Dự án chưa có tài liệu nào."}
             </p>
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto border border-border/40">
+            <DocumentMobileList documents={documents} projectId={projectId} />
+            <div className="hidden overflow-x-auto border border-border/40 md:block">
               <table className="w-full border-collapse text-xs">
                 <thead className="bg-muted/60">
                   <tr>
@@ -179,11 +222,14 @@ export default function ProjectDocumentsPage() {
                     <th className="border border-border/40 px-2 py-1.5 text-left font-medium">
                       Tiêu đề
                     </th>
+                    <th className="w-20 border border-border/40 px-2 py-1.5 text-left font-medium">
+                      Sprint
+                    </th>
                     <th className="w-28 border border-border/40 px-2 py-1.5 text-left font-medium">
-                      Trạng thái
+                      Tiến độ
                     </th>
                     <th className="w-24 border border-border/40 px-2 py-1.5 text-left font-medium">
-                      Vòng đời
+                      Phê duyệt
                     </th>
                     <th className="w-16 border border-border/40 px-2 py-1.5 text-left font-medium">
                       Bản
@@ -232,6 +278,84 @@ export default function ProjectDocumentsPage() {
   );
 }
 
+function DocumentMobileList({
+  documents,
+  projectId,
+}: {
+  documents: DocumentListRow[];
+  projectId: string;
+}) {
+  return (
+    <ul className="divide-y divide-border/40 border border-border/40 md:hidden">
+      {documents.map((doc) => (
+        <li key={doc.id}>
+          <Link
+            to={`/projects/${projectId}/documents/${doc.id}`}
+            className="block px-3 py-2.5 transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          >
+            <div className="flex min-w-0 items-start justify-between gap-2">
+              <code className="truncate font-mono text-[10px] text-muted-foreground">
+                {doc.docKey}
+              </code>
+              <Badge
+                variant={TYPE_BADGE[doc.docType]}
+                className="shrink-0 text-[10px]"
+              >
+                {DocumentTypeLabel[doc.docType]}
+              </Badge>
+            </div>
+
+            <p className="mt-1 break-words text-xs font-medium">{doc.title}</p>
+            {doc.summary && (
+              <p className="mt-0.5 line-clamp-2 text-[10px] text-muted-foreground">
+                {doc.summary}
+              </p>
+            )}
+
+            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
+              <div className="min-w-0">
+                <dt className="text-muted-foreground">Tiến độ</dt>
+                <dd className="truncate">
+                  {doc.storyWorkState
+                    ? StoryWorkStateLabel[doc.storyWorkState]
+                    : "—"}
+                </dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-muted-foreground">Phê duyệt</dt>
+                <dd className="truncate">
+                  {doc.isArchived
+                    ? "Lưu trữ"
+                    : ApprovalStateLabel[doc.approvalState]}
+                </dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-muted-foreground">Sprint / bản</dt>
+                <dd className="truncate">
+                  {doc.sprint != null ? `S${doc.sprint}` : "—"} · v
+                  {doc.currentVersionNumber}
+                </dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-muted-foreground">Cập nhật</dt>
+                <dd className="truncate">
+                  {formatDate(doc.updatedAt ?? doc.createdAt)}
+                </dd>
+              </div>
+            </dl>
+
+            {doc.hasUnpublishedChanges && (
+              <p className="mt-1.5 text-[10px] text-primary">
+                Có thay đổi chưa phát hành
+              </p>
+            )}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function DocumentRow({
   doc,
   onOpen,
@@ -257,9 +381,8 @@ function DocumentRow({
           </div>
         )}
         <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
-          {doc.sprint != null && <span>Sprint {doc.sprint}</span>}
           {doc.priority != null && (
-            <span>· {StoryPriorityLabel[doc.priority]}</span>
+            <span>{StoryPriorityLabel[doc.priority]}</span>
           )}
           {doc.category && <span>· {doc.category}</span>}
           {doc.effectiveDate && (
@@ -270,13 +393,22 @@ function DocumentRow({
           )}
         </div>
       </td>
+      <td className="border border-border/40 px-2 py-1.5 align-top text-muted-foreground">
+        {doc.sprint != null ? `S${doc.sprint}` : "—"}
+      </td>
       <td className="border border-border/40 px-2 py-1.5 align-top">
-        <Badge variant="secondary" className="text-[10px]">
-          {DocumentStatusLabel[doc.status] ?? doc.status}
-        </Badge>
+        {doc.storyWorkState ? (
+          <Badge variant="secondary" className="text-[10px]">
+            {StoryWorkStateLabel[doc.storyWorkState]}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
       </td>
       <td className="border border-border/40 px-2 py-1.5 align-top text-muted-foreground">
-        {LifecycleStateLabel[doc.lifecycleState] ?? "—"}
+        {doc.isArchived
+          ? "Lưu trữ"
+          : ApprovalStateLabel[doc.approvalState]}
       </td>
       <td className="border border-border/40 px-2 py-1.5 align-top text-muted-foreground">
         v{doc.currentVersionNumber}

@@ -2,12 +2,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { ProjectDocumentNetwork } from "@/features/projects/components/project-document-network";
 import {
   DocumentLinkTypeLabel,
-  DocumentTypeLabel,
   ErrorCodeConflictKind,
   ErrorCodeConflictKindLabel,
-  LifecycleStateLabel,
   LinkIssueKind,
   LinkIssueKindLabel,
 } from "@/features/projects/document-types";
@@ -90,20 +89,16 @@ export default function ProjectGraphPage() {
       <h1 className="mt-3 text-lg font-semibold text-primary">
         Đồ thị & sức khoẻ liên kết
       </h1>
+      <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
+        Khám phá cấu trúc tài liệu, lần theo quan hệ phụ thuộc và phát hiện các
+        điểm liên kết cần xử lý.
+      </p>
 
       {/* Tài liệu & liên kết */}
-      <div className="mt-8">
-        <h2 className="text-sm font-semibold text-primary">
-          Tài liệu & liên kết
-          {graph && (
-            <span className="ml-2 text-[10px] font-normal text-muted-foreground">
-              {graph.nodes.length} tài liệu · {graph.edges.length} liên kết
-            </span>
-          )}
-        </h2>
+      <div className="mt-6">
         <div className="mt-3">
           {graphLoading ? (
-            <div className="flex justify-center py-8">
+            <div className="flex min-h-[32rem] items-center justify-center border border-border/60 bg-card">
               <Spinner />
             </div>
           ) : graphError ? (
@@ -111,67 +106,11 @@ export default function ProjectGraphPage() {
               Không tải được đồ thị liên kết.
             </p>
           ) : !graph || graph.nodes.length === 0 ? (
-            <div className="border border-dashed border-border py-8 text-center text-xs text-muted-foreground">
+            <div className="border border-dashed border-border py-16 text-center text-xs text-muted-foreground">
               Project chưa có tài liệu nào.
             </div>
           ) : (
-            <div className="overflow-x-auto border border-border/40">
-              <table className="w-full border-collapse text-xs">
-                <thead className="bg-muted/60">
-                  <tr>
-                    <th className="border border-border/40 px-2 py-1.5 text-left font-medium">
-                      Mã
-                    </th>
-                    <th className="w-28 border border-border/40 px-2 py-1.5 text-left font-medium">
-                      Loại
-                    </th>
-                    <th className="border border-border/40 px-2 py-1.5 text-left font-medium">
-                      Tiêu đề
-                    </th>
-                    <th className="w-28 border border-border/40 px-2 py-1.5 text-left font-medium">
-                      Vòng đời
-                    </th>
-                    <th className="w-14 border border-border/40 px-2 py-1.5 text-left font-medium">
-                      Vào
-                    </th>
-                    <th className="w-14 border border-border/40 px-2 py-1.5 text-left font-medium">
-                      Ra
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {graph.nodes.map((node) => (
-                    <tr key={node.id} className="hover:bg-primary/5">
-                      <td className="border border-border/40 px-2 py-1.5 align-top">
-                        <Link
-                          to={`/projects/${projectId}/documents/${node.id}`}
-                          className="font-mono text-primary hover:underline"
-                        >
-                          {node.docKey}
-                        </Link>
-                      </td>
-                      <td className="border border-border/40 px-2 py-1.5 align-top">
-                        <Badge variant="secondary" className="text-[10px]">
-                          {DocumentTypeLabel[node.docType]}
-                        </Badge>
-                      </td>
-                      <td className="border border-border/40 px-2 py-1.5 align-top">
-                        {node.title}
-                      </td>
-                      <td className="border border-border/40 px-2 py-1.5 align-top text-muted-foreground">
-                        {LifecycleStateLabel[node.lifecycleState] ?? "—"}
-                      </td>
-                      <td className="border border-border/40 px-2 py-1.5 align-top text-muted-foreground">
-                        {node.incomingCount}
-                      </td>
-                      <td className="border border-border/40 px-2 py-1.5 align-top text-muted-foreground">
-                        {node.outgoingCount}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ProjectDocumentNetwork graph={graph} projectId={projectId} />
           )}
         </div>
       </div>

@@ -18,6 +18,13 @@ export const projectKeys = {
     [...projectKeys.all, "link-issues", projectId, staleDays] as const,
   errorCodes: (projectId: string) =>
     [...projectKeys.all, "error-codes", projectId] as const,
+  reviewQueues: () => [...projectKeys.all, "review-queue"] as const,
+  reviewQueue: (projectId: string | undefined, params?: object) =>
+    [
+      ...projectKeys.reviewQueues(),
+      projectId ?? "all-projects",
+      params ?? {},
+    ] as const,
   // Tiền tố chung của MỌI danh sách tài liệu trong project — dùng cái này để invalidate.
   // Khoá đầy đủ còn có object tham số ở cuối, nên invalidate bằng documents(id) sẽ tạo khoá
   // [..., id, {}] và chỉ khớp danh sách KHÔNG tham số, bỏ sót mọi danh sách đang lọc.

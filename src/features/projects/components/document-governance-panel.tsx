@@ -8,8 +8,8 @@ import documentService, {
 import {
   type DocumentGovernance,
   type GovernanceParticipant,
-  GovernanceStatus,
-  GovernanceStatusLabel,
+  ApprovalState,
+  ApprovalStateLabel,
 } from "@/features/projects/document-types";
 import { errorDetail } from "@/features/projects/error";
 import { useDocumentGovernance } from "@/features/projects/hooks/use-document-governance";
@@ -17,6 +17,7 @@ import { projectKeys } from "@/lib/query-keys";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   CheckIcon,
+  ChevronDownIcon,
   CircleArrowOutUpRightIcon,
   PencilIcon,
   RotateCcwIcon,
@@ -30,7 +31,6 @@ type GovernanceAction =
   | "submit-review"
   | "request-changes"
   | "approve"
-  | "deprecate"
   | "start-revision";
 
 interface GovernanceForm {
@@ -50,27 +50,31 @@ const emptyForm: GovernanceForm = {
 };
 
 const statusClass: Record<number, string> = {
-  [GovernanceStatus.Draft]:
-    "border-orange-300 bg-orange-50 text-orange-800",
-  [GovernanceStatus.InReview]: "border-sky-300 bg-sky-50 text-sky-800",
-  [GovernanceStatus.Approved]:
-    "border-emerald-300 bg-emerald-50 text-emerald-800",
-  [GovernanceStatus.Deprecated]:
-    "border-slate-300 bg-slate-100 text-slate-700",
+  [ApprovalState.Draft]:
+    "border-border bg-muted/50 text-foreground",
+  [ApprovalState.InReview]:
+    "border-primary/40 bg-primary/10 text-primary",
+  [ApprovalState.Approved]:
+    "border-primary bg-primary text-primary-foreground",
 };
 
 export function DocumentGovernancePanel({
   documentId,
   canEdit,
   canApprove,
+  onRevisionStarted,
+  allowMetadataEditing = false,
 }: {
   documentId: string;
   canEdit: boolean;
   canApprove: boolean;
+  onRevisionStarted?: () => void;
+  allowMetadataEditing?: boolean;
 }) {
   const queryClient = useQueryClient();
   const { data, isLoading, isError } = useDocumentGovernance(documentId);
   const [editing, setEditing] = useState(false);
+  const [mobileExpanded, setMobileExpanded] = useState(false);
   const [form, setForm] = useState<GovernanceForm>(emptyForm);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -81,6 +85,9 @@ export function DocumentGovernancePanel({
       }),
       queryClient.invalidateQueries({
         queryKey: projectKeys.document(documentId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: projectKeys.reviewQueues(),
       }),
     ]);
   };
@@ -101,20 +108,41 @@ export function DocumentGovernancePanel({
   const transition = useMutation({
     mutationFn: (action: GovernanceAction) =>
       documentService.transitionGovernance(documentId, action),
-    onSuccess: async (result) => {
+    onSuccess: async (result, action) => {
       setMessage(
-        `Đã chuyển trạng thái sang ${GovernanceStatusLabel[result.status]}.`,
+        `Đã chuyển trạng thái sang ${ApprovalStateLabel[result.status]}.`,
       );
       await refresh();
+      if (action === "start-revision") {
+        onRevisionStarted?.();
+      }
     },
     onError: (error) => {
       setMessage(errorDetail(error, "Không chuyển được trạng thái tài liệu."));
     },
   });
 
+  const archive = useMutation({
+    mutationFn: (shouldArchive: boolean) =>
+      shouldArchive
+        ? documentService.archive(documentId)
+        : documentService.unarchive(documentId),
+    onSuccess: async (_, shouldArchive) => {
+      setMessage(
+        shouldArchive
+          ? "Đã lưu trữ tài liệu."
+          : "Đã đưa tài liệu ra khỏi kho lưu trữ.",
+      );
+      await refresh();
+    },
+    onError: (error) => {
+      setMessage(errorDetail(error, "Không thay đổi được trạng thái lưu trữ."));
+    },
+  });
+
   if (isLoading) {
     return (
-      <aside className="flex min-h-48 items-center justify-center border border-orange-200 bg-orange-50/40 p-4 lg:w-[360px]">
+      <aside className="flex min-h-12 w-full items-center justify-center border border-border bg-background px-3 py-2">
         <Spinner />
       </aside>
     );
@@ -122,16 +150,15 @@ export function DocumentGovernancePanel({
 
   if (isError || !data) {
     return (
-      <aside className="border border-destructive/30 bg-destructive/5 p-4 text-xs text-destructive lg:w-[360px]">
+      <aside className="w-full border border-destructive/30 bg-destructive/5 p-4 text-xs text-destructive">
         Không tải được thông tin phê duyệt.
       </aside>
     );
   }
 
-  const locked =
-    data.status === GovernanceStatus.Approved ||
-    data.status === GovernanceStatus.Deprecated;
-  const isPending = update.isPending || transition.isPending;
+  const locked = data.status === ApprovalState.Approved || data.isArchived;
+  const isPending =
+    update.isPending || transition.isPending || archive.isPending;
 
   const change = (field: keyof GovernanceForm, value: string) => {
     setMessage(null);
@@ -142,10 +169,10 @@ export function DocumentGovernancePanel({
     setMessage(null);
     update.mutate({
       version: form.version,
-      ...participantBody("author", data.author, form.authorName),
-      ...participantBody("reviewer", data.reviewer, form.reviewerName),
-      ...participantBody("approver", data.approver, form.approverName),
-      ...participantBody("owner", data.owner, form.ownerName),
+      authorId: retainedParticipantId(data.author, form.authorName),
+      reviewerId: retainedParticipantId(data.reviewer, form.reviewerName),
+      approverId: retainedParticipantId(data.approver, form.approverName),
+      ownerId: retainedParticipantId(data.owner, form.ownerName),
     });
   };
 
@@ -154,216 +181,317 @@ export function DocumentGovernancePanel({
     transition.mutate(action);
   };
 
-  return (
-    <aside className="border border-orange-200 bg-[linear-gradient(145deg,rgba(255,247,237,.96),rgba(255,255,255,.98))] shadow-[3px_3px_0_rgba(251,146,60,.18)] lg:w-[360px]">
-      <div className="flex items-center justify-between border-b border-orange-200 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <ShieldCheckIcon className="size-4 text-orange-700" />
-          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-orange-950">
-            Review & phê duyệt
-          </h2>
-        </div>
-        <Badge
-          variant="outline"
-          className={`text-[10px] ${statusClass[data.status]}`}
+  const actionButtons = editing ? (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        disabled={isPending}
+        onClick={() => {
+          setEditing(false);
+          setForm(toForm(data));
+          setMessage(null);
+        }}
+      >
+        <XIcon className="size-3.5" />
+        Huỷ
+      </Button>
+      <Button size="sm" disabled={isPending} onClick={save}>
+        {update.isPending ? <Spinner /> : <SaveIcon className="size-3.5" />}
+        Lưu
+      </Button>
+    </>
+  ) : (
+    <>
+      {canEdit && allowMetadataEditing && !locked && (
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={isPending}
+          onClick={() => {
+            setForm(toForm(data));
+            setEditing(true);
+          }}
         >
-          {GovernanceStatusLabel[data.status]}
-        </Badge>
-      </div>
-
-      <div className="grid grid-cols-[92px_1fr] gap-x-3 gap-y-2.5 px-4 py-3 text-xs">
-        <MetaLabel>ID</MetaLabel>
-        <span className="font-mono font-semibold text-orange-950">{data.id}</span>
-        <MetaLabel>Title</MetaLabel>
-        <span className="font-medium">{data.title}</span>
-        <MetaLabel>Version</MetaLabel>
-        {editing ? (
-          <Input
-            aria-label="Version"
-            className="h-7"
-            value={form.version}
-            onChange={(event) => change("version", event.target.value)}
-          />
-        ) : (
-          <span>{data.version}</span>
+          <PencilIcon className="size-3.5" />
+          Sửa metadata
+        </Button>
+      )}
+      {canEdit &&
+        !data.isArchived &&
+        data.allowedTransitions.includes(ApprovalState.InReview) && (
+          <Button
+            size="sm"
+            disabled={isPending}
+            onClick={() => run("submit-review")}
+          >
+            <CircleArrowOutUpRightIcon className="size-3.5" />
+            Gửi review
+          </Button>
         )}
-        <MetaLabel>Last updated</MetaLabel>
-        <span>{formatDate(data.lastUpdated)}</span>
-        <ParticipantRow
-          label="Author"
-          editing={editing}
-          value={form.authorName}
-          display={data.author.displayName}
-          onChange={(value) => change("authorName", value)}
-        />
-        <ParticipantRow
-          label="Reviewer"
-          editing={editing}
-          value={form.reviewerName}
-          display={data.reviewer.displayName}
-          onChange={(value) => change("reviewerName", value)}
-        />
-        <ParticipantRow
-          label="Approver"
-          editing={editing}
-          value={form.approverName}
-          display={data.approver.displayName}
-          onChange={(value) => change("approverName", value)}
-        />
-        <ParticipantRow
-          label="Owner"
-          editing={editing}
-          value={form.ownerName}
-          display={data.owner.displayName}
-          onChange={(value) => change("ownerName", value)}
-        />
+      {canEdit &&
+        data.status === ApprovalState.InReview &&
+        data.allowedTransitions.includes(ApprovalState.Draft) && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isPending}
+            onClick={() => run("request-changes")}
+          >
+            <RotateCcwIcon className="size-3.5" />
+            Yêu cầu sửa
+          </Button>
+        )}
+      {canApprove &&
+        !data.isArchived &&
+        data.allowedTransitions.includes(ApprovalState.Approved) && (
+          <Button
+            size="sm"
+            disabled={isPending}
+            onClick={() => run("approve")}
+          >
+            <CheckIcon className="size-3.5" />
+            Phê duyệt
+          </Button>
+        )}
+      {canEdit &&
+        !data.isArchived &&
+        data.allowedTransitions.includes(ApprovalState.Draft) &&
+        data.status !== ApprovalState.InReview && (
+          <Button
+            size="sm"
+            disabled={isPending}
+            onClick={() => run("start-revision")}
+          >
+            <PencilIcon className="size-3.5" />
+            Tạo bản sửa đổi
+          </Button>
+        )}
+      {canApprove && !data.isArchived && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-destructive hover:text-destructive"
+          disabled={isPending}
+          onClick={() => archive.mutate(true)}
+        >
+          Lưu trữ
+        </Button>
+      )}
+      {canEdit && data.isArchived && (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={isPending}
+          onClick={() => archive.mutate(false)}
+        >
+          Bỏ lưu trữ
+        </Button>
+      )}
+    </>
+  );
+
+  return (
+    <aside className="w-full overflow-hidden border border-border border-t-2 border-t-primary bg-background">
+      <div className="flex min-h-12 items-center gap-3 px-3 py-2">
+        <div className="flex shrink-0 items-center gap-2">
+          <ShieldCheckIcon className="size-4 text-primary" />
+          <h2 className="text-sm font-semibold text-foreground">
+            Phê duyệt tài liệu
+          </h2>
+          <Badge
+            variant="outline"
+            className={`text-[10px] ${
+              data.isArchived
+                ? "border-border bg-muted text-muted-foreground"
+                : statusClass[data.status]
+            }`}
+          >
+            {data.isArchived
+              ? "Lưu trữ"
+              : ApprovalStateLabel[data.status]}
+          </Badge>
+        </div>
+
+        <dl
+          className={`hidden min-w-0 flex-1 bg-muted/20 text-xs xl:grid ${
+            editing
+              ? "grid-cols-[100px_90px_repeat(4,minmax(100px,1fr))]"
+              : "grid-cols-[100px_repeat(4,minmax(100px,1fr))]"
+          }`}
+        >
+          <SummaryItem label="Cập nhật" value={formatDate(data.lastUpdated)} />
+          {editing && (
+            <SummaryItem
+              label="Phiên bản"
+              value={form.version}
+              editing
+              onChange={(value) => change("version", value)}
+            />
+          )}
+          <SummaryItem
+            label="Author"
+            editing={editing}
+            value={form.authorName}
+            fallbackValue={data.author.displayName}
+            onChange={(value) => change("authorName", value)}
+          />
+          <SummaryItem
+            label="Reviewer"
+            editing={editing}
+            value={form.reviewerName}
+            fallbackValue={data.reviewer.displayName}
+            onChange={(value) => change("reviewerName", value)}
+          />
+          <SummaryItem
+            label="Approver"
+            editing={editing}
+            value={form.approverName}
+            fallbackValue={data.approver.displayName}
+            onChange={(value) => change("approverName", value)}
+          />
+          <SummaryItem
+            label="Owner"
+            editing={editing}
+            value={form.ownerName}
+            fallbackValue={data.owner.displayName}
+            onChange={(value) => change("ownerName", value)}
+          />
+        </dl>
+
+        <div className="ml-auto hidden shrink-0 items-center gap-2 border-l border-border pl-3 xl:flex">
+          {actionButtons}
+        </div>
+
+        <button
+          type="button"
+          aria-label={
+            mobileExpanded
+              ? "Thu gọn thông tin phê duyệt"
+              : "Mở thông tin phê duyệt"
+          }
+          aria-expanded={mobileExpanded}
+          className="ml-auto inline-flex size-7 shrink-0 items-center justify-center text-muted-foreground xl:hidden"
+          onClick={() => setMobileExpanded((value) => !value)}
+        >
+          <ChevronDownIcon
+            className={`size-4 transition-transform ${
+              mobileExpanded ? "rotate-180" : ""
+            }`}
+          />
+        </button>
       </div>
 
       {message && (
         <p
           role="status"
-          className="border-t border-orange-100 px-4 py-2 text-[11px] text-muted-foreground"
+          className="border-t border-border bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground"
         >
           {message}
         </p>
       )}
 
-      <div className="flex flex-wrap justify-end gap-2 border-t border-orange-200 bg-orange-50/50 px-4 py-3">
-        {editing ? (
-          <>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={isPending}
-              onClick={() => {
-                setEditing(false);
-                setForm(toForm(data));
-                setMessage(null);
-              }}
-            >
-              <XIcon className="size-3.5" />
-              Huỷ
-            </Button>
-            <Button size="sm" disabled={isPending} onClick={save}>
-              {update.isPending ? <Spinner /> : <SaveIcon className="size-3.5" />}
-              Lưu
-            </Button>
-          </>
-        ) : (
-          <>
-            {canEdit && !locked && (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={isPending}
-                onClick={() => {
-                  setForm(toForm(data));
-                  setEditing(true);
-                }}
-              >
-                <PencilIcon className="size-3.5" />
-                Sửa metadata
-              </Button>
-            )}
-            {canEdit &&
-              data.allowedTransitions.includes(GovernanceStatus.InReview) && (
-                <Button
-                  size="sm"
-                  disabled={isPending}
-                  onClick={() => run("submit-review")}
-                >
-                  <CircleArrowOutUpRightIcon className="size-3.5" />
-                  Gửi review
-                </Button>
-              )}
-            {canEdit &&
-              data.status === GovernanceStatus.InReview &&
-              data.allowedTransitions.includes(GovernanceStatus.Draft) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isPending}
-                  onClick={() => run("request-changes")}
-                >
-                  <RotateCcwIcon className="size-3.5" />
-                  Yêu cầu sửa
-                </Button>
-              )}
-            {canApprove &&
-              data.allowedTransitions.includes(GovernanceStatus.Approved) && (
-                <Button
-                  size="sm"
-                  disabled={isPending}
-                  onClick={() => run("approve")}
-                >
-                  <CheckIcon className="size-3.5" />
-                  Phê duyệt
-                </Button>
-              )}
-            {canEdit &&
-              data.allowedTransitions.includes(GovernanceStatus.Draft) &&
-              data.status !== GovernanceStatus.InReview && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isPending}
-                  onClick={() => run("start-revision")}
-                >
-                  <PencilIcon className="size-3.5" />
-                  Tạo bản sửa đổi
-                </Button>
-              )}
-            {canApprove &&
-              data.allowedTransitions.includes(GovernanceStatus.Deprecated) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isPending}
-                  onClick={() => run("deprecate")}
-                >
-                  Ngừng sử dụng
-                </Button>
-              )}
-          </>
-        )}
+      <div
+        className={`border-t border-border ${
+          mobileExpanded ? "block" : "hidden"
+        } xl:hidden`}
+      >
+        <dl className="grid grid-cols-2 bg-muted/20 text-xs sm:grid-cols-3">
+          <SummaryItem label="Cập nhật" value={formatDate(data.lastUpdated)} />
+          {editing && (
+            <SummaryItem
+              label="Phiên bản"
+              value={form.version}
+              editing
+              onChange={(value) => change("version", value)}
+            />
+          )}
+          <SummaryItem
+            label="Author"
+            editing={editing}
+            value={form.authorName}
+            fallbackValue={data.author.displayName}
+            onChange={(value) => change("authorName", value)}
+          />
+          <SummaryItem
+            label="Reviewer"
+            editing={editing}
+            value={form.reviewerName}
+            fallbackValue={data.reviewer.displayName}
+            onChange={(value) => change("reviewerName", value)}
+          />
+          <SummaryItem
+            label="Approver"
+            editing={editing}
+            value={form.approverName}
+            fallbackValue={data.approver.displayName}
+            onChange={(value) => change("approverName", value)}
+          />
+          <SummaryItem
+            label="Owner"
+            editing={editing}
+            value={form.ownerName}
+            fallbackValue={data.owner.displayName}
+            onChange={(value) => change("ownerName", value)}
+          />
+        </dl>
+
+        <div className="flex flex-wrap justify-end gap-2 border-t border-border bg-muted/20 px-3 py-2">
+          {actionButtons}
+        </div>
       </div>
     </aside>
   );
 }
 
 function MetaLabel({ children }: { children: string }) {
-  return <span className="font-medium text-orange-900/70">{children}</span>;
+  return (
+    <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+      {children}
+    </span>
+  );
 }
 
-function ParticipantRow({
+function SummaryItem({
   label,
-  editing,
   value,
-  display,
+  editing = false,
   onChange,
+  fallbackValue,
 }: {
   label: string;
-  editing: boolean;
   value: string;
-  display: string | null;
-  onChange: (value: string) => void;
+  editing?: boolean;
+  onChange?: (value: string) => void;
+  fallbackValue?: string | null;
 }) {
+  const displayValue = fallbackValue ?? value;
+
   return (
-    <>
-      <MetaLabel>{label}</MetaLabel>
-      {editing ? (
-        <Input
-          aria-label={label}
-          className="h-7"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-        />
+    <div className="min-w-0 border-b border-r border-border px-3 py-1.5 last:border-r-0 xl:border-b-0">
+      <dt>
+        <MetaLabel>{label}</MetaLabel>
+      </dt>
+      {editing && onChange ? (
+        <dd>
+          <Input
+            aria-label={label}
+            className="mt-0.5 h-7"
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+          />
+        </dd>
       ) : (
-        <span className={display ? "" : "italic text-muted-foreground"}>
-          {display || "Chưa chỉ định"}
-        </span>
+        <dd
+          className={`mt-0.5 truncate font-semibold ${
+            displayValue ? "" : "italic text-muted-foreground"
+          }`}
+          title={displayValue || "Chưa chỉ định"}
+        >
+          {displayValue || "Chưa chỉ định"}
+        </dd>
       )}
-    </>
+    </div>
   );
 }
 
@@ -377,17 +505,13 @@ function toForm(data: DocumentGovernance): GovernanceForm {
   };
 }
 
-function participantBody(
-  role: "author" | "reviewer" | "approver" | "owner",
+function retainedParticipantId(
   participant: GovernanceParticipant,
   name: string,
 ) {
   const normalized = name.trim();
   const unchanged = normalized === (participant.displayName ?? "");
-  return {
-    [`${role}Id`]: unchanged ? participant.userId : null,
-    [`${role}Name`]: normalized || null,
-  };
+  return unchanged ? participant.userId : null;
 }
 
 function formatDate(value: string) {

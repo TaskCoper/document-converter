@@ -19,6 +19,7 @@ interface RoleSelectProps {
   disabled?: boolean;
   className?: string;
   withDescription?: boolean;
+  disabledReason?: string;
 }
 
 // Select vai trò dùng chung cho "thêm thành viên" và "đổi quyền". Giá trị là SỐ (ProjectRole),
@@ -29,6 +30,7 @@ export function RoleSelect({
   disabled,
   className,
   withDescription,
+  disabledReason,
 }: RoleSelectProps) {
   return (
     <Select
@@ -36,7 +38,15 @@ export function RoleSelect({
       onValueChange={(v) => onChange(Number(v) as ProjectRole)}
       disabled={disabled}
     >
-      <SelectTrigger className={cn("h-8 text-xs", className)}>
+      <SelectTrigger
+        className={cn("h-8 text-xs", className)}
+        title={disabledReason}
+        aria-label={
+          disabledReason
+            ? `${ProjectRoleLabel[value]}. ${disabledReason}`
+            : undefined
+        }
+      >
         {/* base-ui Select.Value hiển thị giá trị THÔ (chuỗi số) nếu không có hàm map —
             phải tự đổi số sang nhãn tiếng Việt. */}
         <SelectValue>

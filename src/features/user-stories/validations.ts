@@ -193,6 +193,42 @@ export const schema = z.object({
   openQuestions: z.array(z.string()).optional(),
 });
 
+const userIdSchema = z.string().uuid();
+
+/**
+ * Nhánh project/backend không cho nhập tên tự do: mỗi assignee phải trỏ tới một user.
+ * Backend vẫn là lớp bảo vệ cuối và kiểm thêm user đó có thuộc đúng project hay không.
+ */
+export const backendSchema = schema.superRefine((data, ctx) => {
+  const assignments = new Set<string>();
+
+  data.metadata.assignee.forEach((assignee, index) => {
+    if (
+      !assignee.userId ||
+      !userIdSchema.safeParse(assignee.userId).success
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Hãy chọn một thành viên trong dự án",
+        path: ["metadata", "assignee", index, "userId"],
+      });
+      return;
+    }
+
+    const assignment = `${assignee.userId}:${assignee.position}`;
+    if (assignments.has(assignment)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Thành viên đã được giao vai trò này",
+        path: ["metadata", "assignee", index, "userId"],
+      });
+      return;
+    }
+
+    assignments.add(assignment);
+  });
+});
+
 export type Schema = z.infer<typeof schema>;
 
 const fieldNameLabels: Record<string, string> = {

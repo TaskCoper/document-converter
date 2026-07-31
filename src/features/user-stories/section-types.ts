@@ -1,10 +1,17 @@
-import type { Control, FieldErrors, UseFormRegister } from "react-hook-form";
+import type {
+  Control,
+  FieldErrors,
+  UseFormRegister,
+  UseFormSetValue,
+} from "react-hook-form";
 import type { Schema } from "./validations";
 
 export type SectionProps = {
   register: UseFormRegister<Schema>;
   control: Control<Schema>;
   errors: FieldErrors<Schema>;
+  setValue?: UseFormSetValue<Schema>;
+  projectId?: string;
   /**
    * Nguồn dữ liệu là backend (DB) chứ không phải Markdown trên GitHub.
    *

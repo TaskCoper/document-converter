@@ -3,13 +3,13 @@ import type { TddSchema } from "@/features/tdds/validations";
 import type { Schema as UsSchema } from "@/features/user-stories/validations";
 import documentService from "./document-services";
 import { PositionToAssigneeRole } from "./document-types";
-import type { DocumentDetail, LifecycleState } from "./document-types";
+import { DocumentType } from "./document-types";
+import type { DocumentDetail, StoryWorkState } from "./document-types";
 
 // Metadata mức tài liệu (nhập ngay trong UI sửa nội dung, không nằm trong US Schema).
 export interface DocumentMeta {
   title: string;
-  status: number;
-  lifecycleState: number;
+  storyWorkState: StoryWorkState | null;
   notesMd: string | null;
 }
 
@@ -44,12 +44,12 @@ export async function saveUserStory(
 ): Promise<void> {
   const id = existing.id;
 
-  // 1) Metadata: title/status/lifecycle/notes nhập trong UI; sprint/priority từ form US;
+  // 1) Metadata: title/tiến độ story/notes nhập trong UI; sprint/priority từ form US;
   //    owner/category/effectiveDate giữ nguyên (không sửa ở đây).
   await documentService.updateMetadata(id, {
     title: meta.title,
-    status: meta.status,
-    lifecycleState: meta.lifecycleState as LifecycleState,
+    storyWorkState:
+      existing.docType === DocumentType.UserStory ? meta.storyWorkState : null,
     ownerId: existing.ownerId,
     sprint: data.metadata.sprint,
     priority: PRIORITY_TO_NUMBER[data.metadata.priority] ?? null,
@@ -65,17 +65,14 @@ export async function saveUserStory(
     trigger: data.conditions.trigger || null,
   });
 
-  // 3) Assignees. Ô chọn vị trí giờ có đủ 9 vai trò của backend nên map thẳng được.
-  //    userId đi kèm trong form (ô ẩn) — gửi null sẽ cắt liên kết tài khoản của người phụ
-  //    trách, và màn hình "tài liệu của tôi" lặng lẽ rỗng đi.
+  // 3) Assignees. Backend chỉ nhận định danh thành viên + vai trò; tên hiển thị được suy ra
+  //    từ userId ở server để client không thể gửi một tên tự do giả làm thành viên project.
   await documentService.replaceAssignees(
     id,
     data.metadata.assignee
-      .filter((a) => a.name.trim())
       .map((a) => ({
         role: PositionToAssigneeRole[a.position] ?? 1,
-        displayName: a.name.trim(),
-        userId: a.userId ?? null,
+        userId: a.userId!,
       })),
   );
 
@@ -258,8 +255,7 @@ export async function saveTdd(
 
   await documentService.updateMetadata(id, {
     title: meta.title,
-    status: meta.status,
-    lifecycleState: meta.lifecycleState as LifecycleState,
+    storyWorkState: null,
     ownerId: existing.ownerId,
     sprint: existing.content.sprint,
     priority: existing.content.priority,
@@ -497,8 +493,7 @@ export async function saveRule(
 
   await documentService.updateMetadata(id, {
     title: meta.title,
-    status: meta.status,
-    lifecycleState: meta.lifecycleState as LifecycleState,
+    storyWorkState: null,
     ownerId: existing.ownerId,
     sprint: existing.content.sprint,
     priority: existing.content.priority,

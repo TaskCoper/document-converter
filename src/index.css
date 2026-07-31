@@ -21,6 +21,11 @@
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+  --color-graph-label: var(--graph-label);
+  --color-graph-edge: var(--graph-edge);
+  --color-graph-grid: var(--graph-grid);
+  --color-graph-panel: var(--graph-panel);
+  --color-graph-canvas: var(--graph-canvas);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -56,7 +61,7 @@
   --card-foreground: oklch(0.205 0 0);
   --popover: oklch(0.97 0 0);
   --popover-foreground: oklch(0.205 0 0);
-  --primary: oklch(0.666 0.179 58.318);
+  --primary: oklch(0.5 0.18 38.402);
   --primary-foreground: oklch(0.985 0.001 106.423);
   --secondary: oklch(0.985 0.001 106.423);
   --secondary-foreground: oklch(0.268 0.007 34.298);
@@ -68,8 +73,8 @@
   --destructive-foreground: oklch(0.985 0.001 106.423);
   --border: oklch(0.869 0.005 56.366);
   --input: oklch(0.709 0.01 56.259);
-  --ring: oklch(0.666 0.179 58.318);
-  --chart-1: oklch(0.666 0.179 58.318);
+  --ring: oklch(0.5 0.18 38.402);
+  --chart-1: oklch(0.5 0.18 38.402);
   --chart-2: oklch(0.705 0.213 47.604);
   --chart-3: oklch(0.795 0.184 86.047);
   --chart-4: oklch(0.637 0.237 25.331);
@@ -78,11 +83,11 @@
   --sidebar: oklch(0.985 0.001 106.423);
   --sidebar-foreground: oklch(0.268 0.007 34.298);
   --sidebar-primary: oklch(0.2046 0 0);
-  --sidebar-primary-foreground: oklch(0.666 0.179 58.318);
+  --sidebar-primary-foreground: oklch(0.5 0.18 38.402);
   --sidebar-accent: oklch(0.985 0.001 106.423);
   --sidebar-accent-foreground: oklch(0.268 0.007 34.298);
   --sidebar-border: oklch(0.869 0.005 56.366);
-  --sidebar-ring: oklch(0.666 0.179 58.318);
+  --sidebar-ring: oklch(0.5 0.18 38.402);
 }
 
 .dark {
@@ -93,7 +98,7 @@
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.97 0.001 106.424);
   --primary: oklch(0.666 0.179 58.318);
-  --primary-foreground: oklch(0.97 0.001 106.424);
+  --primary-foreground: oklch(0.205 0 0);
   --secondary: oklch(0.268 0.007 34.298);
   --secondary-foreground: oklch(0.97 0.001 106.424);
   --muted: oklch(0.216 0.006 56.043);
@@ -129,5 +134,22 @@
   }
   html {
     @apply font-sans;
+  }
+  /* Mermaid gắn tooltip rỗng có padding/border vào cuối body. Chỉ loại tooltip
+     khi nó chưa có nội dung để không làm nới trang; tooltip thật vẫn giữ nguyên. */
+  .mermaidTooltip:empty {
+    display: none;
+  }
+}
+
+@layer components {
+  .document-network-theme {
+    --graph-canvas: oklch(0.975 0.004 75);
+    --graph-panel: oklch(0.995 0.002 75);
+    --graph-grid: oklch(0.86 0.008 70);
+    --graph-edge: oklch(0.48 0.014 65);
+    --graph-label: oklch(0.27 0.012 55);
+    background-color: var(--graph-canvas);
+    color: var(--graph-label);
   }
 }

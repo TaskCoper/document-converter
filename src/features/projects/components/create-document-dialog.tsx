@@ -34,6 +34,11 @@ const TYPE_OPTIONS = [
     value: DocumentType.BusinessRule,
     label: DocumentTypeLabel[DocumentType.BusinessRule],
   },
+  { value: DocumentType.UnitTest, label: DocumentTypeLabel[DocumentType.UnitTest] },
+  {
+    value: DocumentType.SystemTest,
+    label: DocumentTypeLabel[DocumentType.SystemTest],
+  },
 ];
 
 export function CreateDocumentDialog({
@@ -44,6 +49,7 @@ export function CreateDocumentDialog({
 }: CreateDocumentDialogProps) {
   const [docType, setDocType] = useState<DocumentType>(DocumentType.UserStory);
   const [title, setTitle] = useState("");
+  const [keyPrefix, setKeyPrefix] = useState("");
   const [titleError, setTitleError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -52,6 +58,7 @@ export function CreateDocumentDialog({
   const reset = () => {
     setDocType(DocumentType.UserStory);
     setTitle("");
+    setKeyPrefix("");
     setTitleError(null);
     setSubmitError(null);
   };
@@ -69,7 +76,11 @@ export function CreateDocumentDialog({
     }
     setTitleError(null);
     createDocument.mutate(
-      { docType, title: title.trim() },
+      {
+        docType,
+        title: title.trim(),
+        keyPrefix: keyPrefix.trim() || undefined,
+      },
       {
         onSuccess: (doc) => {
           reset();
@@ -83,11 +94,11 @@ export function CreateDocumentDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="min-w-lg">
+      <DialogContent className="sm:min-w-lg">
         <DialogHeader>
           <DialogTitle>Tạo tài liệu</DialogTitle>
           <DialogDescription>
-            Mã tài liệu (STORY / TDD / BR) sẽ được cấp tự động.
+            Mã tài liệu (STORY / TDD / BR / UT / ST) sẽ được cấp tự động.
           </DialogDescription>
         </DialogHeader>
 
@@ -97,10 +108,35 @@ export function CreateDocumentDialog({
             <NumberSelect
               id="doc-type"
               value={docType}
-              onChange={(v) => setDocType(v as DocumentType)}
+              onChange={(v) => {
+                setDocType(v as DocumentType);
+                setKeyPrefix("");
+              }}
               options={TYPE_OPTIONS}
             />
           </Field>
+
+          {(docType === DocumentType.UnitTest ||
+            docType === DocumentType.SystemTest) && (
+            <Field className="gap-1">
+              <FieldLabel htmlFor="doc-key-prefix">
+                Tiền tố Test ID
+              </FieldLabel>
+              <Input
+                id="doc-key-prefix"
+                value={keyPrefix}
+                onChange={(e) => setKeyPrefix(e.target.value.toUpperCase())}
+                placeholder={
+                  docType === DocumentType.UnitTest ? "UT-006" : "ST-011"
+                }
+                spellCheck={false}
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Ví dụ tiền tố {docType === DocumentType.UnitTest ? "UT-006" : "ST-011"} sẽ
+                sinh mã đuôi 01, 02…
+              </p>
+            </Field>
+          )}
 
           <Field data-invalid={!!titleError || undefined} className="gap-1">
             <FieldLabel htmlFor="doc-title">Tiêu đề</FieldLabel>

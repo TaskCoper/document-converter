@@ -12,9 +12,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
-  DocumentStatusLabel,
+  ApprovalState,
   DocumentTypeLabel,
-  LifecycleStateLabel,
+  StoryWorkStateLabel,
 } from "@/features/projects/document-types";
 import { errorDetail } from "@/features/projects/error";
 import {
@@ -29,8 +29,11 @@ import {
   canReleaseDocuments,
 } from "@/features/projects/permissions";
 import { buildDocumentView } from "@/features/projects/adapt-document";
+import { DocumentGovernancePanel } from "@/features/projects/components/document-governance-panel";
+import { useDocumentGovernance } from "@/features/projects/hooks/use-document-governance";
 import { ReleaseDocumentDialog } from "@/features/projects/components/release-document-dialog";
 import { StorySplitView } from "@/features/projects/components/story-split-view";
+import { TestDocumentView } from "@/features/projects/components/test-document";
 import { RuleDocumentView } from "@/features/business-rules/components/rule-document-view";
 import { TddDocumentView } from "@/features/tdds/components/tdd-document-view";
 import {
@@ -48,6 +51,7 @@ export default function ProjectDocumentDetailPage() {
   const navigate = useNavigate();
 
   const { document, isLoading, isError } = useDocument(documentId);
+  const { data: governance } = useDocumentGovernance(documentId);
   const myRole = useMyProjectRole(projectId);
   const deleteDocument = useDeleteDocument();
 
@@ -94,6 +98,11 @@ export default function ProjectDocumentDetailPage() {
   const canEdit = !!myRole && canEditDocuments(myRole);
   const canDelete = !!myRole && canDeleteDocuments(myRole);
   const canRelease = !!myRole && canReleaseDocuments(myRole);
+  const canEditCurrentContent =
+    canEdit &&
+    governance !== undefined &&
+    governance.status !== ApprovalState.Approved &&
+    !governance.isArchived;
 
   const confirmDelete = () => {
     setDeleteError(null);
@@ -119,8 +128,7 @@ export default function ProjectDocumentDetailPage() {
         Danh sách tài liệu
       </Link>
 
-      {/* Header */}
-      <div className="mt-3 flex items-start justify-between gap-4">
+      <div className="mt-3 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-xs text-muted-foreground">
@@ -129,12 +137,11 @@ export default function ProjectDocumentDetailPage() {
             <Badge variant="default" className="text-[10px]">
               {DocumentTypeLabel[document.docType]}
             </Badge>
-            <Badge variant="secondary" className="text-[10px]">
-              {DocumentStatusLabel[document.status] ?? document.status}
-            </Badge>
-            <Badge variant="outline" className="text-[10px]">
-              {LifecycleStateLabel[document.lifecycleState]}
-            </Badge>
+            {document.storyWorkState && (
+              <Badge variant="secondary" className="text-[10px]">
+                {StoryWorkStateLabel[document.storyWorkState]}
+              </Badge>
+            )}
             {document.hasUnpublishedChanges && (
               <span className="text-[10px] text-primary">
                 • có thay đổi chưa phát hành
@@ -145,17 +152,17 @@ export default function ProjectDocumentDetailPage() {
             {document.content.title}
           </h1>
           <p className="mt-0.5 text-[10px] text-muted-foreground">
-            Phiên bản v{document.currentVersionNumber}
-            {document.content.ownerName && ` · ${document.content.ownerName}`}
+            Phiên bản {governance?.version ?? `v${document.currentVersionNumber}`}
           </p>
         </div>
 
-        <div className="flex shrink-0 flex-wrap justify-end gap-2">
-          {canEdit && (
-            // Cả 3 loại tài liệu đều dùng trình soạn thảo section đầy đủ (đã gộp metadata).
+        <div className="flex w-full flex-wrap justify-start gap-2 xl:w-auto xl:shrink-0 xl:justify-end">
+          {canEditCurrentContent && (
+            // Mọi loại tài liệu đều dùng trình soạn thảo section đầy đủ (đã gộp metadata).
             <Button
               variant="outline"
               size="sm"
+              nativeButton={false}
               render={
                 <Link
                   to={`/projects/${projectId}/documents/${document.id}/edit`}
@@ -169,6 +176,7 @@ export default function ProjectDocumentDetailPage() {
           <Button
             variant="outline"
             size="sm"
+            nativeButton={false}
             render={
               <Link
                 to={`/projects/${projectId}/documents/${document.id}/versions`}
@@ -189,7 +197,11 @@ export default function ProjectDocumentDetailPage() {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={!document.hasUnpublishedChanges}
+                disabled={
+                  !document.hasUnpublishedChanges ||
+                  document.isArchived ||
+                  governance?.status !== ApprovalState.Approved
+                }
                 onClick={() => setReleaseOpen(true)}
               >
                 <RocketIcon className="size-3.5" />
@@ -266,14 +278,26 @@ export default function ProjectDocumentDetailPage() {
   if (view.kind === "story") {
     return (
       <div className="flex h-full flex-col overflow-hidden">
-        <div className="shrink-0 border-b border-border px-6 pb-3 pt-4">
+        <div className="shrink-0 border-b border-border px-4 py-3">
           {header}
+          <div className="mt-3">
+            <DocumentGovernancePanel
+              documentId={document.id}
+              canEdit={canEdit}
+              canApprove={canRelease}
+              onRevisionStarted={() =>
+                navigate(
+                  `/projects/${projectId}/documents/${document.id}/edit`,
+                )
+              }
+            />
+          </div>
         </div>
-        <div className="min-h-0 flex-1 p-4">
+        <div className="min-h-0 flex-1 p-3">
           <StorySplitView
             projectId={projectId}
             doc={document}
-            storyHtml={view.html}
+            storyData={view.data}
           />
         </div>
         {dialogs}
@@ -293,11 +317,20 @@ export default function ProjectDocumentDetailPage() {
     </div>
   ) : null;
 
-  // TDD/Rule: bố cục canh giữa như cũ.
   return (
-    <div className="mx-auto max-w-5xl p-6">
+    <div className="mx-auto max-w-[1440px] p-6">
       {header}
-      <div className="mt-6">
+      <div className="mt-5">
+        <DocumentGovernancePanel
+          documentId={document.id}
+          canEdit={canEdit}
+          canApprove={canRelease}
+          onRevisionStarted={() =>
+            navigate(`/projects/${projectId}/documents/${document.id}/edit`)
+          }
+        />
+      </div>
+      <div className="mt-6 min-w-0">
         {view.kind === "tdd" ? (
           <>
             <TddDocumentView data={view.data} />
@@ -306,6 +339,11 @@ export default function ProjectDocumentDetailPage() {
         ) : view.kind === "rule" ? (
           <>
             <RuleDocumentView data={view.data} />
+            {notesBlock}
+          </>
+        ) : view.kind === "test" ? (
+          <>
+            <TestDocumentView doc={document} />
             {notesBlock}
           </>
         ) : (

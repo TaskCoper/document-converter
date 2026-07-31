@@ -4,14 +4,20 @@ import authApi, {
 } from "@/lib/auth/api";
 import type {
   DocumentDetail,
+  DocumentGovernance,
   DocumentListRow,
   DocumentSort,
   DocumentType,
   ImpactReport,
   IncomingLink,
-  LifecycleState,
+  ReviewQueueRow,
   SearchMode,
   SearchResponse,
+  StoryWorkState,
+  SystemTestType,
+  TestPriority,
+  TestSuite,
+  UnitTestType,
   VersionDetail,
   VersionDiff,
   VersionListRow,
@@ -20,11 +26,18 @@ import type {
 export interface DocumentListParams {
   docType?: DocumentType;
   keyword?: string;
+  sprint?: number;
   sort?: DocumentSort;
   // Trả về trang CHỨA tài liệu này thay vì trang 1; ghi đè pageIndex khi có giá trị.
   anchorDocumentId?: string;
   pageIndex?: number;
   pageSize?: number;
+  unitTestType?: UnitTestType;
+  systemTestType?: SystemTestType;
+  testSuite?: TestSuite;
+  testPriority?: TestPriority;
+  module?: string;
+  storyKey?: string;
 }
 
 export interface SearchParams {
@@ -34,10 +47,16 @@ export interface SearchParams {
   limit?: number;
 }
 
+export interface ReviewQueueParams {
+  projectId?: string;
+  pageIndex?: number;
+  pageSize?: number;
+}
+
 export interface CreateDocumentBody {
   docType: DocumentType;
   title: string;
-  status?: number;
+  storyWorkState?: StoryWorkState | null;
   keyPrefix?: string;
   sprint?: number | null;
   priority?: number | null;
@@ -47,8 +66,7 @@ export interface CreateDocumentBody {
 
 export interface UpdateMetadataBody {
   title: string;
-  status: number;
-  lifecycleState: LifecycleState;
+  storyWorkState: StoryWorkState | null;
   ownerId?: string | null;
   sprint?: number | null;
   priority?: number | null;
@@ -60,6 +78,14 @@ export interface UpdateMetadataBody {
 export interface ReleaseDocumentBody {
   versionLabel?: string | null;
   changeSummary?: string | null;
+}
+
+export interface UpdateGovernanceBody {
+  version: string;
+  authorId: string | null;
+  reviewerId: string | null;
+  approverId: string | null;
+  ownerId: string | null;
 }
 
 // Các field đơn trị theo loại — backend chỉ dùng nhóm khớp doc_type, gửi dư cũng không sao.
@@ -82,6 +108,24 @@ export interface UpdateDetailBody {
   notes?: string | null;
   ownerName?: string | null;
   source?: string | null;
+  // UnitTest
+  module?: string | null;
+  unitUnderTest?: string | null;
+  unitTestType?: UnitTestType | null;
+  mockSetup?: string | null;
+  input?: string | null;
+  expectedOutput?: string | null;
+  // SystemTest
+  storyKey?: string | null;
+  systemTestType?: number | null;
+  precondition?: string | null;
+  testData?: string | null;
+  expectedResult?: string | null;
+  // Dùng chung
+  testSuite?: TestSuite | null;
+  testPriority?: TestPriority | null;
+  rationale?: string | null;
+  testOwnerName?: string | null;
 }
 
 class DocumentService {
@@ -92,10 +136,31 @@ class DocumentService {
         params: {
           DocType: params.docType,
           Keyword: params.keyword || undefined,
+          Sprint: params.sprint,
           Sort: params.sort,
           AnchorDocumentId: params.anchorDocumentId,
           PageIndex: params.pageIndex ?? 1,
           PageSize: params.pageSize ?? 50,
+          UnitTestType: params.unitTestType,
+          SystemTestType: params.systemTestType,
+          TestSuite: params.testSuite,
+          TestPriority: params.testPriority,
+          Module: params.module || undefined,
+          StoryKey: params.storyKey || undefined,
+        },
+      },
+    );
+    return data.value;
+  };
+
+  listReviewQueue = async (params: ReviewQueueParams = {}) => {
+    const { data } = await authApi.get<BasePaginationResponse<ReviewQueueRow>>(
+      "/documents/review-queue",
+      {
+        params: {
+          ProjectId: params.projectId,
+          PageIndex: params.pageIndex ?? 1,
+          PageSize: params.pageSize ?? 20,
         },
       },
     );
@@ -105,6 +170,55 @@ class DocumentService {
   get = async (documentId: string) => {
     const { data } = await authApi.get<BaseResponse<DocumentDetail>>(
       `/documents/${documentId}`,
+    );
+    return data.value;
+  };
+
+  getGovernance = async (documentId: string) => {
+    const { data } = await authApi.get<BaseResponse<DocumentGovernance>>(
+      `/documents/${documentId}/governance`,
+    );
+    return data.value;
+  };
+
+  updateGovernance = async (
+    documentId: string,
+    body: UpdateGovernanceBody,
+  ) => {
+    const { data } = await authApi.put<BaseResponse<DocumentGovernance>>(
+      `/documents/${documentId}/governance`,
+      body,
+    );
+    return data.value;
+  };
+
+  transitionGovernance = async (
+    documentId: string,
+    action:
+      | "submit-review"
+      | "request-changes"
+      | "approve"
+      | "start-revision",
+    note?: string | null,
+  ) => {
+    const { data } = await authApi.post<BaseResponse<DocumentGovernance>>(
+      `/documents/${documentId}/governance/${action}`,
+      { note: note ?? null },
+    );
+    return data.value;
+  };
+
+  archive = async (documentId: string, reason?: string | null) => {
+    const { data } = await authApi.post<BaseResponse<DocumentDetail>>(
+      `/documents/${documentId}/archive`,
+      { note: reason ?? null },
+    );
+    return data.value;
+  };
+
+  unarchive = async (documentId: string) => {
+    const { data } = await authApi.post<BaseResponse<DocumentDetail>>(
+      `/documents/${documentId}/unarchive`,
     );
     return data.value;
   };
@@ -268,7 +382,7 @@ class DocumentService {
 
   replaceAssignees = async (
     documentId: string,
-    assignees: { role: number; displayName: string; userId?: string | null }[],
+    assignees: { role: number; userId: string }[],
   ) => {
     await authApi.put<BaseResponse<DocumentDetail>>(
       `/documents/${documentId}/assignees`,
@@ -283,6 +397,7 @@ class DocumentService {
       targetDocKey: string;
       linkType: number;
       note?: string | null;
+      targetSection?: string | null;
     }[],
   ) => {
     await authApi.put<BaseResponse<DocumentDetail>>(

@@ -8,6 +8,10 @@ import {
   schema,
   type Schema,
 } from "./validations";
+import type {
+  StoryDocumentData,
+  StoryDocumentOptions,
+} from "./document-view-model";
 
 export function toMarkdown(data: Schema): string {
   const { metadata, conditions, flow, acceptanceCriteria } = data;
@@ -551,30 +555,8 @@ const STYLE = `
  * `Schema` gán được vào đây (union hẹp → string, number → number|null) nên mọi lời gọi phía
  * GitHub giữ nguyên, không phải sửa gì.
  */
-export type HtmlInput = Omit<Schema, "metadata"> & {
-  metadata: Omit<
-    Schema["metadata"],
-    "status" | "priority" | "sprint" | "assignee"
-  > & {
-    status: string;
-    priority: string;
-    /** null = chưa gán sprint. Khác hẳn "sprint 1". */
-    sprint: number | null;
-    assignee: { name: string; position: string }[];
-  };
-};
-
-export interface HtmlOptions {
-  /**
-   * Dựng URL cho một mục trong REFERENCES. Trả về null = liên kết treo (trỏ tới khoá chưa
-   * tồn tại) → in chữ thường, không bọc thẻ <a>.
-   *
-   * Bỏ trống thì dùng mặc định `/view/{path}` — đường dẫn của trình xem file GitHub. Nguồn
-   * backend PHẢI truyền hàm này vào, vì ở đó `path` là doc key (STORY-004) chứ không phải
-   * đường dẫn file, nên link mặc định sẽ dẫn tới một file không tồn tại.
-   */
-  linkHref?: (ref: { id: string; path: string }) => string | null;
-}
+export type HtmlInput = StoryDocumentData;
+export type HtmlOptions = StoryDocumentOptions;
 
 export function toHtml(data: HtmlInput, opts?: HtmlOptions): string {
   const rows: string[] = [];

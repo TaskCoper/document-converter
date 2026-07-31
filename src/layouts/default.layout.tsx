@@ -1,35 +1,14 @@
 import { Button } from "@/components/ui/button";
 import AuthWidget from "@/features/auth/components/auth-widget";
+import { ApplicationSidebar } from "@/features/navigation/components/application-sidebar";
 import { DocumentTabBar } from "@/features/projects/components/document-tab-bar";
 import { ProjectSearchPalette } from "@/features/projects/components/project-search-palette";
-import { useActiveRepo } from "@/features/repos/store";
-import { cn } from "@/lib/utils";
-import {
-  BookUserIcon,
-  FileCode2Icon,
-  FolderGit2Icon,
-  HomeIcon,
-  ScaleIcon,
-  SearchIcon,
-} from "lucide-react";
+import { SearchIcon } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
-
-const NAV = [
-  { to: "/browse", label: "Trang chủ", end: false, icon: HomeIcon },
-  { to: "/stories", label: "Thêm User Story", icon: BookUserIcon },
-  { to: "/tdd", label: "Thêm TDD", icon: FileCode2Icon },
-  { to: "/rules", label: "Thêm Rule", icon: ScaleIcon },
-];
-
+import { Link, Outlet, useLocation } from "react-router-dom";
 
 export default function DefaultLayout() {
-  const activeRepo = useActiveRepo();
   const { pathname } = useLocation();
-  const onPicker = pathname === "/";
-  // Trang không phụ thuộc kho GitHub (dữ liệu lấy từ backend): hồ sơ và dự án.
-  const isRepoIndependent =
-    pathname === "/profile" || pathname.startsWith("/projects");
 
   // Search API chỉ scope theo project (GET /projects/{projectId}/search) — lấy id từ URL
   // thay vì useParams() vì DefaultLayout nằm NGOÀI route con /projects/:projectId/*.
@@ -54,51 +33,31 @@ export default function DefaultLayout() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [projectId]);
 
-  if (!activeRepo && !onPicker && !isRepoIndependent) {
-    return <Navigate to="/" replace />;
-  }
-
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       <header className="z-40 shrink-0 border-b border-border bg-background">
         <div className="mx-auto flex h-12 items-center gap-4 px-2">
 
-          {/* Dự án lấy dữ liệu từ backend, không phụ thuộc kho GitHub → luôn hiện. */}
-          <NavLink
+          <Link
             to="/projects"
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-1.5 rounded-none px-2.5 py-1 text-xs transition-colors hover:bg-muted",
-                isActive && "bg-primary text-primary-foreground",
-              )
-            }
+            title="Về trang Dự án"
+            className="flex h-10 items-center gap-3 rounded-sm px-1 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
-            <FolderGit2Icon className="size-3.5" />
-            Dự án
-          </NavLink>
-
-          {activeRepo && !onPicker && (
-            <nav className="flex items-center gap-1">
-              {NAV.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.end}
-                  className={({ isActive }) =>
-                    cn(
-                      "rounded-none px-2.5 py-1 text-xs transition-colors hover:bg-muted",
-                      isActive && "bg-primary text-primary-foreground",
-                    )
-                  }
-                >
-                  <div className="flex items-center gap-1.5">
-                    {item.icon && <item.icon className="size-3.5" />}
-                    {item.label}
-                  </div>
-                </NavLink>
-              ))}
-            </nav>
-          )}
+            <img
+              src="/logo-header.png"
+              alt="Document First"
+              width={480}
+              height={219}
+              className="h-9 w-auto object-contain"
+            />
+            <span
+              aria-hidden="true"
+              className="hidden items-center gap-1 border-l border-border pl-3 text-2xl font-bold leading-none tracking-tight sm:inline-flex"
+            >
+              <span>Document</span>
+              <span className="text-primary">First</span>
+            </span>
+          </Link>
 
           <div className="ml-auto flex items-center gap-3">
             <Button
@@ -120,16 +79,21 @@ export default function DefaultLayout() {
         </div>
       </header>
 
-      <main className="min-h-0 flex-1 overflow-y-auto">
-        <Outlet />
-      </main>
+      <div className="flex min-h-0 flex-1">
+        <ApplicationSidebar projectId={projectId} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+            <Outlet />
+          </main>
 
-      {showDocTabBar && (
-        <DocumentTabBar
-          projectId={projectId!}
-          currentDocumentId={currentDocumentId}
-        />
-      )}
+          {showDocTabBar && (
+            <DocumentTabBar
+              projectId={projectId!}
+              currentDocumentId={currentDocumentId}
+            />
+          )}
+        </div>
+      </div>
 
       {projectId && (
         <ProjectSearchPalette

@@ -79,9 +79,8 @@ export function RuleIdentitySection({
           )}
         </Field>
 
-        {/* Nhánh backend có ô "Trạng thái" riêng ở khối Thông tin tài liệu (dải DocumentStatus
-            30-32) và CHÍNH nó mới được gửi đi — saveRule chỉ dùng meta.status. Hiện thêm ô này
-            chỉ tạo ra hai ô trạng thái mâu thuẫn nhau, ô dưới thì không có tác dụng gì. */}
+        {/* Với tài liệu trong DB, trạng thái phê duyệt được quản lý ở workflow riêng.
+            Không cho sửa giá trị tương thích Markdown tại form nội dung. */}
         {!backend && (
           <Field data-invalid={!!errors.status || undefined}>
             <FieldLabel htmlFor="status">Trạng thái</FieldLabel>

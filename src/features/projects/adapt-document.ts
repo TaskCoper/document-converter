@@ -1,9 +1,6 @@
 import type { RuleSchema } from "@/features/business-rules/validations";
 import type { TddSchema } from "@/features/tdds/validations";
-import {
-  toHtml as usToHtml,
-  type HtmlInput as UsHtmlInput,
-} from "@/features/user-stories/exporters";
+import type { StoryDocumentData } from "@/features/user-stories/document-view-model";
 import type { Schema as UsSchema } from "@/features/user-stories/validations";
 import type { DefaultValues } from "react-hook-form";
 import {
@@ -11,16 +8,16 @@ import {
   AssigneeRoleToPosition,
   DiagramFormat,
   DiagramFormatLabel,
-  DocumentStatusLabel,
+  ApprovalState,
   DocumentType,
+  StoryWorkStateLabel,
   StoryPriorityLabel,
 } from "./document-types";
 import type { DocumentDetail } from "./document-types";
 
-// Map tài liệu structured từ backend sang Schema của user-stories rồi render bằng CHÍNH
-// exporter cũ (toHtml). Nhờ vậy trang xem tài liệu dùng lại đúng bộ render "waffle" như
-// trang GitHub, thay vì hiển thị Markdown thô. Không validate (toHtml không cần) nên tài
-// liệu draft/thiếu field vẫn render được.
+// Map tài liệu structured từ backend sang view-model của User Story. Trang chi tiết và trang
+// sửa đưa dữ liệu này thẳng vào cùng một component React, không qua Markdown, HTML string
+// hoặc iframe. Không validate lại vì response draft có thể đang thiếu một số field.
 
 const FLOW = { Main: 1, Alternative: 2, Exception: 3 } as const;
 const LIST = {
@@ -100,7 +97,7 @@ function storyBody(doc: DocumentDetail) {
 // Trung thực với response: không bịa mặc định, không nắn về enum của form. Dùng nhãn tiếng
 // Việt cho status để khớp badge ở header trang chi tiết — hai chỗ trên cùng màn hình mà nói
 // khác nhau thì người đọc không biết tin cái nào.
-export function adaptUserStoryView(doc: DocumentDetail): UsHtmlInput {
+export function adaptUserStoryView(doc: DocumentDetail): StoryDocumentData {
   const c = doc.content;
   const body = storyBody(doc);
   // Bảng waffle chỉ có một cột hẹp cho luồng phụ: ưu tiên mã, luồng không có mã thì lấy tiêu
@@ -119,7 +116,9 @@ export function adaptUserStoryView(doc: DocumentDetail): UsHtmlInput {
         position: AssigneeRoleLabel[a.role] ?? String(a.role),
       })),
       creator: c.ownerName ?? "",
-      status: DocumentStatusLabel[doc.status] ?? String(doc.status),
+      status: doc.storyWorkState
+        ? StoryWorkStateLabel[doc.storyWorkState]
+        : "Cần làm",
     },
     ...body,
     flow: {
@@ -156,7 +155,7 @@ export function adaptUserStoryForm(
         userId: a.userId,
       })),
       creator: c.ownerName ?? "",
-      // Không thuộc form: trang sửa có ô chọn trạng thái riêng (useState theo doc.status) và
+      // Không thuộc form: trang sửa có ô chọn tiến độ riêng và
       // chính ô đó mới được gửi đi. Điền vào đây chỉ để zod không kêu thiếu field.
       status: "InProgress" as UsSchema["metadata"]["status"],
     },
@@ -165,12 +164,6 @@ export function adaptUserStoryForm(
 }
 
 // ── Rule: backend content → RuleSchema (dùng cho BusinessRuleRow của view.page) ──────
-const RULE_STATUS: Record<number, RuleSchema["status"]> = {
-  30: "Draft",
-  31: "Active",
-  32: "Deprecated",
-};
-
 export function adaptRule(doc: DocumentDetail): RuleSchema {
   const c = doc.content;
   return {
@@ -186,7 +179,11 @@ export function adaptRule(doc: DocumentDetail): RuleSchema {
     relatedStories: c.links
       .filter((l) => l.targetKind === REF.UserStory)
       .map((l) => l.targetDocKey),
-    status: RULE_STATUS[doc.status] ?? "Draft",
+    status: doc.isArchived
+      ? "Deprecated"
+      : doc.approvalState === ApprovalState.Approved
+        ? "Active"
+        : "Draft",
     version: c.versionLabel ?? `v${doc.currentVersionNumber}`,
     effectiveDate: c.effectiveDate ?? "",
     notes: c.ruleNotes ?? "",
@@ -194,11 +191,13 @@ export function adaptRule(doc: DocumentDetail): RuleSchema {
 }
 
 // ── TDD: backend content → TddSchema (dùng cho TddDocumentView của view.page) ─────────
-const TDD_STATUS: Record<number, TddSchema["documentInfo"]["status"]> = {
-  20: "Draft",
-  21: "InReview",
-  22: "Approved",
-  23: "Approved", // Deprecated: không có ở frontend, xấp xỉ Approved
+const TDD_STATUS: Record<
+  number,
+  TddSchema["documentInfo"]["status"]
+> = {
+  [ApprovalState.Draft]: "Draft",
+  [ApprovalState.InReview]: "InReview",
+  [ApprovalState.Approved]: "Approved",
 };
 // ApiHttpMethod của backend: Get=1, Post=2, Put=3, Patch=4, Delete=5, Head=6, Options=7.
 // Nắn 6/7 về GET là hiển thị sai động từ, không phải "xấp xỉ cho gần".
@@ -292,7 +291,7 @@ export function adaptTdd(doc: DocumentDetail): TddSchema {
       feature: c.featureName ?? c.title ?? "",
       author: c.ownerName ?? "",
       reviewer: c.reviewerName ?? "",
-      status: TDD_STATUS[doc.status] ?? "Draft",
+      status: TDD_STATUS[doc.approvalState] ?? "Draft",
       version: c.versionLabel ?? `v${doc.currentVersionNumber}`,
       updatedAt: dateOnly(c.updatedAt ?? doc.updatedAt),
       relatedStories: linksK(REF.UserStory),
@@ -385,21 +384,17 @@ export function adaptTdd(doc: DocumentDetail): TddSchema {
 }
 
 // Toàn bộ nội dung trang chi tiết dựng từ MỘT response GET /documents/{id}, không cần
-// Markdown: TDD/Rule map sang schema rồi render bằng component React, User Story dùng lại
-// bộ render "waffle" (toHtml) như view.page.tsx của GitHub — chỉ khác nguồn dữ liệu đầu vào.
+// Markdown: cả TDD/Rule lẫn User Story đều map sang dữ liệu rồi render bằng component React.
 // `raw` là lối thoát duy nhất khi adapter thất bại, và cũng là trường hợp DUY NHẤT mà
 // trang cần gọi tới /preview.
-// Mã tài liệu trong mục REFERENCES → đường dẫn mở được. Mặc định của exporter là
-// `/view/{path}` (trình xem file GitHub), ở nhánh backend thì `path` là doc key nên link đó
-// dẫn tới một file không tồn tại. resolvedLinks đã có sẵn id thật, dùng thẳng.
+// Mã tài liệu trong mục REFERENCES phải được nối sang id thật từ resolvedLinks.
 export function storyLinkHref(doc: DocumentDetail) {
   const idByKey = new Map(
     doc.resolvedLinks
       .filter((l) => l.targetDocumentId)
       .map((l) => [l.targetDocKey, l.targetDocumentId!]),
   );
-  // null = liên kết treo (trỏ tới khoá chưa tồn tại) → exporter in chữ thường, không tạo
-  // link chết.
+  // null = liên kết treo (trỏ tới khoá chưa tồn tại) → chỉ in chữ thường, không tạo link chết.
   return (ref: { id: string; path: string }) => {
     const id = idByKey.get(ref.path);
     return id ? `/projects/${doc.projectId}/documents/${id}` : null;
@@ -408,9 +403,10 @@ export function storyLinkHref(doc: DocumentDetail) {
 
 export type DocumentView =
   | { kind: "pending" }
-  | { kind: "story"; html: string }
+  | { kind: "story"; data: StoryDocumentData }
   | { kind: "tdd"; data: TddSchema }
   | { kind: "rule"; data: RuleSchema }
+  | { kind: "test" }
   | { kind: "raw" };
 
 export function buildDocumentView(
@@ -422,14 +418,15 @@ export function buildDocumentView(
       case DocumentType.UserStory:
         return {
           kind: "story",
-          html: usToHtml(adaptUserStoryView(doc), {
-            linkHref: storyLinkHref(doc),
-          }),
+          data: adaptUserStoryView(doc),
         };
       case DocumentType.Tdd:
         return { kind: "tdd", data: adaptTdd(doc) };
       case DocumentType.BusinessRule:
         return { kind: "rule", data: adaptRule(doc) };
+      case DocumentType.UnitTest:
+      case DocumentType.SystemTest:
+        return { kind: "test" };
       default:
         return { kind: "raw" };
     }

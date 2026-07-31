@@ -4,7 +4,6 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 
 import { UpdateBanner } from "./components/update-banner";
-import { useReposStore } from "./features/repos/store";
 import { applyUpdate, isUpdatePending, startVersionWatch } from "./lib/app-version";
 import { router } from "./router";
 
@@ -17,15 +16,6 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
     },
   },
-});
-
-// Drop all GitHub-backed queries when the active repo changes — every cached
-// listing/file/history belongs to the previous repo and would produce wrong UI
-// or wrong writes if reused against a different repo.
-useReposStore.subscribe((state, prev) => {
-  if (state.activeRepoId !== prev.activeRepoId) {
-    queryClient.removeQueries({ queryKey: ["gh"] });
-  }
 });
 
 startVersionWatch();

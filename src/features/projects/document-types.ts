@@ -5,6 +5,8 @@ export const DocumentType = {
   UserStory: 1,
   Tdd: 2,
   BusinessRule: 3,
+  UnitTest: 4,
+  SystemTest: 5,
 } as const;
 export type DocumentType = (typeof DocumentType)[keyof typeof DocumentType];
 
@@ -12,6 +14,8 @@ export const DocumentTypeLabel: Record<DocumentType, string> = {
   [DocumentType.UserStory]: "User Story",
   [DocumentType.Tdd]: "TDD",
   [DocumentType.BusinessRule]: "Business Rule",
+  [DocumentType.UnitTest]: "Unit Test",
+  [DocumentType.SystemTest]: "System Test",
 };
 
 // Thứ tự sắp xếp của GET /projects/{id}/documents (DocumentService.DocumentSort).
@@ -23,22 +27,58 @@ export const DocumentSort = {
 } as const;
 export type DocumentSort = (typeof DocumentSort)[keyof typeof DocumentSort];
 
-export const LifecycleState = {
+export const ApprovalState = {
   Draft: 1,
   InReview: 2,
-  Released: 3,
-  Archived: 4,
+  Approved: 3,
 } as const;
-export type LifecycleState = (typeof LifecycleState)[keyof typeof LifecycleState];
+export type ApprovalState = (typeof ApprovalState)[keyof typeof ApprovalState];
 
-export const LifecycleStateLabel: Record<LifecycleState, string> = {
-  [LifecycleState.Draft]: "Nháp",
-  [LifecycleState.InReview]: "Đang duyệt",
-  [LifecycleState.Released]: "Đã phát hành",
-  [LifecycleState.Archived]: "Lưu trữ",
+export const ApprovalStateLabel: Record<ApprovalState, string> = {
+  [ApprovalState.Draft]: "Nháp",
+  [ApprovalState.InReview]: "Đang duyệt",
+  [ApprovalState.Approved]: "Đã duyệt",
 };
 
-// Trạng thái nghiệp vụ theo từng loại (dải 10 giá trị mỗi loại).
+export const StoryWorkState = {
+  Todo: 1,
+  InProgress: 2,
+  Blocked: 3,
+  Done: 4,
+} as const;
+export type StoryWorkState =
+  (typeof StoryWorkState)[keyof typeof StoryWorkState];
+
+export const StoryWorkStateLabel: Record<StoryWorkState, string> = {
+  [StoryWorkState.Todo]: "Cần làm",
+  [StoryWorkState.InProgress]: "Đang làm",
+  [StoryWorkState.Blocked]: "Bị chặn",
+  [StoryWorkState.Done]: "Xong",
+};
+
+export interface GovernanceParticipant {
+  userId: string | null;
+  displayName: string | null;
+}
+
+export interface DocumentGovernance {
+  documentId: string;
+  id: string;
+  title: string;
+  version: string;
+  lastUpdated: string;
+  status: ApprovalState;
+  isArchived: boolean;
+  archivedAt: string | null;
+  approvalId: string | null;
+  author: GovernanceParticipant;
+  reviewer: GovernanceParticipant;
+  approver: GovernanceParticipant;
+  owner: GovernanceParticipant;
+  allowedTransitions: ApprovalState[];
+}
+
+// Chỉ còn dùng để hiển thị payload/version Markdown cũ.
 export const DocumentStatusLabel: Record<number, string> = {
   10: "Cần làm",
   11: "Đang làm",
@@ -51,6 +91,10 @@ export const DocumentStatusLabel: Record<number, string> = {
   30: "Nháp",
   31: "Hiệu lực",
   32: "Ngừng dùng",
+  40: "Nháp",
+  41: "Đã duyệt",
+  50: "Nháp",
+  51: "Đã duyệt",
 };
 
 export const StoryPriority = {
@@ -68,19 +112,102 @@ export const StoryPriorityLabel: Record<StoryPriority, string> = {
   [StoryPriority.Wont]: "Won't",
 };
 
-// Các trạng thái nghiệp vụ hợp lệ theo từng loại (DB có CHECK ràng buộc dải).
-export const STATUS_OPTIONS_BY_TYPE: Record<DocumentType, number[]> = {
-  [DocumentType.UserStory]: [10, 11, 12, 13],
-  [DocumentType.Tdd]: [20, 21, 22, 23],
-  [DocumentType.BusinessRule]: [30, 31, 32],
+export const STORY_WORK_STATE_OPTIONS: StoryWorkState[] = [
+  StoryWorkState.Todo,
+  StoryWorkState.InProgress,
+  StoryWorkState.Blocked,
+  StoryWorkState.Done,
+];
+
+export const UnitTestType = {
+  Happy: 1,
+  Branch: 2,
+  Boundary: 3,
+  Error: 4,
+  Quirk: 5,
+  Determinism: 6,
+} as const;
+export type UnitTestType = (typeof UnitTestType)[keyof typeof UnitTestType];
+
+export const UnitTestTypeLabel: Record<UnitTestType, string> = {
+  [UnitTestType.Happy]: "Happy",
+  [UnitTestType.Branch]: "Branch",
+  [UnitTestType.Boundary]: "Boundary",
+  [UnitTestType.Error]: "Error",
+  [UnitTestType.Quirk]: "Quirk",
+  [UnitTestType.Determinism]: "Determinism",
 };
 
-export const LIFECYCLE_OPTIONS: LifecycleState[] = [
-  LifecycleState.Draft,
-  LifecycleState.InReview,
-  LifecycleState.Released,
-  LifecycleState.Archived,
+export const UNIT_TEST_TYPE_OPTIONS = Object.values(UnitTestType);
+
+export const SystemTestType = {
+  Main: 1,
+  Alternative: 2,
+  Exception: 4,
+  NonFunctional: 8,
+  IntegrationBoundary: 16,
+} as const;
+export type SystemTestType =
+  (typeof SystemTestType)[keyof typeof SystemTestType];
+
+export const SYSTEM_TEST_TYPE_OPTIONS: {
+  value: SystemTestType;
+  label: string;
+}[] = [
+  { value: SystemTestType.Main, label: "Main" },
+  { value: SystemTestType.Alternative, label: "ALT" },
+  { value: SystemTestType.Exception, label: "EXC" },
+  { value: SystemTestType.NonFunctional, label: "NFR" },
+  {
+    value: SystemTestType.IntegrationBoundary,
+    label: "Integration boundary",
+  },
 ];
+
+export const systemTestTypeLabel = (value: number) =>
+  SYSTEM_TEST_TYPE_OPTIONS.filter((option) => (value & option.value) !== 0)
+    .map((option) => option.label)
+    .join(" / ");
+
+export const TestSuite = {
+  Smoke: 1,
+  Regression: 2,
+  Full: 3,
+} as const;
+export type TestSuite = (typeof TestSuite)[keyof typeof TestSuite];
+
+export const TestSuiteLabel: Record<TestSuite, string> = {
+  [TestSuite.Smoke]: "SMOKE",
+  [TestSuite.Regression]: "REGRESSION",
+  [TestSuite.Full]: "FULL",
+};
+export const TEST_SUITE_OPTIONS = Object.values(TestSuite);
+
+export const TestPriority = {
+  P0: 0,
+  P1: 1,
+  P2: 2,
+  P3: 3,
+} as const;
+export type TestPriority = (typeof TestPriority)[keyof typeof TestPriority];
+
+export const TestPriorityLabel: Record<TestPriority, string> = {
+  [TestPriority.P0]: "P0",
+  [TestPriority.P1]: "P1",
+  [TestPriority.P2]: "P2",
+  [TestPriority.P3]: "P3",
+};
+export const TEST_PRIORITY_OPTIONS = Object.values(TestPriority);
+
+export const ReferenceKind = {
+  UserStory: 1,
+  Tdd: 2,
+  BusinessRule: 3,
+  UseCase: 4,
+  Other: 99,
+} as const;
+export type ReferenceKind =
+  (typeof ReferenceKind)[keyof typeof ReferenceKind];
 
 export const PRIORITY_OPTIONS: StoryPriority[] = [
   StoryPriority.Must,
@@ -186,6 +313,7 @@ export interface CriterionSnapshot {
 export interface LinkSnapshot {
   targetKind: number; // ReferenceKind: UserStory=1, Tdd=2, BusinessRule=3...
   targetDocKey: string;
+  targetSection: string | null;
   linkType: number;
   note: string | null;
 }
@@ -253,6 +381,24 @@ export interface DocumentContent {
   ruleNotes: string | null;
   ruleOwnerName: string | null;
   source: string | null;
+  // UnitTest
+  module: string | null;
+  unitUnderTest: string | null;
+  unitTestType: UnitTestType | null;
+  mockSetup: string | null;
+  input: string | null;
+  expectedOutput: string | null;
+  // SystemTest
+  storyKey: string | null;
+  systemTestType: number | null;
+  testPrecondition: string | null;
+  testData: string | null;
+  expectedResult: string | null;
+  // Dùng chung cho hai loại test
+  testSuite: TestSuite | null;
+  testPriority: TestPriority | null;
+  rationale: string | null;
+  testOwnerName: string | null;
   // Bảng con
   assignees: AssigneeSnapshot[];
   listItems: ListItemSnapshot[];
@@ -272,8 +418,10 @@ export interface DocumentDetail {
   projectId: string;
   docKey: string;
   docType: DocumentType;
-  lifecycleState: LifecycleState;
-  status: number;
+  approvalState: ApprovalState;
+  storyWorkState: StoryWorkState | null;
+  isArchived: boolean;
+  archivedAt: string | null;
   ownerId: string | null;
   currentVersionNumber: number;
   hasUnpublishedChanges: boolean;
@@ -294,6 +442,7 @@ export interface ResolvedLink {
   targetKind: number; // ReferenceKind: UserStory=1, Tdd=2, BusinessRule=3...
   targetDocKey: string;
   linkType: number;
+  targetSection: string | null;
   // null = liên kết còn treo: trỏ tới khoá chưa tồn tại. Trạng thái hợp lệ, không phải lỗi.
   targetDocumentId: string | null;
   targetDocType: DocumentType | null;
@@ -309,6 +458,7 @@ export const DocumentLinkType = {
   Blocks: 5,
   RelatedTo: 6,
   Supersedes: 7,
+  Verifies: 8,
 } as const;
 export type DocumentLinkType =
   (typeof DocumentLinkType)[keyof typeof DocumentLinkType];
@@ -321,6 +471,7 @@ export const DocumentLinkTypeLabel: Record<DocumentLinkType, string> = {
   [DocumentLinkType.Blocks]: "Chặn",
   [DocumentLinkType.RelatedTo]: "Liên quan",
   [DocumentLinkType.Supersedes]: "Thay thế",
+  [DocumentLinkType.Verifies]: "Kiểm chứng",
 };
 
 export interface IncomingLink {
@@ -328,7 +479,8 @@ export interface IncomingLink {
   sourceDocKey: string;
   sourceDocType: DocumentType;
   sourceTitle: string;
-  sourceLifecycleState: LifecycleState;
+  sourceApprovalState: ApprovalState;
+  sourceIsArchived: boolean;
   linkType: DocumentLinkType;
   note: string | null;
 }
@@ -338,7 +490,8 @@ export interface ImpactedDocument {
   docKey: string;
   docType: DocumentType;
   title: string;
-  lifecycleState: LifecycleState;
+  approvalState: ApprovalState;
+  isArchived: boolean;
   // 1 = trỏ thẳng tới tài liệu gốc, càng lớn càng gián tiếp.
   depth: number;
   viaLinkType: DocumentLinkType;
@@ -362,7 +515,8 @@ export interface GraphNode {
   docKey: string;
   docType: DocumentType;
   title: string;
-  lifecycleState: LifecycleState;
+  approvalState: ApprovalState;
+  isArchived: boolean;
   incomingCount: number;
   outgoingCount: number;
 }
@@ -453,7 +607,8 @@ export interface SearchHit {
   docType: DocumentType;
   title: string;
   summary: string | null;
-  lifecycleState: LifecycleState;
+  approvalState: ApprovalState;
+  isArchived: boolean;
   score: number;
   matchedSection: string | null;
   // Đoạn trích quanh từ khoá, từ khớp được bọc trong **...**.
@@ -477,8 +632,10 @@ export interface DocumentListRow {
   docType: DocumentType;
   title: string;
   summary: string | null;
-  lifecycleState: LifecycleState;
-  status: number;
+  approvalState: ApprovalState;
+  storyWorkState: StoryWorkState | null;
+  isArchived: boolean;
+  archivedAt: string | null;
   sprint: number | null;
   priority: StoryPriority | null;
   category: string | null;
@@ -488,6 +645,23 @@ export interface DocumentListRow {
   ownerName: string | null;
   createdAt: string;
   updatedAt: string | null;
+}
+
+// Một tài liệu đang chờ người dùng hiện tại phản biện hoặc phê duyệt.
+export interface ReviewQueueRow {
+  id: string;
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  docKey: string;
+  docType: DocumentType;
+  title: string;
+  summary: string | null;
+  version: string;
+  submittedAt: string | null;
+  updatedAt: string | null;
+  isReviewer: boolean;
+  isApprover: boolean;
 }
 
 // Lịch sử version & Release — xem ReleaseController/ReleaseService ở backend. "status" giữ

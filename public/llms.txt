@@ -1,0 +1,10 @@
+# Document First
+
+> Ứng dụng nội bộ để quản lý, duyệt và phát hành tài liệu phần mềm theo dự án.
+
+Các route nghiệp vụ yêu cầu đăng nhập. Không thu thập hoặc lập chỉ mục nội dung dự án.
+
+## Khu vực chính
+
+- [Dự án](/projects): danh sách dự án mà người dùng được phép truy cập.
+- [Hàng đợi duyệt](/reviews): tài liệu đang chờ người dùng xem xét.

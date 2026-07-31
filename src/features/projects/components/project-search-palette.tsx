@@ -7,9 +7,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import {
+  ApprovalStateLabel,
   DocumentType,
   DocumentTypeLabel,
-  LifecycleStateLabel,
   type SearchHit,
 } from "@/features/projects/document-types";
 import { useProjectSearch } from "@/features/projects/hooks/use-project-search";
@@ -23,6 +23,8 @@ const TYPE_CHIPS: { label: string; value: DocumentType | undefined }[] = [
   { label: "User Story", value: DocumentType.UserStory },
   { label: "TDD", value: DocumentType.Tdd },
   { label: "Business Rule", value: DocumentType.BusinessRule },
+  { label: "Unit Test", value: DocumentType.UnitTest },
+  { label: "System Test", value: DocumentType.SystemTest },
 ];
 
 // Đoạn trích trả về từ backend bọc từ khớp trong **...** (xem SearchService.Highlight).
@@ -102,7 +104,7 @@ export function ProjectSearchPalette({ projectId, open, onOpenChange }: Props) {
                 openHit(hits[0]);
               }
             }}
-            placeholder="Tìm User Story / TDD / Business Rule trong dự án…"
+            placeholder="Tìm Story / TDD / Rule / Test trong dự án…"
             className="h-11 flex-1 border-0 bg-transparent px-0 text-sm focus-visible:ring-0"
           />
           {isLoading && <Spinner className="size-3.5 shrink-0" />}
@@ -159,7 +161,9 @@ export function ProjectSearchPalette({ projectId, open, onOpenChange }: Props) {
                         {hit.title}
                       </span>
                       <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
-                        {LifecycleStateLabel[hit.lifecycleState]}
+                        {hit.isArchived
+                          ? "Lưu trữ"
+                          : ApprovalStateLabel[hit.approvalState]}
                       </span>
                     </div>
                     {hit.highlight && (
@@ -175,7 +179,7 @@ export function ProjectSearchPalette({ projectId, open, onOpenChange }: Props) {
 
           {result && !result.usedSemantic && result.semanticSkippedReason && (
             <p className="border-t border-border px-3 py-1.5 text-[10px] text-muted-foreground">
-              Tìm kiếm ngữ nghĩa chưa sẵn sàng: {result.semanticSkippedReason}
+              Thông tin tìm kiếm ngữ nghĩa: {result.semanticSkippedReason}
             </p>
           )}
         </div>

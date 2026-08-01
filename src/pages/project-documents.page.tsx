@@ -1,9 +1,20 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { CreateDocumentDialog } from "@/features/projects/components/create-document-dialog";
 import {
+  ApprovalState,
   ApprovalStateLabel,
   DocumentType,
   DocumentTypeLabel,
@@ -11,16 +22,28 @@ import {
   StoryPriorityLabel,
   type DocumentListRow,
 } from "@/features/projects/document-types";
+import { errorDetail } from "@/features/projects/error";
+import {
+  useDeleteDocument,
+  useDuplicateDocument,
+} from "@/features/projects/hooks/use-document-mutations";
 import { useDocuments } from "@/features/projects/hooks/use-documents";
 import { useMyProjectRole } from "@/features/projects/hooks/use-my-role";
-import { canEditDocuments } from "@/features/projects/permissions";
+import {
+  canDeleteDocuments,
+  canEditDocuments,
+} from "@/features/projects/permissions";
 import {
   ArrowLeftIcon,
+  CopyIcon,
+  EyeIcon,
   FileTextIcon,
   NetworkIcon,
+  PencilIcon,
   PlusIcon,
   SearchIcon,
   SettingsIcon,
+  Trash2Icon,
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -55,7 +78,11 @@ export default function ProjectDocumentsPage() {
   const { projectId = "" } = useParams();
   const navigate = useNavigate();
   const myRole = useMyProjectRole(projectId);
-  const canCreate = !!myRole && canEditDocuments(myRole);
+  const canEdit = !!myRole && canEditDocuments(myRole);
+  const canDelete = !!myRole && canDeleteDocuments(myRole);
+  const canCreate = canEdit;
+  const deleteDocument = useDeleteDocument();
+  const duplicateDocument = useDuplicateDocument();
 
   const [docType, setDocType] = useState<DocumentType | undefined>(undefined);
   const [keywordInput, setKeywordInput] = useState("");
@@ -63,9 +90,41 @@ export default function ProjectDocumentsPage() {
   const [sprintInput, setSprintInput] = useState("");
   const [sprint, setSprint] = useState<number | undefined>(undefined);
   const [createOpen, setCreateOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<DocumentListRow | null>(
+    null,
+  );
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const { documents, totalCount, isLoading, isFetching, isError } =
     useDocuments(projectId, { docType, keyword, sprint });
+
+  const duplicate = (doc: DocumentListRow) => {
+    setActionError(null);
+    setDuplicatingId(doc.id);
+    duplicateDocument.mutate(doc.id, {
+      onSuccess: (created) => {
+        navigate(`/projects/${projectId}/documents/${created.id}/edit`);
+      },
+      onError: (error) => {
+        setActionError(errorDetail(error, "Không nhân bản được tài liệu."));
+      },
+      onSettled: () => setDuplicatingId(null),
+    });
+  };
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+
+    setActionError(null);
+    deleteDocument.mutate(deleteTarget.id, {
+      onSuccess: () => setDeleteTarget(null),
+      onError: (error) => {
+        setActionError(errorDetail(error, "Không xoá được tài liệu."));
+        setDeleteTarget(null);
+      },
+    });
+  };
 
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6">
@@ -189,6 +248,9 @@ export default function ProjectDocumentsPage() {
       </div>
 
       <div className="mt-3">
+        {actionError && (
+          <p className="mb-2 text-xs text-destructive">{actionError}</p>
+        )}
         {isLoading ? (
           <div className="flex justify-center py-12">
             <Spinner />
@@ -208,7 +270,15 @@ export default function ProjectDocumentsPage() {
           </div>
         ) : (
           <>
-            <DocumentMobileList documents={documents} projectId={projectId} />
+            <DocumentMobileList
+              documents={documents}
+              projectId={projectId}
+              canEdit={canEdit}
+              canDelete={canDelete}
+              duplicatingId={duplicatingId}
+              onDuplicate={duplicate}
+              onDelete={setDeleteTarget}
+            />
             <div className="hidden overflow-x-auto border border-border/40 md:block">
               <table className="w-full border-collapse text-xs">
                 <thead className="bg-muted/60">
@@ -240,6 +310,9 @@ export default function ProjectDocumentsPage() {
                     <th className="w-24 border border-border/40 px-2 py-1.5 text-left font-medium">
                       Cập nhật
                     </th>
+                    <th className="w-28 border border-border/40 px-2 py-1.5 text-center font-medium">
+                      Thao tác
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -250,6 +323,16 @@ export default function ProjectDocumentsPage() {
                       onOpen={() =>
                         navigate(`/projects/${projectId}/documents/${doc.id}`)
                       }
+                      onEdit={() =>
+                        navigate(
+                          `/projects/${projectId}/documents/${doc.id}/edit`,
+                        )
+                      }
+                      onDuplicate={() => duplicate(doc)}
+                      onDelete={() => setDeleteTarget(doc)}
+                      canEdit={canEdit}
+                      canDelete={canDelete}
+                      isDuplicating={duplicatingId === doc.id}
                     />
                   ))}
                 </tbody>
@@ -274,6 +357,39 @@ export default function ProjectDocumentsPage() {
           navigate(`/projects/${projectId}/documents/${doc.id}${suffix}`);
         }}
       />
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleteDocument.isPending) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xoá tài liệu này?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.docKey} — {deleteTarget?.title} sẽ bị xoá. Hành
+              động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteDocument.isPending}>
+              Huỷ
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={deleteDocument.isPending}
+              onClick={(event) => {
+                event.preventDefault();
+                confirmDelete();
+              }}
+            >
+              {deleteDocument.isPending && <Spinner />}
+              Xoá
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -281,17 +397,29 @@ export default function ProjectDocumentsPage() {
 function DocumentMobileList({
   documents,
   projectId,
+  canEdit,
+  canDelete,
+  duplicatingId,
+  onDuplicate,
+  onDelete,
 }: {
   documents: DocumentListRow[];
   projectId: string;
+  canEdit: boolean;
+  canDelete: boolean;
+  duplicatingId: string | null;
+  onDuplicate: (doc: DocumentListRow) => void;
+  onDelete: (doc: DocumentListRow) => void;
 }) {
+  const navigate = useNavigate();
+
   return (
     <ul className="divide-y divide-border/40 border border-border/40 md:hidden">
       {documents.map((doc) => (
-        <li key={doc.id}>
+        <li key={doc.id} className="px-3 py-2.5">
           <Link
             to={`/projects/${projectId}/documents/${doc.id}`}
-            className="block px-3 py-2.5 transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+            className="block transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           >
             <div className="flex min-w-0 items-start justify-between gap-2">
               <code className="truncate font-mono text-[10px] text-muted-foreground">
@@ -350,6 +478,22 @@ function DocumentMobileList({
               </p>
             )}
           </Link>
+          <div className="mt-2 border-t border-border/40 pt-2">
+            <DocumentActions
+              doc={doc}
+              canEdit={canEdit}
+              canDelete={canDelete}
+              isDuplicating={duplicatingId === doc.id}
+              onView={() =>
+                navigate(`/projects/${projectId}/documents/${doc.id}`)
+              }
+              onEdit={() =>
+                navigate(`/projects/${projectId}/documents/${doc.id}/edit`)
+              }
+              onDuplicate={() => onDuplicate(doc)}
+              onDelete={() => onDelete(doc)}
+            />
+          </div>
         </li>
       ))}
     </ul>
@@ -359,9 +503,21 @@ function DocumentMobileList({
 function DocumentRow({
   doc,
   onOpen,
+  onEdit,
+  onDuplicate,
+  onDelete,
+  canEdit,
+  canDelete,
+  isDuplicating,
 }: {
   doc: DocumentListRow;
   onOpen: () => void;
+  onEdit: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+  canEdit: boolean;
+  canDelete: boolean;
+  isDuplicating: boolean;
 }) {
   return (
     <tr className="cursor-pointer hover:bg-primary/5" onClick={onOpen}>
@@ -419,6 +575,104 @@ function DocumentRow({
       <td className="border border-border/40 px-2 py-1.5 align-top text-muted-foreground">
         {formatDate(doc.updatedAt ?? doc.createdAt)}
       </td>
+      <td className="border border-border/40 px-1 py-1 align-top">
+        <DocumentActions
+          doc={doc}
+          canEdit={canEdit}
+          canDelete={canDelete}
+          isDuplicating={isDuplicating}
+          onView={onOpen}
+          onEdit={onEdit}
+          onDuplicate={onDuplicate}
+          onDelete={onDelete}
+        />
+      </td>
     </tr>
+  );
+}
+
+function DocumentActions({
+  doc,
+  canEdit,
+  canDelete,
+  isDuplicating,
+  onView,
+  onEdit,
+  onDuplicate,
+  onDelete,
+}: {
+  doc: DocumentListRow;
+  canEdit: boolean;
+  canDelete: boolean;
+  isDuplicating: boolean;
+  onView: () => void;
+  onEdit: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+}) {
+  const canEditCurrent =
+    canEdit &&
+    !doc.isArchived &&
+    doc.approvalState !== ApprovalState.Approved;
+
+  return (
+    <div
+      className="flex items-center justify-center gap-0.5"
+      onClick={(event) => event.stopPropagation()}
+    >
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-xs"
+        title="Xem"
+        aria-label={`Xem ${doc.docKey}`}
+        onClick={onView}
+      >
+        <EyeIcon />
+      </Button>
+      {canEdit && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          title={
+            canEditCurrent
+              ? "Sửa"
+              : "Tài liệu đã duyệt hoặc lưu trữ; mở tài liệu để bắt đầu bản sửa đổi"
+          }
+          aria-label={`Sửa ${doc.docKey}`}
+          disabled={!canEditCurrent}
+          onClick={onEdit}
+        >
+          <PencilIcon />
+        </Button>
+      )}
+      {canEdit && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          title="Nhân bản"
+          aria-label={`Nhân bản ${doc.docKey}`}
+          disabled={isDuplicating}
+          onClick={onDuplicate}
+        >
+          {isDuplicating ? <Spinner className="size-3" /> : <CopyIcon />}
+        </Button>
+      )}
+      {canDelete && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="text-destructive hover:text-destructive"
+          title="Xoá"
+          aria-label={`Xoá ${doc.docKey}`}
+          onClick={onDelete}
+        >
+          <Trash2Icon />
+        </Button>
+      )}
+    </div>
   );
 }

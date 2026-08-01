@@ -22,6 +22,14 @@ export const useCreateDocument = (projectId: string) => {
   });
 };
 
+export const useDuplicateDocument = () => {
+  const invalidate = useInvalidateAll();
+  return useMutation({
+    mutationFn: (documentId: string) => documentService.duplicate(documentId),
+    onSuccess: invalidate,
+  });
+};
+
 const useInvalidateDocument = (projectId: string, documentId: string) => {
   const queryClient = useQueryClient();
   return () => {

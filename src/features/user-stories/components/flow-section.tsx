@@ -34,6 +34,7 @@ export function FlowSection({ register, control, backend }: SectionProps) {
           name="flow.mainFlow"
           label="Luồng chính"
           placeholder="Bước..."
+          sortable
         />
         <FieldSeparator />
         <OtherFlowArrayField

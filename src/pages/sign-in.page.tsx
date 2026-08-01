@@ -22,6 +22,13 @@ export default function SignInPage() {
           className="flex w-full flex-col gap-6"
         >
           <div className="text-center">
+            <img
+              src="/logo-header.png"
+              alt="VNZ"
+              width={480}
+              height={219}
+              className="mx-auto mb-4 h-16 w-auto object-contain"
+            />
             <p className="text-2xl font-bold">Đăng nhập</p>
             <p className="text-sm text-muted-foreground">
               Nhập email và mật khẩu để tiếp tục

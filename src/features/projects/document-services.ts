@@ -240,6 +240,13 @@ class DocumentService {
     return data.value;
   };
 
+  duplicate = async (documentId: string) => {
+    const { data } = await authApi.post<BaseResponse<DocumentDetail>>(
+      `/documents/${documentId}/duplicate`,
+    );
+    return data.value;
+  };
+
   updateMetadata = async (documentId: string, body: UpdateMetadataBody) => {
     const { data } = await authApi.put<BaseResponse<DocumentDetail>>(
       `/documents/${documentId}/metadata`,

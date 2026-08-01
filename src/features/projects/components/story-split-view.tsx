@@ -486,7 +486,7 @@ function TestTable({ children }: { children: React.ReactNode }) {
 
 function TestTableHeading({ children }: { children: React.ReactNode }) {
   return (
-    <th className="min-w-32 whitespace-nowrap border-b border-r border-[#d9d5cc] bg-[#e8a13a] px-2 py-1.5 text-center text-xs font-bold text-white last:border-r-0">
+    <th className="sticky top-0 z-10 min-w-32 whitespace-nowrap border-b border-r border-border bg-primary px-2 py-1.5 text-center text-xs font-bold text-primary-foreground last:border-r-0">
       {children}
     </th>
   );
@@ -503,10 +503,10 @@ function TestTableCell({
 }) {
   return (
     <td
-      className={`max-w-80 whitespace-normal break-words border-b border-r border-[#d9d5cc] px-2 py-1.5 align-top text-xs last:border-r-0 ${
+      className={`max-w-80 whitespace-normal break-words border-b border-r border-border px-2 py-1.5 align-top text-xs last:border-r-0 ${
         tone === "id"
-          ? "bg-[#fbe7cc] font-mono text-[10px] font-semibold text-[#92400e]"
-          : "bg-white text-[#111827]"
+          ? "bg-primary/10 font-mono text-[10px] font-semibold text-primary"
+          : "bg-background text-foreground"
       } ${className}`}
     >
       {children || "—"}
@@ -525,7 +525,7 @@ function TestIdCell({
     <TestTableCell tone="id" className="whitespace-nowrap">
       <Link
         to={`/projects/${projectId}/documents/${document.id}`}
-        className="text-xs text-[#92400e] hover:underline"
+        className="text-xs text-primary hover:underline"
       >
         {document.docKey}
       </Link>
@@ -551,7 +551,7 @@ function TestLinks({
           <Link
             key={`${label}-${index}`}
             to={`/projects/${projectId}/documents/${link.targetDocumentId}`}
-            className="block font-medium text-[#92400e] hover:underline"
+            className="block font-medium text-primary hover:underline"
           >
             {label}
           </Link>

@@ -945,9 +945,9 @@ function UserStoryEditor({
     <div
       ref={setContainer}
       style={paneStyle}
-      className="mx-auto grid max-w-[110rem] grid-cols-1 gap-x-2 gap-y-8 px-4 py-4 xl:grid-cols-[minmax(0,1fr)_auto_var(--pane-w)]"
+      className="mx-auto grid max-w-[110rem] grid-cols-1 gap-x-2 gap-y-8 px-4 py-4 xl:h-full xl:min-h-0 xl:grid-cols-[minmax(0,1fr)_auto_var(--pane-w)] xl:grid-rows-[minmax(0,1fr)]"
     >
-      <div className="flex min-w-0 flex-col gap-6">
+      <div className="relative flex min-w-0 flex-col gap-6 xl:min-h-0 xl:overflow-y-auto xl:[&>*]:shrink-0">
         <div className="flex items-center justify-between gap-4">
           <Link
             to={backTo}
@@ -1150,7 +1150,7 @@ function UserStoryEditor({
 
       <SplitHandle {...handleProps} />
 
-      <div className="hidden xl:flex xl:flex-col xl:gap-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto">
+      <div className="hidden xl:min-h-0 xl:overflow-y-auto xl:flex xl:flex-col xl:gap-4">
         <div className="min-h-0 flex-1 bg-background">
           {/* Dùng CHÍNH bảng waffle của trang chi tiết, không phải một bộ render riêng — thứ
               nhìn thấy lúc sửa phải là thứ sẽ thấy sau khi lưu. Trạng thái lấy từ ô chọn bên

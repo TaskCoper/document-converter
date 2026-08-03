@@ -55,6 +55,20 @@ export default function SignInPage() {
             >
               Quên mật khẩu?
             </Link>
+            <nav
+              aria-label="Thông tin pháp lý"
+              className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[10px]"
+            >
+              <Link to="/privacy" className="hover:text-primary hover:underline">
+                Quyền riêng tư
+              </Link>
+              <Link to="/terms" className="hover:text-primary hover:underline">
+                Điều khoản
+              </Link>
+              <Link to="/support" className="hover:text-primary hover:underline">
+                Hỗ trợ
+              </Link>
+            </nav>
           </div>
         </form>
       </FormProvider>

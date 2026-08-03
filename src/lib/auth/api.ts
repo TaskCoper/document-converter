@@ -49,7 +49,13 @@ export interface ErrorResponse {
   errors: Record<string, unknown>[] | null;
 }
 
-const PUBLIC_ROUTE_PATHS = new Set(["/", "/sign-in"]);
+const PUBLIC_ROUTE_PATHS = new Set([
+  "/",
+  "/sign-in",
+  "/privacy",
+  "/terms",
+  "/support",
+]);
 
 const normalizePathname = (pathname: string) => {
   if (pathname === "/") return pathname;

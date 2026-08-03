@@ -3,12 +3,14 @@ import { Spinner } from "@/components/ui/spinner";
 import AuthGuardLayout from "@/layouts/auth-guard.layout";
 import DefaultLayout from "@/layouts/default.layout";
 import GuestLayout from "@/layouts/guest.layout";
+import PublicInfoLayout from "@/layouts/public-info.layout";
 import { Suspense, lazy } from "react";
 import { Navigate, createBrowserRouter } from "react-router-dom";
 
 const ForgotPasswordPage = lazy(() => import("@/pages/forgot-password.page"));
 const NotFoundPage = lazy(() => import("@/pages/not-found.page"));
 const ProfilePage = lazy(() => import("@/pages/profile.page"));
+const PrivacyPolicyPage = lazy(() => import("@/pages/privacy-policy.page"));
 const ProjectsPage = lazy(() => import("@/pages/projects.page"));
 const ProjectSettingsPage = lazy(
   () => import("@/pages/project-settings.page"),
@@ -30,6 +32,10 @@ const ReviewQueuePage = lazy(() => import("@/pages/review-queue.page"));
 const RegisterPage = lazy(() => import("@/pages/register.page"));
 const ResetPasswordPage = lazy(() => import("@/pages/reset-password.page"));
 const SignInPage = lazy(() => import("@/pages/sign-in.page"));
+const SupportPage = lazy(() => import("@/pages/support.page"));
+const TermsOfServicePage = lazy(
+  () => import("@/pages/terms-of-service.page"),
+);
 const VerifyEmailPage = lazy(() => import("@/pages/verify-email.page"));
 
 function LazyRoute({ children }: { children: React.ReactNode }) {
@@ -47,6 +53,37 @@ function LazyRoute({ children }: { children: React.ReactNode }) {
 }
 
 export const router = createBrowserRouter([
+  {
+    // Legal và support phải mở được cho OpenAI reviewer và người chưa đăng nhập.
+    // Không bọc AuthGuardLayout để người đã đăng nhập cũng có thể đọc trực tiếp.
+    element: <PublicInfoLayout />,
+    children: [
+      {
+        path: "privacy",
+        element: (
+          <LazyRoute>
+            <PrivacyPolicyPage />
+          </LazyRoute>
+        ),
+      },
+      {
+        path: "terms",
+        element: (
+          <LazyRoute>
+            <TermsOfServicePage />
+          </LazyRoute>
+        ),
+      },
+      {
+        path: "support",
+        element: (
+          <LazyRoute>
+            <SupportPage />
+          </LazyRoute>
+        ),
+      },
+    ],
+  },
   {
     element: <AuthGuardLayout requiresAuth={false} />,
     children: [

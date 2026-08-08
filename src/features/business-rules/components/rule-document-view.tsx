@@ -3,7 +3,7 @@ import { RuleStatusLabel, type RuleSchema } from "../validations";
 function Prose({ text }: { text?: string }) {
   if (!text?.trim()) return null;
   return (
-    <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap mb-3">
+    <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
       {text}
     </p>
   );
@@ -13,14 +13,14 @@ function KvTable({ rows }: { rows: [string, string | null | undefined][] }) {
   const filled = rows.filter(([, v]) => v?.trim());
   if (!filled.length) return null;
   return (
-    <table className="border-collapse text-sm mb-4">
+    <table className="mb-4 border-collapse text-sm">
       <tbody>
         {filled.map(([k, v]) => (
           <tr key={k}>
-            <td className="border border-gray-300 px-3 py-1.5 font-medium bg-gray-50 whitespace-nowrap w-40 align-top">
+            <td className="w-40 whitespace-nowrap border border-border bg-muted/60 px-3 py-1.5 align-top font-medium">
               {k}
             </td>
-            <td className="border border-gray-300 px-3 py-1.5 align-top">
+            <td className="border border-border bg-background px-3 py-1.5 align-top">
               {v}
             </td>
           </tr>
@@ -32,7 +32,7 @@ function KvTable({ rows }: { rows: [string, string | null | undefined][] }) {
 
 function H2({ num, title }: { num: number; title: string }) {
   return (
-    <h2 className="text-lg font-bold text-gray-900 mt-8 mb-3 pb-1 border-b border-gray-200">
+    <h2 className="mt-8 mb-3 border-b border-border pb-1 text-lg font-bold text-foreground">
       {num}. {title}
     </h2>
   );
@@ -40,7 +40,7 @@ function H2({ num, title }: { num: number; title: string }) {
 
 function H3({ num, title }: { num: string; title: string }) {
   return (
-    <h3 className="text-sm font-semibold text-gray-700 mt-4 mb-2">
+    <h3 className="mt-4 mb-2 text-sm font-semibold text-muted-foreground">
       {num}. {title}
     </h3>
   );
@@ -93,7 +93,7 @@ export function RuleDocumentView({ data }: { data: Partial<RuleSchema> }) {
     : data.ruleId || "Business Rule";
 
   return (
-    <div className="font-sans text-gray-900 w-full pb-12">
+    <div className="w-full pb-12 font-sans text-foreground">
       <h1 className="text-2xl font-normal mb-8">{title}</h1>
 
       {hasInfo && (

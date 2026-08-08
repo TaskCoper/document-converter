@@ -21,12 +21,12 @@ export function TddLivePreview({
   const data = useDebouncedWatch(control);
 
   return (
-    <div className="bg-white p-4">
+    <div className="bg-background p-4 text-foreground">
       <TddDocumentView data={data} />
       {notes?.trim() && (
-        <div className="mt-8 border-t border-gray-200 pt-4">
+        <div className="mt-8 border-t border-border pt-4">
           <h3 className="mb-2 text-xs font-semibold text-primary">Ghi chú</h3>
-          <pre className="whitespace-pre-wrap wrap-break-word text-sm leading-relaxed text-gray-800">
+          <pre className="whitespace-pre-wrap wrap-break-word text-sm leading-relaxed text-foreground">
             {notes}
           </pre>
         </div>

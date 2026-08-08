@@ -7,7 +7,7 @@ type DiagramData = TddSchema["architecture"];
 function Prose({ text }: { text?: string }) {
   if (!text?.trim()) return null;
   return (
-    <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap mb-3">
+    <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
       {text}
     </p>
   );
@@ -17,7 +17,7 @@ function BulletList({ items }: { items?: string[] }) {
   const filled = items?.filter((s) => s?.trim());
   if (!filled?.length) return null;
   return (
-    <ul className="list-disc pl-5 text-sm text-gray-800 space-y-0.5 mb-3">
+    <ul className="mb-3 list-disc space-y-0.5 pl-5 text-sm text-foreground">
       {filled.map((item, i) => (
         <li key={i}>{item}</li>
       ))}
@@ -29,14 +29,14 @@ function KvTable({ rows }: { rows: [string, string | null | undefined][] }) {
   const filled = rows.filter(([, v]) => v?.trim());
   if (!filled.length) return null;
   return (
-    <table className="border-collapse text-sm mb-4">
+    <table className="mb-4 border-collapse text-sm">
       <tbody>
         {filled.map(([k, v]) => (
           <tr key={k}>
-            <td className="border border-gray-300 px-3 py-1.5 font-medium bg-gray-50 whitespace-nowrap w-40 align-top">
+            <td className="w-40 whitespace-nowrap border border-border bg-muted/60 px-3 py-1.5 align-top font-medium">
               {k}
             </td>
-            <td className="border border-gray-300 px-3 py-1.5 align-top">
+            <td className="border border-border bg-background px-3 py-1.5 align-top">
               {v}
             </td>
           </tr>
@@ -50,14 +50,14 @@ function DataTable({ headers, rows }: { headers: string[]; rows: string[][] }) {
   const filled = rows.filter((r) => r.some((c) => c?.trim()));
   if (!filled.length) return null;
   return (
-    <div className="overflow-x-auto mb-4">
+    <div className="mb-4 overflow-x-auto">
       <table className="border-collapse text-sm">
         <thead>
           <tr>
             {headers.map((h) => (
               <th
                 key={h}
-                className="border border-gray-300 px-3 py-1.5 bg-gray-50 font-semibold text-center whitespace-nowrap"
+                className="whitespace-nowrap border border-border bg-muted/60 px-3 py-1.5 text-center font-semibold"
               >
                 {h}
               </th>
@@ -68,7 +68,7 @@ function DataTable({ headers, rows }: { headers: string[]; rows: string[][] }) {
           {filled.map((row, i) => (
             <tr key={i}>
               {row.map((cell, j) => (
-                <td key={j} className="border border-gray-300 px-3 py-1.5">
+                <td key={j} className="border border-border bg-background px-3 py-1.5">
                   {cell}
                 </td>
               ))}
@@ -87,13 +87,13 @@ function DataTable({ headers, rows }: { headers: string[]; rows: string[][] }) {
 // Bản Markdown do backend sinh ra vốn đã in đủ cả ba — chính màn hình này mới là chỗ thiếu.
 
 const METHOD_COLOR: Record<string, string> = {
-  GET: "bg-sky-100 text-sky-800 border-sky-300",
-  POST: "bg-emerald-100 text-emerald-800 border-emerald-300",
-  PUT: "bg-amber-100 text-amber-800 border-amber-300",
-  PATCH: "bg-violet-100 text-violet-800 border-violet-300",
-  DELETE: "bg-rose-100 text-rose-800 border-rose-300",
-  HEAD: "bg-gray-100 text-gray-700 border-gray-300",
-  OPTIONS: "bg-gray-100 text-gray-700 border-gray-300",
+  GET: "border-chart-3/50 bg-chart-3/15 text-foreground",
+  POST: "border-chart-2/50 bg-chart-2/15 text-foreground",
+  PUT: "border-chart-4/50 bg-chart-4/15 text-foreground",
+  PATCH: "border-chart-5/50 bg-chart-5/15 text-foreground",
+  DELETE: "border-destructive/50 bg-destructive/15 text-foreground",
+  HEAD: "border-border bg-muted text-muted-foreground",
+  OPTIONS: "border-border bg-muted text-muted-foreground",
 };
 
 function MethodBadge({ method }: { method?: string }) {
@@ -101,7 +101,8 @@ function MethodBadge({ method }: { method?: string }) {
   return (
     <span
       className={`shrink-0 rounded border px-1.5 py-0.5 font-mono text-[11px] font-semibold ${
-        METHOD_COLOR[method] ?? "bg-gray-100 text-gray-700 border-gray-300"
+        METHOD_COLOR[method] ??
+        "border-border bg-muted text-muted-foreground"
       }`}
     >
       {method}
@@ -126,18 +127,18 @@ function SamplePane({
       <div className="mb-1 flex items-center gap-2">
         <span
           className={`text-[11px] font-semibold uppercase tracking-wide ${
-            tone === "error" ? "text-rose-700" : "text-gray-600"
+            tone === "error" ? "text-destructive" : "text-muted-foreground"
           }`}
         >
           {label}
         </span>
         {status != null && (
-          <span className="rounded border border-gray-300 bg-gray-50 px-1 font-mono text-[11px] text-gray-700">
+          <span className="rounded border border-border bg-muted px-1 font-mono text-[11px] text-muted-foreground">
             {status}
           </span>
         )}
       </div>
-      <pre className="overflow-x-auto whitespace-pre rounded border border-gray-200 bg-gray-50 p-2 font-mono text-xs">
+      <pre className="overflow-x-auto whitespace-pre rounded border border-border bg-muted/60 p-2 font-mono text-xs text-foreground">
         {body.trim()}
       </pre>
     </div>
@@ -155,9 +156,9 @@ function ExampleBlock({ ex }: { ex: ApiExample }) {
     ex.errorSample?.trim();
   if (!hasAny && !ex.title?.trim()) return null;
   return (
-    <div className="border-t border-gray-200 px-3 py-2.5">
+    <div className="border-t border-border px-3 py-2.5">
       {ex.title?.trim() && (
-        <p className="mb-2 text-sm font-medium text-gray-800">{ex.title}</p>
+        <p className="mb-2 text-sm font-medium text-foreground">{ex.title}</p>
       )}
       {/* Ba mẫu đặt cạnh nhau — trước đây chỉ một trong ba sống sót. */}
       <div className="flex flex-col gap-3 md:flex-row">
@@ -187,18 +188,18 @@ function EndpointCard({
   examples?: ApiExample[];
 }) {
   return (
-    <div className="mb-3 overflow-hidden rounded border border-gray-300">
-      <div className="flex flex-wrap items-center gap-2 bg-gray-50 px-3 py-2">
+    <div className="mb-3 overflow-hidden rounded border border-border">
+      <div className="flex flex-wrap items-center gap-2 bg-muted/60 px-3 py-2">
         <MethodBadge method={method} />
-        <code className="min-w-0 break-all font-mono text-sm text-gray-900">
+        <code className="min-w-0 break-all font-mono text-sm text-foreground">
           {path}
         </code>
         {name?.trim() && (
-          <span className="text-xs text-gray-500">— {name}</span>
+          <span className="text-xs text-muted-foreground">— {name}</span>
         )}
       </div>
       {description?.trim() && (
-        <p className="px-3 py-2 text-sm leading-relaxed text-gray-800">
+        <p className="px-3 py-2 text-sm leading-relaxed text-foreground">
           {description}
         </p>
       )}
@@ -228,7 +229,7 @@ function withLabels(
 
 function H2({ num, title }: { num: number; title: string }) {
   return (
-    <h2 className="text-lg font-bold text-gray-900 mt-8 mb-3 pb-1 border-b border-gray-200">
+    <h2 className="mt-8 mb-3 border-b border-border pb-1 text-lg font-bold text-foreground">
       {num}. {title}
     </h2>
   );
@@ -236,7 +237,7 @@ function H2({ num, title }: { num: number; title: string }) {
 
 function H3({ num, title }: { num: string; title: string }) {
   return (
-    <h3 className="text-sm font-semibold text-gray-700 mt-4 mb-2">
+    <h3 className="mt-4 mb-2 text-sm font-semibold text-muted-foreground">
       {num}. {title}
     </h3>
   );
@@ -247,11 +248,11 @@ function DiagramBlock({ data }: { data?: DiagramData }) {
   return (
     <>
       {data.title?.trim() && (
-        <p className="mb-1 text-sm font-semibold text-gray-800">{data.title}</p>
+        <p className="mb-1 text-sm font-semibold text-foreground">{data.title}</p>
       )}
       <Prose text={data.description} />
       {data.mermaid?.trim() && (
-        <div className="my-4 border border-gray-200 rounded overflow-hidden bg-muted/30">
+        <div className="my-4 overflow-hidden rounded border border-border bg-muted/30">
           <TransformWrapper
             minScale={0.3}
             maxScale={4}
@@ -389,7 +390,7 @@ export function TddDocumentView({ data }: { data: Partial<TddSchema> }) {
     : info?.docId || "Technical Design Document";
 
   return (
-    <div className="font-sans text-gray-900 w-full pb-12">
+    <div className="w-full pb-12 font-sans text-foreground">
       <h1 className="text-2xl font-normal mb-8">{title}</h1>
 
       {/* 1. Thông tin tài liệu */}
@@ -500,7 +501,7 @@ export function TddDocumentView({ data }: { data: Partial<TddSchema> }) {
           {extraDiagrams.map((d, i) => (
             <div key={i} className="mb-4">
               {d.title?.trim() && (
-                <p className="mb-1 text-sm font-semibold text-gray-800">
+                <p className="mb-1 text-sm font-semibold text-foreground">
                   {d.title}
                 </p>
               )}
@@ -516,7 +517,7 @@ export function TddDocumentView({ data }: { data: Partial<TddSchema> }) {
                 </a>
               ) : (
                 d.sourceCode?.trim() && (
-                  <pre className="overflow-x-auto whitespace-pre rounded border border-gray-200 bg-gray-50 p-3 font-mono text-xs">
+                  <pre className="overflow-x-auto whitespace-pre rounded border border-border bg-muted/60 p-3 font-mono text-xs text-foreground">
                     {d.sourceCode}
                   </pre>
                 )
@@ -564,7 +565,7 @@ export function TddDocumentView({ data }: { data: Partial<TddSchema> }) {
                       {ex.title && (
                         <p className="text-sm font-medium mb-1">{ex.title}</p>
                       )}
-                      <pre className="bg-gray-50 border border-gray-200 rounded p-3 text-xs font-mono overflow-x-auto whitespace-pre">
+                      <pre className="overflow-x-auto whitespace-pre rounded border border-border bg-muted/60 p-3 font-mono text-xs text-foreground">
                         {ex.content}
                       </pre>
                     </div>
@@ -642,7 +643,7 @@ export function TddDocumentView({ data }: { data: Partial<TddSchema> }) {
       {hasRefs && (
         <>
           <H2 num={n.refs} title="Tham chiếu" />
-          <ul className="list-disc pl-5 text-sm text-gray-800 space-y-1 mb-4">
+          <ul className="mb-4 list-disc space-y-1 pl-5 text-sm text-foreground">
             {any(refs?.userStories) && (
               <li>
                 <strong>User Stories:</strong>{" "}

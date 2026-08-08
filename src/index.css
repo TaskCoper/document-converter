@@ -21,6 +21,7 @@
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+  --color-diagram-canvas: var(--diagram-canvas);
   --color-graph-label: var(--graph-label);
   --color-graph-edge: var(--graph-edge);
   --color-graph-grid: var(--graph-grid);
@@ -80,6 +81,7 @@
   --chart-3: oklch(0.795 0.184 86.047);
   --chart-4: oklch(0.637 0.237 25.331);
   --chart-5: oklch(0.656 0.241 354.308);
+  --diagram-canvas: var(--background);
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0.001 106.423);
   --sidebar-foreground: oklch(0.268 0.007 34.298);
@@ -117,6 +119,9 @@
   --chart-3: oklch(0.554 0.135 66.442);
   --chart-4: oklch(0.505 0.213 27.518);
   --chart-5: oklch(0.525 0.223 3.958);
+  /* Mermaid dùng theme mặc định với nét và chữ tối, nên cần canvas sáng
+     trong mọi giao diện tối để sơ đồ giữ độ tương phản. */
+  --diagram-canvas: oklch(0.97 0 0);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.97 0.001 106.424);
   --sidebar-primary: oklch(0.555 0.163 48.998);

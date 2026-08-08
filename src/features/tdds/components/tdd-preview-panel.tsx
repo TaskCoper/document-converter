@@ -77,7 +77,7 @@ export function MermaidDiagram({ code }: { code: string }) {
       )}
       <div
         ref={containerRef}
-        className="bg-muted/40 p-2 overflow-x-auto [&_svg]:max-w-full [&_svg]:h-auto"
+        className="overflow-x-auto bg-diagram-canvas p-2 [&_svg]:h-auto [&_svg]:max-w-full"
       />
     </>
   );

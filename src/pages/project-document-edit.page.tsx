@@ -124,6 +124,7 @@ export default function ProjectDocumentEditPage() {
           variant="outline"
           size="sm"
           className="mt-4"
+          nativeButton={false}
           render={<Link to={backTo} />}
         >
           Quay lại
@@ -555,7 +556,11 @@ function TddEditor({
           </div>
 
           <div className="flex items-center gap-2 border-t border-border pt-2">
-            <Button variant="outline" render={<Link to={backTo} />}>
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={<Link to={backTo} />}
+            >
               Huỷ
             </Button>
             <div className="flex-1" />
@@ -777,7 +782,11 @@ function RuleEditor({
           </div>
 
           <div className="flex items-center gap-2 border-t border-border pt-2">
-            <Button variant="outline" render={<Link to={backTo} />}>
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={<Link to={backTo} />}
+            >
               Huỷ
             </Button>
             <div className="flex-1" />
@@ -1118,7 +1127,11 @@ function UserStoryEditor({
           </div>
 
           <div className="flex items-center gap-2 border-t border-border pt-2">
-            <Button variant="outline" render={<Link to={backTo} />}>
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={<Link to={backTo} />}
+            >
               Huỷ
             </Button>
             <div className="flex-1" />

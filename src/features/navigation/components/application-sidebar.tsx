@@ -111,7 +111,7 @@ export function ApplicationSidebar({ projectId }: ApplicationSidebarProps) {
 
       <div
         className={cn(
-          "absolute inset-y-0 left-0 z-10 flex flex-col border-r border-border bg-background transition-[width] duration-200 motion-reduce:transition-none",
+          "theme-web-surface absolute inset-y-0 left-0 z-10 flex flex-col border-r border-border bg-background transition-[width] duration-200 motion-reduce:transition-none",
           expanded ? "w-52 shadow-lg lg:shadow-none" : "w-14",
         )}
       >

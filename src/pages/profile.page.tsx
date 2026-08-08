@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
+import { UserAvatar } from "@/components/user-avatar";
 import { useGetMe } from "@/features/auth/hooks/use-get-me";
 import { useLogoutAll } from "@/features/auth/hooks/use-logout-all";
 import { useResendVerification } from "@/features/auth/hooks/use-resend-verification";
@@ -13,7 +14,6 @@ import {
   MailIcon,
   MonitorOffIcon,
   ShieldIcon,
-  UserIcon,
 } from "lucide-react";
 
 export default function ProfilePage() {
@@ -43,9 +43,11 @@ export default function ProfilePage() {
       <Card className="p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="flex size-16 items-center justify-center rounded-full bg-muted">
-              <UserIcon className="size-8 text-muted-foreground" />
-            </div>
+            <UserAvatar
+              name={displayName}
+              src={me?.avatarUrl}
+              size="lg"
+            />
             <div>
               <p className="text-xl font-semibold">{displayName}</p>
               <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">

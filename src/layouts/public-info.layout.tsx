@@ -1,4 +1,5 @@
 import { buttonVariants } from "@/components/ui/button";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { cn } from "@/lib/utils";
 import { Link, NavLink, Outlet } from "react-router-dom";
 
@@ -18,7 +19,7 @@ export default function PublicInfoLayout() {
         Bỏ qua điều hướng
       </a>
 
-      <header className="border-b border-border bg-background">
+      <header className="theme-web-surface border-b border-border bg-background">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <Link
             to="/sign-in"
@@ -52,6 +53,7 @@ export default function PublicInfoLayout() {
                 </NavLink>
               ))}
             </nav>
+            <ThemeSwitcher />
             <Link
               to="/sign-in"
               className={buttonVariants({ variant: "outline", size: "sm" })}

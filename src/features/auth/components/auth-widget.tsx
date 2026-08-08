@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { UserAvatar } from "@/components/user-avatar";
 import {
   Popover,
   PopoverContent,
@@ -31,6 +32,7 @@ export default function AuthWidget() {
   }
 
   const shortEmail = user.Email?.split("@")[0] ?? "user";
+  const avatarName = user.Email || shortEmail;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -41,9 +43,7 @@ export default function AuthWidget() {
             size="sm"
             className="h-7 gap-1.5 px-2 text-xs"
           >
-            <div className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
-              <UserIcon className="size-3" />
-            </div>
+            <UserAvatar name={avatarName} />
             <span>{shortEmail}</span>
           </Button>
         }

@@ -1,4 +1,6 @@
 import { Button } from "@/components/ui/button";
+import { SpiderManEmblem } from "@/components/spider-man-emblem";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import AuthWidget from "@/features/auth/components/auth-widget";
 import { ApplicationSidebar } from "@/features/navigation/components/application-sidebar";
 import { DocumentTabBar } from "@/features/projects/components/document-tab-bar";
@@ -35,7 +37,7 @@ export default function DefaultLayout() {
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
-      <header className="z-40 shrink-0 border-b border-border bg-background">
+      <header className="theme-web-surface z-40 shrink-0 border-b border-border bg-background">
         <div className="mx-auto flex h-12 items-center gap-4 px-2">
 
           <Link
@@ -74,6 +76,7 @@ export default function DefaultLayout() {
               <SearchIcon className="size-3.5" />
               Tìm kiếm
             </Button>
+            <ThemeSwitcher />
             <AuthWidget />
           </div>
         </div>
@@ -81,8 +84,9 @@ export default function DefaultLayout() {
 
       <div className="flex min-h-0 flex-1">
         <ApplicationSidebar projectId={projectId} />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+        <div className="relative flex min-w-0 flex-1 flex-col">
+          <SpiderManEmblem />
+          <main className="relative z-10 min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
             <Outlet />
           </main>
 

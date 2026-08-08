@@ -4,10 +4,14 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 
 import { UpdateBanner } from "./components/update-banner";
+import { SpiderManThemeAudio } from "./components/spider-man-theme-audio";
 import { applyUpdate, isUpdatePending, startVersionWatch } from "./lib/app-version";
+import { initializeTheme } from "./lib/theme";
 import { router } from "./router";
 
 import "./index.css";
+
+initializeTheme();
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -35,6 +39,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
+      <SpiderManThemeAudio />
       <UpdateBanner />
     </QueryClientProvider>
   </StrictMode>,

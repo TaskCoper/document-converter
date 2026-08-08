@@ -55,6 +55,7 @@
 }
 
 :root {
+  color-scheme: light;
   --background: oklch(0.985 0 0);
   --foreground: oklch(0.205 0 0);
   --card: oklch(0.97 0 0);
@@ -91,6 +92,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.97 0 0);
   --card: oklch(0.205 0 0);
@@ -125,6 +127,47 @@
   --sidebar-ring: oklch(0.473 0.137 46.201);
 }
 
+.spider-man {
+  --background: oklch(0.17 0.05 258);
+  --foreground: oklch(0.965 0.012 250);
+  --card: oklch(0.215 0.055 258);
+  --card-foreground: oklch(0.965 0.012 250);
+  --popover: oklch(0.215 0.055 258);
+  --popover-foreground: oklch(0.965 0.012 250);
+  --primary: oklch(0.62 0.235 27);
+  --primary-foreground: oklch(0.17 0.05 258);
+  --secondary: oklch(0.285 0.065 255);
+  --secondary-foreground: oklch(0.965 0.012 250);
+  --muted: oklch(0.255 0.045 257);
+  --muted-foreground: oklch(0.76 0.035 248);
+  --accent: oklch(0.315 0.1 255);
+  --accent-foreground: oklch(0.965 0.012 250);
+  --destructive: oklch(0.69 0.19 42);
+  --destructive-foreground: oklch(0.985 0.005 25);
+  --border: oklch(0.39 0.065 252);
+  --input: oklch(0.3 0.06 255);
+  --ring: oklch(0.72 0.19 28);
+  --chart-1: oklch(0.66 0.235 27);
+  --chart-2: oklch(0.62 0.17 252);
+  --chart-3: oklch(0.76 0.12 220);
+  --chart-4: oklch(0.78 0.17 80);
+  --chart-5: oklch(0.66 0.2 345);
+  --sidebar: oklch(0.135 0.055 262);
+  --sidebar-foreground: oklch(0.965 0.012 250);
+  --sidebar-primary: oklch(0.62 0.235 27);
+  --sidebar-primary-foreground: oklch(0.17 0.05 258);
+  --sidebar-accent: oklch(0.245 0.08 258);
+  --sidebar-accent-foreground: oklch(0.965 0.012 250);
+  --sidebar-border: oklch(0.36 0.075 252);
+  --sidebar-ring: oklch(0.72 0.19 28);
+  --theme-web-line: color-mix(in oklch, var(--primary), transparent 84%);
+  --theme-web-foreground: color-mix(
+    in oklch,
+    var(--foreground),
+    transparent 58%
+  );
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -143,6 +186,38 @@
 }
 
 @layer components {
+  .spider-man [data-slot="button"][data-variant="default"] {
+    background-image:
+      repeating-radial-gradient(
+        circle at 0 0,
+        transparent 0 0.32rem,
+        var(--theme-web-foreground) 0.35rem,
+        transparent 0.39rem 0.72rem
+      ),
+      repeating-conic-gradient(
+        from 0deg at 0 0,
+        var(--theme-web-foreground) 0deg 1deg,
+        transparent 1deg 30deg
+      );
+    background-size: 2.6rem 2.6rem;
+  }
+
+  .spider-man .theme-web-surface {
+    background-image:
+      repeating-radial-gradient(
+        circle at 0 0,
+        transparent 0 1.9rem,
+        var(--theme-web-line) 1.95rem,
+        transparent 2rem 3.9rem
+      ),
+      repeating-conic-gradient(
+        from 0deg at 0 0,
+        var(--theme-web-line) 0deg 0.6deg,
+        transparent 0.6deg 30deg
+      );
+    background-size: 8rem 8rem;
+  }
+
   .document-network-theme {
     --graph-canvas: oklch(0.975 0.004 75);
     --graph-panel: oklch(0.995 0.002 75);
@@ -152,4 +227,74 @@
     background-color: var(--graph-canvas);
     color: var(--graph-label);
   }
+
+  .dark .document-network-theme {
+    --graph-canvas: oklch(0.16 0.012 255);
+    --graph-panel: oklch(0.205 0.014 255);
+    --graph-grid: oklch(0.32 0.018 255);
+    --graph-edge: oklch(0.68 0.025 250);
+    --graph-label: oklch(0.92 0.012 250);
+  }
+
+  .spider-man .document-network-theme {
+    --graph-canvas: oklch(0.145 0.055 262);
+    --graph-panel: oklch(0.205 0.065 258);
+    --graph-grid: oklch(0.34 0.075 254);
+    --graph-edge: oklch(0.68 0.155 28);
+    --graph-label: oklch(0.95 0.018 250);
+  }
+}
+
+.user-avatar {
+  border-color: var(--border);
+  background-color: var(--muted);
+  color: var(--muted-foreground);
+}
+
+:root:not(.dark) .user-avatar {
+  border-color: var(--primary);
+  background-color: color-mix(
+    in oklch,
+    var(--primary),
+    var(--background) 92%
+  );
+  color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--background);
+}
+
+.spider-man .user-avatar {
+  border-color: var(--foreground);
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklch, var(--primary), var(--background) 35%),
+    0 0 0 1px var(--primary);
+}
+
+.spider-man .user-avatar[data-fallback="true"]::after {
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-radial-gradient(
+      circle at 0 0,
+      transparent 0 22%,
+      var(--theme-web-foreground) 24%,
+      transparent 27% 46%
+    ),
+    repeating-conic-gradient(
+      from 0deg at 0 0,
+      var(--theme-web-foreground) 0deg 1.5deg,
+      transparent 1.5deg 30deg
+    );
+  content: "";
+}
+
+.spider-theme-emblem {
+  visibility: hidden;
+  opacity: 0;
+}
+
+.spider-man .spider-theme-emblem {
+  visibility: visible;
+  opacity: 0.14;
 }
